@@ -1,26 +1,46 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { NotificationProvider } from './context/NotificationContext';
+import Dashboard from './pages/Dashboard';
+import Login from './pages/Login';
 
-function App() {
+// Check if user is authenticated
+const isAuthenticated = () => {
+  return localStorage.getItem('user') !== null;
+};
+
+// Protected route component
+const ProtectedRoute: React.FC<{ element: React.ReactNode }> = ({ element }) => {
+  return isAuthenticated() ? <>{element}</> : <Navigate to="/login" />;
+};
+
+const App: React.FC = () => {
+  // Set theme from localStorage or default to light
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  }, []);
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <Router>
+      <NotificationProvider>
+        <div className="app min-h-screen bg-base-100 text-base-content">
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route 
+              path="/" 
+              element={<ProtectedRoute element={<Dashboard />} />} 
+            />
+            <Route 
+              path="/dashboard" 
+              element={<ProtectedRoute element={<Dashboard />} />} 
+            />
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </div>
+      </NotificationProvider>
+    </Router>
   );
-}
+};
 
 export default App;
