@@ -55,7 +55,7 @@ const InventoryCard: React.FC<InventoryItemProps> = ({
       <div className="card-body">
         <div className="flex justify-between items-start">
           <h2 className="card-title text-primary">{name}</h2>
-          <span className={getStatusClasses()}>
+          <span className={getStatusClasses()} style={{ whiteSpace: 'nowrap' }}>
             {status === 'normal' ? 'In Stock' : status === 'low' ? 'Low Stock' : 'Critical'}
           </span>
         </div>
