@@ -6,9 +6,13 @@ import AudioVisualizer from './AudioVisualizer';
 interface VoiceControlProps {
   onUpdate: (update: { item: string; action: string; quantity: number; unit: string }) => void;
   onFailure: () => void;
+  onListeningChange?: (isListening: boolean, stream: MediaStream | null) => void;
+  onConnectionChange?: (isConnected: boolean) => void;
 }
 
-const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure }) => {
+const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onListeningChange, onConnectionChange }) => {
+  // Use for sync'ing with parent component's listening state
+  const isFirstRender = useRef(true);
   const [transcript, setTranscript] = useState('');
   const [transcriptHistory, setTranscriptHistory] = useState<Array<{
     text: string;
@@ -54,6 +58,21 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure }) => {
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
 
+  // Add an effect to listen for isListening changes from the parent
+  useEffect(() => {
+    // Skip the first render to avoid side effects during initialization
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
+    // Only respond to listening state changes initiated by the parent component
+    if (!isListening && stream) {
+      console.log("Parent component requested stop recording");
+      stopRecording();
+    }
+  }, [isListening]);
+
   useEffect(() => {
     const SOCKET_URL = 'http://localhost:8080/voice';
     console.log('Connecting to:', SOCKET_URL);
@@ -73,7 +92,16 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure }) => {
       console.log('Connected:', socket.id);
       setIsConnected(true);
       setFeedback('Connected to voice server');
-      addNotification('success', 'Connected to voice server');
+      // Only show this notification if reconnecting after a failure
+      if (!isConnected) {
+        addNotification('success', 'Connected to voice server');
+      }
+      
+      // Notify parent component about connection status
+      if (onConnectionChange) {
+        onConnectionChange(true);
+      }
+      
       socket.emit('ping');
       pingIntervalRef.current = window.setInterval(() => {
         if (socket.connected) socket.emit('ping');
@@ -85,6 +113,12 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure }) => {
       setIsConnected(false);
       setFeedback(`Connection error: ${error.message}`);
       addNotification('error', 'Failed to connect');
+      
+      // Notify parent component about connection status
+      if (onConnectionChange) {
+        onConnectionChange(false);
+      }
+      
       onFailure();
     });
 
@@ -93,6 +127,11 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure }) => {
       setIsConnected(false);
       setFeedback(`Disconnected: ${reason}`);
       addNotification('warning', `Disconnected: ${reason}`);
+      
+      // Notify parent component about connection status
+      if (onConnectionChange) {
+        onConnectionChange(false);
+      }
     });
 
     socket.on('error', (data: { message: string }) => {
@@ -214,10 +253,11 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure }) => {
           data.riskLevel === 'high' ? 'error' : 
           data.riskLevel === 'medium' ? 'warning' : 'info';
         
-        addNotification(
-          data.action === 'unknown' ? 'error' : notificationType,
-          data.action === 'unknown' ? 'Command not recognized' : message
-        );
+        // Reduce duplicate notifications - just show in the UI via feedback
+        // We'll only notify for unknown commands since those are important errors
+        if (data.action === 'unknown') {
+          addNotification('error', 'Command not recognized');
+        }
         
         // If there's a timeout, set up auto-confirmation
         if (timeoutSeconds > 0) {
@@ -251,7 +291,8 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure }) => {
       onUpdate(data);
       setPendingConfirmation(null);
       setFeedback(`Updated: ${data.action}ed ${data.quantity} ${data.unit} of ${data.item}`);
-      addNotification('success', `Inventory updated: ${data.action}ed ${data.quantity} ${data.unit} of ${data.item}`);
+      // Notification will be shown by the parent component
+      // Not showing notification here to prevent duplicates
     } else {
       setFeedback('Command not recognized. Please try again.');
       setPendingConfirmation(null);
@@ -291,9 +332,13 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure }) => {
       mediaRecorder.onstart = () => {
         setIsListening(true);
         setFeedback('Listening...');
-        addNotification('info', 'Voice recognition started');
         setTranscript('');
         setTranscriptHistory([]);
+        
+        // Notify parent component about listening state change
+        if (onListeningChange) {
+          onListeningChange(true, mediaStream);
+        }
       };
 
       mediaRecorder.onstop = () => {
@@ -332,6 +377,11 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure }) => {
       analyserRef.current = null;
     }
     setStream(null);
+    
+    // Notify parent component about listening state change
+    if (onListeningChange) {
+      onListeningChange(false, null);
+    }
   };
 
   const toggleRecording = () => {
@@ -412,10 +462,12 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure }) => {
   return (
     <div className="voice-control p-4 bg-base-100 rounded-lg shadow">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold">Voice Control</h2>
-        <div className={`connection-status flex items-center gap-1 ${isConnected ? 'text-success' : 'text-error'}`}>
-          <span className={`inline-block w-2 h-2 rounded-full ${isConnected ? 'bg-success' : 'bg-error'}`}></span>
-          {isConnected ? 'Connected' : 'Disconnected'}
+        <div className="flex items-center">
+          <h2 className="text-lg font-semibold">Voice Control</h2>
+          <div className={`connection-status ml-3 flex items-center gap-1 text-xs ${isConnected ? 'text-success' : 'text-error'}`}>
+            <span className={`inline-block w-2 h-2 rounded-full ${isConnected ? 'bg-success' : 'bg-error'}`}></span>
+            {isConnected ? 'Connected' : 'Disconnected'}
+          </div>
         </div>
       </div>
 

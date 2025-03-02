@@ -2,7 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotification } from '../context/NotificationContext';
+import { useTheme } from '../context/ThemeContext';
 import LoadingSpinner from '../components/LoadingSpinner';
+import ThemeToggle from '../components/ThemeToggle';
 
 
 type UserRole = 'staff' | 'manager' | 'inventory-specialist' | 'owner' | 'read-only';
@@ -77,8 +79,11 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-base-200 px-4">
-      <div className="card w-full max-w-md bg-base-100 shadow-xl">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-base-200 px-4 transition-colors duration-200">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+      <div className="card w-full max-w-md bg-base-100 shadow-xl transition-colors duration-200">
         <div className="card-body">
           <h2 className="card-title text-2xl font-bold text-center mb-6">Inventory Agent</h2>
           
