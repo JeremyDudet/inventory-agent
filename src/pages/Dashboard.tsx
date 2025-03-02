@@ -143,7 +143,7 @@ const Dashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-base-200">
       <header className="bg-base-100 shadow-md">
-        <div className="container mx-auto px-4 py-3 flex justify-between">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <h1 className="text-xl font-bold text-primary">Inventory Agent</h1>
           <button onClick={handleLogout} className="btn btn-ghost">Logout</button>
         </div>
