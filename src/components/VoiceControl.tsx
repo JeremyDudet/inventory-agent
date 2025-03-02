@@ -28,6 +28,7 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure }) => {
     item: string;
     quantity: number;
     unit: string;
+    confidence: number;
   } | null>(null);
 
   const { addNotification } = useNotification();
@@ -87,8 +88,8 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure }) => {
     });
 
     socket.on('transcription', (data: { text: string; isFinal: boolean; confidence?: number }) => {
-      console.log('Transcription received:', data); // Debug log
-      setTranscript(data.text || ''); // Ensure empty string if no text
+      console.log('Transcription received:', data);
+      setTranscript(data.text || '');
       if (data.confidence !== undefined) setConfidence(data.confidence);
 
       setTranscriptHistory(prev => {
@@ -99,28 +100,34 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure }) => {
           timestamp: Date.now()
         };
         const newHistory = [...prev, newEntry].slice(-10);
-        console.log('Updated history:', newHistory); // Debug log
+        console.log('Updated history:', newHistory);
         return newHistory;
       });
 
-      if (data.isFinal && data.text.trim() && !processingCommand) {
-        processTranscription(data.text, data.confidence || 0.7);
+      if (data.isFinal && data.text.trim()) {
+        setProcessingCommand(true);
       }
     });
 
     socket.on('nlp-response', (data: { action: string; item: string; quantity: number; unit: string; confidence: number }) => {
       console.log('NLP response:', data);
       setProcessingCommand(false);
-      if (data.confidence > 0.8) {
+
+      // Adaptive confirmation strategy
+      const isHighRisk = data.quantity > 10 || data.action === 'remove'; // High-risk: large qty or removal
+      const isRoutine = ['add', 'set'].includes(data.action) && data.confidence > 0.8 && !isHighRisk;
+
+      if (isRoutine) {
+        // Implicit confirmation
         handleInventoryUpdate(data);
-      } else if (data.confidence > 0.5) {
-        setPendingConfirmation(data);
-        setFeedback(`Did you mean to ${data.action} ${data.quantity} ${data.unit} of ${data.item}?`);
-        addNotification('warning', 'Please confirm update.');
       } else {
+        // Explicit confirmation
         setPendingConfirmation(data);
-        setFeedback(`Unsure: ${data.action} ${data.quantity} ${data.unit} of ${data.item}. Confirm or retry.`);
-        addNotification('error', 'Low confidence. Confirm or retry.');
+        setFeedback(data.action === 'unknown'
+          ? `Unrecognized command: "${data.item}". Please retry or confirm manually.`
+          : `Did you mean to ${data.action} ${data.quantity} ${data.unit} of ${data.item}?`);
+        addNotification(data.action === 'unknown' ? 'error' : 'warning',
+          data.action === 'unknown' ? 'Command not recognized' : 'Please confirm this action');
       }
     });
 
@@ -135,10 +142,15 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure }) => {
   }, []);
 
   const handleInventoryUpdate = (data: { action: string; item: string; quantity: number; unit: string }) => {
-    onUpdate(data);
-    setPendingConfirmation(null);
-    setFeedback(`Updated: ${data.action}ed ${data.quantity} ${data.unit} of ${data.item}`);
-    addNotification('success', `Inventory updated: ${data.action}ed ${data.quantity} ${data.unit} of ${data.item}`);
+    if (data.action !== 'unknown') {
+      onUpdate(data);
+      setPendingConfirmation(null);
+      setFeedback(`Updated: ${data.action}ed ${data.quantity} ${data.unit} of ${data.item}`);
+      addNotification('success', `Inventory updated: ${data.action}ed ${data.quantity} ${data.unit} of ${data.item}`);
+    } else {
+      setFeedback('Command not recognized. Please try again.');
+      setPendingConfirmation(null);
+    }
   };
 
   const startRecording = async () => {
@@ -175,8 +187,8 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure }) => {
         setIsListening(true);
         setFeedback('Listening...');
         addNotification('info', 'Voice recognition started');
-        setTranscript(''); // Clear on start
-        setTranscriptHistory([]); // Clear history on start
+        setTranscript('');
+        setTranscriptHistory([]);
       };
 
       mediaRecorder.onstop = () => {
@@ -220,11 +232,6 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure }) => {
   const toggleRecording = () => {
     if (isListening) stopRecording();
     else startRecording();
-  };
-
-  const processTranscription = (text: string, transcriptConfidence: number) => {
-    setProcessingCommand(true);
-    setFeedback('Processing command...');
   };
 
   const confirmUpdate = () => {
