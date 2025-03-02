@@ -13,6 +13,7 @@ import RecentUpdates, { InventoryUpdate } from '../components/RecentUpdates';
 // Lazy load voice components
 const VoiceControl = lazy(() => import('../components/VoiceControl'));
 const FallbackInput = lazy(() => import('../components/FallbackInput'));
+const MicrophoneTest = lazy(() => import('../components/MicrophoneTest'));
 
 // Mock inventory data
 const mockInventoryItems: InventoryItem[] = [
@@ -246,55 +247,171 @@ const Dashboard: React.FC = () => {
   
   // Handle inventory update from voice or fallback
   const handleInventoryUpdate = (update: { item: string; action: string; quantity: number; unit: string }) => {
-    // Find the item in inventory
-    const itemIndex = inventory.findIndex(
-      (item) => item.name.toLowerCase() === update.item.toLowerCase()
-    );
+    // Find the item in inventory, using fuzzy matching for more flexible item recognition
+    const itemIndex = findItemByName(update.item);
     
     if (itemIndex >= 0) {
       // Update existing item
       const updatedInventory = [...inventory];
       const item = { ...updatedInventory[itemIndex] };
       
+      // Handle different action types
       switch (update.action) {
         case 'add':
           item.quantity += update.quantity;
+          addNotification(
+            'success',
+            `Added ${update.quantity} ${update.unit} of ${item.name}`
+          );
           break;
+          
         case 'remove':
-          item.quantity = Math.max(0, item.quantity - update.quantity);
+          const newQuantity = Math.max(0, item.quantity - update.quantity);
+          // Warn if trying to remove more than available
+          if (item.quantity < update.quantity) {
+            addNotification(
+              'warning',
+              `Could only remove ${item.quantity} ${update.unit} of ${item.name} (requested ${update.quantity})`
+            );
+          } else {
+            addNotification(
+              'success',
+              `Removed ${update.quantity} ${update.unit} of ${item.name}`
+            );
+          }
+          item.quantity = newQuantity;
           break;
+          
         case 'set':
           item.quantity = update.quantity;
+          addNotification(
+            'success',
+            `Set ${item.name} to ${update.quantity} ${update.unit}`
+          );
           break;
+          
+        case 'check':
+          // For check commands, just show the current quantity without modifying
+          addNotification(
+            'info',
+            `Current inventory of ${item.name}: ${item.quantity} ${item.unit}`
+          );
+          // Exit early without updating inventory
+          return;
+          
+        default:
+          // Unknown action
+          addNotification(
+            'error',
+            `Unknown action "${update.action}". Supported actions: add, remove, set, check`
+          );
+          return;
       }
       
+      // Update the inventory item
       item.lastUpdated = new Date().toISOString();
       updatedInventory[itemIndex] = item;
       setInventory(updatedInventory);
       
-      // Add to recent updates
-      const newUpdate: InventoryUpdate = {
-        id: Date.now().toString(),
-        itemName: item.name,
-        action: update.action as 'add' | 'remove' | 'set',
-        quantity: update.quantity,
-        unit: update.unit,
-        timestamp: new Date().toISOString(),
-        userId: user?.email || 'unknown',
-        userName: user?.name || 'Unknown User'
-      };
-      
-      setRecentUpdates([newUpdate, ...recentUpdates]);
-      
-      // Show notification
-      addNotification(
-        'success',
-        `Successfully ${update.action}ed ${update.quantity} ${update.unit} of ${update.item}`
-      );
+      // Add to recent updates (only for actions that change inventory)
+      if (update.action !== 'check') {
+        const newUpdate: InventoryUpdate = {
+          id: Date.now().toString(),
+          itemName: item.name,
+          action: update.action as 'add' | 'remove' | 'set',
+          quantity: update.quantity,
+          unit: update.unit,
+          timestamp: new Date().toISOString(),
+          userId: user?.email || 'unknown',
+          userName: user?.name || 'Unknown User'
+        };
+        
+        setRecentUpdates([newUpdate, ...recentUpdates]);
+      }
     } else {
-      // Item not found
-      addNotification('error', `Item "${update.item}" not found in inventory`);
+      // Item not found - give a helpful message with fuzzy match suggestions
+      const similarItems = findSimilarItems(update.item);
+      
+      if (similarItems.length > 0) {
+        const suggestions = similarItems.map(i => i.name).join(', ');
+        addNotification(
+          'warning', 
+          `Item "${update.item}" not found. Did you mean: ${suggestions}?`
+        );
+      } else {
+        // No similar items found
+        addNotification(
+          'error', 
+          `Item "${update.item}" not found in inventory`
+        );
+      }
     }
+  };
+  
+  // Find an item by name with some flexibility in matching
+  const findItemByName = (itemName: string): number => {
+    const lowerName = itemName.toLowerCase().trim();
+    
+    // First try exact match
+    const exactMatch = inventory.findIndex(
+      (item) => item.name.toLowerCase() === lowerName
+    );
+    
+    if (exactMatch >= 0) {
+      return exactMatch;
+    }
+    
+    // Then try contains match (for partial names)
+    const containsMatch = inventory.findIndex(
+      (item) => item.name.toLowerCase().includes(lowerName) || 
+               lowerName.includes(item.name.toLowerCase())
+    );
+    
+    if (containsMatch >= 0) {
+      return containsMatch;
+    }
+    
+    // Then try word match (for when words are in different order)
+    const itemWords = lowerName.split(/\s+/);
+    const wordMatch = inventory.findIndex(item => {
+      const nameWords = item.name.toLowerCase().split(/\s+/);
+      // At least half of the words should match
+      const matchingWords = nameWords.filter(word => itemWords.includes(word));
+      return matchingWords.length >= Math.min(2, Math.ceil(nameWords.length / 2));
+    });
+    
+    return wordMatch;
+  };
+  
+  // Find similar items for suggestions
+  const findSimilarItems = (itemName: string, limit = 3): InventoryItem[] => {
+    const lowerName = itemName.toLowerCase().trim();
+    const itemWords = lowerName.split(/\s+/);
+    
+    // Calculate similarity scores for each inventory item
+    const scoredItems = inventory.map(item => {
+      const nameWords = item.name.toLowerCase().split(/\s+/);
+      
+      // Count matching words
+      const matchingWords = nameWords.filter(word => itemWords.includes(word));
+      const wordScore = matchingWords.length / Math.max(nameWords.length, itemWords.length);
+      
+      // Check for substring matches
+      const substringScore = lowerName.includes(item.name.toLowerCase()) || 
+                            item.name.toLowerCase().includes(lowerName) ? 0.5 : 0;
+      
+      return {
+        item,
+        score: wordScore + substringScore
+      };
+    });
+    
+    // Sort by score and return top matches
+    return scoredItems
+      .filter(item => item.score > 0) // Only return items with some similarity
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map(item => item.item);
   };
   
   // Handle item selection for modal
@@ -384,19 +501,49 @@ const Dashboard: React.FC = () => {
           {/* Sidebar */}
           <div className="w-full lg:w-1/3 xl:w-1/4 space-y-6">
             {/* Voice control section */}
-            <div className="bg-base-100 rounded-lg shadow-md p-4">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-medium">Voice Control</h2>
+            <div className="bg-base-100 rounded-lg shadow-md p-4 mb-4">
+              <div className="tabs tabs-boxed mb-4">
                 <button 
-                  className={`btn btn-sm ${isVoiceActive ? 'btn-error' : 'btn-primary'}`}
-                  onClick={toggleVoiceControl}
+                  className={`tab ${!showFallback && isVoiceActive ? 'tab-active' : ''}`}
+                  onClick={() => {
+                    setShowFallback(false);
+                    if (!isVoiceActive) toggleVoiceControl();
+                  }}
                 >
-                  {isVoiceActive ? 'Stop Listening' : 'Start Listening'}
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
+                  </svg>
+                  Voice Input
+                </button>
+                <button 
+                  className={`tab ${showFallback ? 'tab-active' : ''}`}
+                  onClick={() => {
+                    setIsVoiceActive(false);
+                    setShowFallback(true);
+                  }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                  </svg>
+                  Manual Input
+                </button>
+                <button 
+                  className={`tab ${!showFallback && !isVoiceActive ? 'tab-active' : ''}`}
+                  onClick={() => {
+                    setIsVoiceActive(false);
+                    setShowFallback(false);
+                  }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+                  </svg>
+                  Mic Test
                 </button>
               </div>
               
+              {/* Voice Control Component */}
               <Suspense fallback={<LoadingSpinner size="sm" text="Loading voice control..." />}>
-                <div style={{ display: isVoiceActive ? 'block' : 'none' }}>
+                <div style={{ display: isVoiceActive && !showFallback ? 'block' : 'none' }}>
                   <VoiceControl 
                     onUpdate={handleInventoryUpdate}
                     onFailure={handleVoiceFailure}
@@ -404,26 +551,18 @@ const Dashboard: React.FC = () => {
                 </div>
               </Suspense>
               
+              {/* Fallback Input Component */}
               {showFallback && (
                 <Suspense fallback={<LoadingSpinner size="sm" text="Loading fallback input..." />}>
                   <FallbackInput onUpdate={handleInventoryUpdate} />
                 </Suspense>
               )}
               
+              {/* Microphone Test Component */}
               {!isVoiceActive && !showFallback && (
-                <div className="text-center py-6 text-base-content/70">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                  </svg>
-                  <p>Click "Start Listening" to use voice commands</p>
-                  <p className="text-sm mt-2">or</p>
-                  <button 
-                    className="btn btn-outline btn-sm mt-2"
-                    onClick={() => setShowFallback(true)}
-                  >
-                    Use Manual Input
-                  </button>
-                </div>
+                <Suspense fallback={<LoadingSpinner size="sm" text="Loading microphone test..." />}>
+                  <MicrophoneTest />
+                </Suspense>
               )}
             </div>
             

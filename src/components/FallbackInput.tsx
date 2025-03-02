@@ -30,10 +30,13 @@ const FallbackInput: React.FC<FallbackInputProps> = ({ onUpdate }) => {
       newErrors.action = 'Please select an action';
     }
     
-    if (!quantity) {
-      newErrors.quantity = 'Please enter a quantity';
-    } else if (isNaN(Number(quantity)) || Number(quantity) <= 0) {
-      newErrors.quantity = 'Please enter a valid positive number';
+    // Quantity is only required for actions other than "check"
+    if (action !== 'check') {
+      if (!quantity) {
+        newErrors.quantity = 'Please enter a quantity';
+      } else if (isNaN(Number(quantity)) || Number(quantity) <= 0) {
+        newErrors.quantity = 'Please enter a valid positive number';
+      }
     }
     
     if (!unit) {
@@ -91,11 +94,18 @@ const FallbackInput: React.FC<FallbackInputProps> = ({ onUpdate }) => {
             <select 
               className={`select select-bordered w-full ${errors.action ? 'select-error' : ''}`}
               value={action}
-              onChange={(e) => setAction(e.target.value)}
+              onChange={(e) => {
+                setAction(e.target.value);
+                // If action is "check", quantity is not required
+                if (e.target.value === "check") {
+                  setQuantity("0");
+                }
+              }}
             >
               <option value="add">Add</option>
               <option value="remove">Remove</option>
               <option value="set">Set</option>
+              <option value="check">Check</option>
             </select>
             {errors.action && <span className="text-error text-xs mt-1">{errors.action}</span>}
           </div>
@@ -108,11 +118,12 @@ const FallbackInput: React.FC<FallbackInputProps> = ({ onUpdate }) => {
             <input
               type="number"
               className={`input input-bordered w-full ${errors.quantity ? 'input-error' : ''}`}
-              placeholder="Enter quantity"
+              placeholder={action === 'check' ? "Not required for check" : "Enter quantity"}
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
               min="0.01"
               step="0.01"
+              disabled={action === 'check'}
             />
             {errors.quantity && <span className="text-error text-xs mt-1">{errors.quantity}</span>}
           </div>

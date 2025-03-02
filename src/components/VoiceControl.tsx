@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 import type { Socket } from 'socket.io-client';
 import { useNotification } from '../context/NotificationContext';
+import AudioVisualizer from './AudioVisualizer';
 
 interface VoiceControlProps {
   onUpdate: (update: { item: string; action: string; quantity: number; unit: string }) => void;
@@ -20,6 +21,7 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure }) => {
   const [feedback, setFeedback] = useState('');
   const [socket, setSocket] = useState<ReturnType<typeof io> | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [stream, setStream] = useState<MediaStream | null>(null);
   const [pendingConfirmation, setPendingConfirmation] = useState<{
     action: string;
     item: string;
@@ -34,6 +36,8 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure }) => {
   const streamRef = useRef<MediaStream | null>(null);
   const pingIntervalRef = useRef<number | null>(null);
   const connectionAttemptRef = useRef(0);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
   
   // Initialize Socket.IO connection
   useEffect(() => {
@@ -186,11 +190,24 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure }) => {
     
     // Clean up on unmount
     return () => {
-      console.log('Cleaning up WebSocket connection');
+      console.log('Cleaning up WebSocket connection and audio resources');
       
       // Only stop recording if we're actually recording
       if (isListening) {
         stopRecording();
+      } else {
+        // Even if not recording, make sure all audio resources are released
+        if (audioContextRef.current) {
+          audioContextRef.current.close().catch(console.error);
+          audioContextRef.current = null;
+          analyserRef.current = null;
+        }
+        
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+          streamRef.current = null;
+          setStream(null);
+        }
       }
       
       // Clear ping interval
@@ -234,12 +251,37 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure }) => {
       // Clear any pending confirmation when starting a new recording
       setPendingConfirmation(null);
       
-      // Request microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
+      // Request microphone access with audio processing options for better results
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } 
+      });
       
-      // Create media recorder
-      const mediaRecorder = new MediaRecorder(stream, {
+      // Store stream in both ref and state for consistency
+      streamRef.current = mediaStream;
+      setStream(mediaStream);
+      
+      // Set up audio analysis for visualization
+      if (audioContextRef.current) {
+        await audioContextRef.current.close();
+      }
+      
+      // Create new audio context and analyzer
+      audioContextRef.current = new AudioContext();
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      analyserRef.current.fftSize = 256; // More detailed visualization
+      
+      // Connect the stream to the analyzer
+      const source = audioContextRef.current.createMediaStreamSource(mediaStream);
+      source.connect(analyserRef.current);
+      
+      console.log('Audio visualization context initialized');
+      
+      // Create media recorder (separate from visualization chain)
+      const mediaRecorder = new MediaRecorder(mediaStream, {
         mimeType: 'audio/webm;codecs=opus'
       });
       mediaRecorderRef.current = mediaRecorder;
@@ -260,13 +302,9 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure }) => {
       };
       
       mediaRecorder.onstop = () => {
-        setIsListening(false);
+        // Don't set isListening to false here as it's already handled in stopRecording
+        // This prevents race conditions with the stream cleanup
         setFeedback('Voice recognition stopped');
-        
-        // Notify server that recording has stopped
-        if (socket && isConnected) {
-          socket.emit('stop-recording');
-        }
       };
       
       mediaRecorder.onerror = (event) => {
@@ -293,23 +331,42 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure }) => {
   
   // Stop recording
   const stopRecording = () => {
+    // First update UI state to prevent race conditions
+    setIsListening(false);
+    
+    // Stop the media recorder if active
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }
     
-    // Stop the media stream
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    
     // Notify server that recording has stopped
-    if (socket && isConnected && isListening) {
+    if (socket && isConnected) {
       console.log('Sending stop-recording event');
       socket.emit('stop-recording');
     }
     
-    setIsListening(false);
+    // Clean up media stream and tracks
+    if (streamRef.current) {
+      // Stop all tracks in the stream
+      streamRef.current.getTracks().forEach(track => {
+        console.log('Stopping track:', track.kind, track.id);
+        track.stop();
+      });
+      // Clear the stream reference
+      streamRef.current = null;
+    }
+    
+    // Clean up audio context
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch(console.error);
+      audioContextRef.current = null;
+      analyserRef.current = null;
+    }
+    
+    // Update state stream to null
+    setStream(null);
+    
+    console.log('Recording stopped, all audio resources cleaned up');
   };
   
   // Toggle recording state
@@ -349,69 +406,189 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure }) => {
     return 'text-red-500';
   };
   
+  // Helper to get action icon
+  const getActionIcon = (action: string | undefined) => {
+    switch (action) {
+      case 'add':
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
+          </svg>
+        );
+      case 'remove':
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+          </svg>
+        );
+      case 'set':
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+          </svg>
+        );
+      default:
+        return null;
+    }
+  };
+  
   // Render component
   return (
-    <div className="voice-control p-4 bg-gray-100 rounded-lg shadow">
+    <div className="voice-control p-4 bg-base-100 rounded-lg shadow">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold">Voice Control</h2>
-        <div className={`connection-status ${isConnected ? 'text-green-500' : 'text-red-500'}`}>
+        <h2 className="text-lg font-semibold">Voice Control</h2>
+        <div className={`connection-status flex items-center gap-1 ${isConnected ? 'text-success' : 'text-error'}`}>
+          <span className={`inline-block w-2 h-2 rounded-full ${isConnected ? 'bg-success' : 'bg-error'}`}></span>
           {isConnected ? 'Connected' : 'Disconnected'}
-          {socket && <span className="text-xs ml-2">({socket.io?.opts?.transports?.[0] || 'unknown'})</span>}
+          {socket && <span className="text-xs opacity-70">({socket.io?.opts?.transports?.[0] || 'unknown'})</span>}
         </div>
       </div>
       
       <div className="mb-4">
         <button
           onClick={toggleRecording}
-          className={`px-4 py-2 rounded-full w-full font-bold ${
+          className={`btn btn-lg w-full ${
             isListening
-              ? 'bg-red-500 hover:bg-red-600 text-white'
-              : 'bg-blue-500 hover:bg-blue-600 text-white'
+              ? 'btn-error'
+              : 'btn-primary'
           }`}
           disabled={!isConnected}
         >
-          {isListening ? 'Stop Listening' : 'Start Listening'}
+          {isListening ? (
+            <>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clipRule="evenodd" />
+              </svg>
+              Stop Listening
+            </>
+          ) : (
+            <>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+              </svg>
+              Start Listening
+            </>
+          )}
         </button>
       </div>
       
+      {/* Audio Visualizer */}
+      <AudioVisualizer 
+        isListening={isListening}
+        stream={stream}
+      />
+      
       {feedback && (
-        <div className="feedback mb-4 p-2 bg-gray-200 rounded">
+        <div className="feedback mt-4 p-3 bg-base-200 rounded-lg">
           {feedback}
         </div>
       )}
       
       {transcript && (
-        <div className="transcript mb-4">
-          <h3 className="font-semibold">Transcript:</h3>
-          <p className={getConfidenceClass()}>{transcript}</p>
-          <div className="text-xs text-gray-500">
-            Confidence: {Math.round(confidence * 100)}%
+        <div className="transcript mt-4 p-3 bg-base-200 rounded-lg">
+          <h3 className="font-semibold mb-1">Transcript:</h3>
+          <p className={`text-lg ${getConfidenceClass()}`}>{transcript}</p>
+          <div className="flex items-center mt-1">
+            <span className="text-xs opacity-70 mr-2">Confidence:</span>
+            <div className="w-24 h-2 bg-base-300 rounded-full overflow-hidden">
+              <div 
+                className={`h-full ${
+                  confidence > 0.8 ? 'bg-success' : 
+                  confidence > 0.5 ? 'bg-warning' : 'bg-error'
+                }`}
+                style={{ width: `${confidence * 100}%` }}
+              ></div>
+            </div>
+            <span className="text-xs ml-2">{Math.round(confidence * 100)}%</span>
           </div>
         </div>
       )}
       
       {pendingConfirmation && (
-        <div className="confirmation p-3 bg-yellow-100 border border-yellow-300 rounded mb-4">
-          <p className="mb-2">
-            Confirm: {pendingConfirmation.action} {pendingConfirmation.quantity}{' '}
-            {pendingConfirmation.unit} of {pendingConfirmation.item}?
-          </p>
+        <div className="confirmation mt-4 p-4 bg-warning/20 border border-warning rounded-lg">
+          <div className="flex items-center mb-2 text-warning-content">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+            <h3 className="font-semibold">Please confirm this action:</h3>
+          </div>
+          
+          <div className="bg-base-100 p-3 rounded-lg mb-3 flex items-center">
+            <div className="p-2 rounded-full bg-base-200 mr-3">
+              {getActionIcon(pendingConfirmation.action)}
+            </div>
+            <div>
+              <span className="font-semibold capitalize">{pendingConfirmation.action}</span>
+              <span className="mx-1">{pendingConfirmation.quantity}</span>
+              <span className="mr-1">{pendingConfirmation.unit}</span>
+              <span>of</span>
+              <span className="ml-1 font-semibold">{pendingConfirmation.item}</span>
+            </div>
+          </div>
+          
           <div className="flex space-x-2">
             <button
               onClick={confirmUpdate}
-              className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+              className="btn btn-success flex-1"
             >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
               Confirm
             </button>
             <button
               onClick={cancelUpdate}
-              className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+              className="btn btn-error flex-1"
             >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
               Cancel
             </button>
           </div>
         </div>
       )}
+      
+      {/* Command examples */}
+      <div className="command-examples mt-4">
+        <div className="collapse collapse-arrow bg-base-200">
+          <input type="checkbox" /> 
+          <div className="collapse-title text-sm font-medium">
+            Example Voice Commands
+          </div>
+          <div className="collapse-content text-sm opacity-75">
+            <div className="mb-2">
+              <strong className="text-primary">Basic Commands:</strong>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>"Add 5 pounds of coffee beans"</li>
+                <li>"Remove 2 gallons of whole milk"</li>
+                <li>"Set 10 bottles of vanilla syrup"</li>
+                <li>"Check how much sugar we have"</li>
+              </ul>
+            </div>
+            
+            <div className="mb-2">
+              <strong className="text-primary">Conversational Style:</strong>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>"We need to add three more boxes of tea bags"</li>
+                <li>"Can you remove 1 case of paper cups please"</li>
+                <li>"I think we have 8 cartons of soy milk"</li>
+                <li>"Do we have any caramel syrup left?"</li>
+              </ul>
+            </div>
+            
+            <div>
+              <strong className="text-primary">Actions Supported:</strong>
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                <div className="badge badge-primary">add</div>
+                <div className="badge badge-error">remove</div>
+                <div className="badge badge-warning">set</div>
+                <div className="badge badge-info">check</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
