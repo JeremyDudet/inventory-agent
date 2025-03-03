@@ -1,3 +1,4 @@
+// frontend/src/components/InventoryFilter.tsx
 import React, { useState, useEffect } from 'react';
 
 interface InventoryFilterProps {

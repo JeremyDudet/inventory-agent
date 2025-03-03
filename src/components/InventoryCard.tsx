@@ -1,3 +1,4 @@
+// frontend/src/components/InventoryCard.tsx
 import React from 'react';
 
 interface InventoryItemProps {

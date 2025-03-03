@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 import { useNotification } from '../context/NotificationContext';
 import AudioVisualizer from './AudioVisualizer';
+import SessionLogs from './SessionLogs';
 
 interface VoiceControlProps {
   onUpdate: (update: { item: string; action: string; quantity: number; unit: string }) => void;
@@ -19,6 +20,12 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
     isFinal: boolean;
     confidence: number;
     timestamp: number;
+  }>>([]);
+  const [systemActions, setSystemActions] = useState<Array<{
+    action: string;
+    details: string;
+    timestamp: number;
+    status?: 'success' | 'error' | 'pending' | 'info';
   }>>([]);
   const [isListening, setIsListening] = useState(false);
   const [confidence, setConfidence] = useState(0);
@@ -80,6 +87,14 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
       pingIntervalRef.current = window.setInterval(() => {
         if (socket.connected) socket.emit('ping');
       }, 15000);
+      
+      // Log system action
+      setSystemActions(prev => [...prev, {
+        action: 'Connection',
+        details: 'Connected to voice server',
+        timestamp: Date.now(),
+        status: 'success'
+      }]);
     });
 
     socket.on('connect_error', (error: Error) => {
@@ -88,6 +103,14 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
       addNotification('error', 'Failed to connect');
       if (onConnectionChange) onConnectionChange(false);
       onFailure();
+      
+      // Log system action
+      setSystemActions(prev => [...prev, {
+        action: 'Connection',
+        details: `Error: ${error.message}`,
+        timestamp: Date.now(),
+        status: 'error'
+      }]);
     });
 
     socket.on('disconnect', (reason: string) => {
@@ -95,28 +118,68 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
       setFeedback(`Disconnected: ${reason}`);
       addNotification('warning', `Disconnected: ${reason}`);
       if (onConnectionChange) onConnectionChange(false);
+      
+      // Log system action
+      setSystemActions(prev => [...prev, {
+        action: 'Connection',
+        details: `Disconnected: ${reason}`,
+        timestamp: Date.now(),
+        status: 'info'
+      }]);
     });
 
     socket.on('error', (data: { message: string }) => {
       setFeedback(`Error: ${data.message}`);
       addNotification('error', data.message);
       stopRecording();
+      
+      // Log system action
+      setSystemActions(prev => [...prev, {
+        action: 'Error',
+        details: data.message,
+        timestamp: Date.now(),
+        status: 'error'
+      }]);
     });
 
     socket.on('command-confirmed', (confirmedCommand: any) => {
       handleInventoryUpdate(confirmedCommand);
       setFeedback(`Voice confirmed: ${confirmedCommand.action} ${confirmedCommand.quantity} ${confirmedCommand.unit} of ${confirmedCommand.item}`);
+      
+      // Log system action
+      setSystemActions(prev => [...prev, {
+        action: 'Command',
+        details: `Voice confirmed: ${confirmedCommand.action} ${confirmedCommand.quantity} ${confirmedCommand.unit} of ${confirmedCommand.item}`,
+        timestamp: Date.now(),
+        status: 'success'
+      }]);
     });
 
     socket.on('command-corrected', (correctedCommand: any) => {
       handleInventoryUpdate(correctedCommand);
       setFeedback(`Command corrected: ${correctedCommand.action} ${correctedCommand.quantity} ${correctedCommand.unit} of ${correctedCommand.item}`);
+      
+      // Log system action
+      setSystemActions(prev => [...prev, {
+        action: 'Command',
+        details: `Command corrected: ${correctedCommand.action} ${correctedCommand.quantity} ${correctedCommand.unit} of ${correctedCommand.item}`,
+        timestamp: Date.now(),
+        status: 'info'
+      }]);
     });
 
     socket.on('command-rejected', () => {
       setPendingConfirmation(null);
       setFeedback('Command rejected via voice');
       addNotification('info', 'Command rejected');
+      
+      // Log system action
+      setSystemActions(prev => [...prev, {
+        action: 'Command',
+        details: 'Command rejected via voice',
+        timestamp: Date.now(),
+        status: 'info'
+      }]);
     });
 
     // **Key Change: Only show final transcriptions**
@@ -156,6 +219,16 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
       const confirmationType = data.confirmationType || 'visual';
       const timeoutSeconds = data.timeoutSeconds || 0;
       const suggestedCorrection = data.suggestedCorrection;
+      
+      // Log system action for NLP response
+      setSystemActions(prev => [...prev, {
+        action: 'NLP',
+        details: data.action === 'unknown' 
+          ? `Couldn't understand command: "${data.item}"`
+          : `Detected: ${data.action} ${data.quantity} ${data.unit} of ${data.item} (${Math.round(data.confidence * 100)}% confidence)`,
+        timestamp: Date.now(),
+        status: data.action === 'unknown' ? 'error' : data.confidence > 0.8 ? 'success' : 'info'
+      }]);
 
       if (confirmationType === 'implicit') {
         handleInventoryUpdate(data);
@@ -240,16 +313,40 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
       setFeedback('Listening...');
       setTranscript('');
       if (onListeningChange) onListeningChange(true, mediaStream);
+      
+      // Log system action
+      setSystemActions(prev => [...prev, {
+        action: 'Recording',
+        details: 'Started listening for voice commands',
+        timestamp: Date.now(),
+        status: 'info'
+      }]);
     };
 
     mediaRecorder.onstop = () => {
       setFeedback('Stopped');
+      
+      // Log system action
+      setSystemActions(prev => [...prev, {
+        action: 'Recording',
+        details: 'Stopped listening',
+        timestamp: Date.now(),
+        status: 'info'
+      }]);
     };
 
     mediaRecorder.onerror = (event) => {
       console.error('Recorder error:', event);
       setFeedback('Recording error');
       stopRecording();
+      
+      // Log system action
+      setSystemActions(prev => [...prev, {
+        action: 'Recording',
+        details: 'Recording error occurred',
+        timestamp: Date.now(),
+        status: 'error'
+      }]);
     };
 
     mediaRecorder.start(500);
@@ -291,6 +388,14 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
           unit: pendingConfirmation.unit
         });
       }
+      
+      // Log system action
+      setSystemActions(prev => [...prev, {
+        action: 'Confirmation',
+        details: `Manually confirmed: ${pendingConfirmation.action} ${pendingConfirmation.quantity} ${pendingConfirmation.unit} of ${pendingConfirmation.item}`,
+        timestamp: Date.now(),
+        status: 'success'
+      }]);
     }
   };
 
@@ -302,16 +407,20 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
         quantity: pendingConfirmation.quantity,
         unit: pendingConfirmation.unit
       });
+      
+      // Log system action
+      setSystemActions(prev => [...prev, {
+        action: 'Confirmation',
+        details: `Manually rejected: ${pendingConfirmation.action} ${pendingConfirmation.quantity} ${pendingConfirmation.unit} of ${pendingConfirmation.item}`,
+        timestamp: Date.now(),
+        status: 'info'
+      }]);
     }
     setPendingConfirmation(null);
     setFeedback('Update cancelled');
   };
 
-  const getConfidenceClass = () => {
-    if (confidence > 0.8) return 'text-green-500';
-    if (confidence > 0.5) return 'text-yellow-500';
-    return 'text-red-500';
-  };
+  // getConfidenceClass moved to LiveTranscription component
 
   const getActionIcon = (action: string | undefined) => {
     switch (action) {
@@ -362,63 +471,15 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
         <div className="feedback mt-4 p-3 bg-base-200 rounded-lg">{feedback}</div>
       )}
 
-      <div className="transcript mt-4 p-3 bg-base-200 rounded-lg">
-        <div className="flex justify-between items-center mb-2">
-          <h3 className="font-semibold">Live Transcript: {isListening ? '(Listening)' : '(Idle)'}</h3>
-          <div className="flex items-center">
-            <span className="text-xs opacity-70 mr-2">Confidence:</span>
-            <div className="w-24 h-2 bg-base-300 rounded-full overflow-hidden">
-              <div
-                className={`h-full ${confidence > 0.8 ? 'bg-success' : confidence > 0.5 ? 'bg-warning' : 'bg-error'}`}
-                style={{ width: `${confidence * 100}%` }}
-              ></div>
-            </div>
-            <span className="text-xs ml-2">{Math.round(confidence * 100)}%</span>
-          </div>
-        </div>
-
-        <div className="bg-base-100 p-3 rounded-lg mb-2 min-h-[3rem] border border-base-300">
-          {transcript ? (
-            <p className={`text-lg ${getConfidenceClass()}`}>
-              {transcript}
-            </p>
-          ) : (
-            <p className="text-base-content/40">
-              {isListening ? 'Listening...' : 'Say something to start'}
-            </p>
-          )}
-        </div>
-
-        <div className="mt-2">
-          <div className="text-xs opacity-70 mb-1 flex justify-between">
-            <span>Transcript History ({transcriptHistory.length})</span>
-            <button className="text-xs opacity-50 hover:opacity-100" onClick={() => setTranscriptHistory([])}>Clear</button>
-          </div>
-          {transcriptHistory.length === 0 ? (
-            <div className="p-2 bg-base-300 rounded text-center text-sm opacity-50">
-              No transcriptions yet
-            </div>
-          ) : (
-            <div className="overflow-y-auto max-h-[200px] space-y-1">
-              {transcriptHistory.map((item, index) => (
-                <div
-                  key={item.timestamp + index}
-                  className="p-2 rounded text-sm bg-base-300"
-                >
-                  <div className="flex justify-between">
-                    <span className={item.confidence > 0.8 ? 'text-success' : item.confidence > 0.5 ? 'text-warning' : 'text-error'}>
-                      {item.text}
-                    </span>
-                    <span className="text-xs opacity-50">
-                      Final - {new Date(item.timestamp).toLocaleTimeString()} ({Math.round(item.confidence * 100)}%)
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      <SessionLogs 
+        transcript={transcript}
+        transcriptHistory={transcriptHistory}
+        systemActions={systemActions}
+        isListening={isListening}
+        confidence={confidence}
+        setTranscriptHistory={setTranscriptHistory}
+        setSystemActions={setSystemActions}
+      />
 
       {pendingConfirmation && (
         <div className={`confirmation mt-4 p-4 rounded-lg 

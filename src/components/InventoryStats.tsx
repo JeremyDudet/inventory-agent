@@ -1,3 +1,4 @@
+// frontend/src/components/InventoryStats.tsx
 import React, { useMemo } from 'react';
 import { InventoryItem } from './InventoryGrid';
 

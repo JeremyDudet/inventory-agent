@@ -1,3 +1,4 @@
+// frontend/src/components/InventoryGrid.tsx
 import React, { useState } from 'react';
 import InventoryCard from './InventoryCard';
 

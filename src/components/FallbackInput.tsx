@@ -1,3 +1,4 @@
+// frontend/src/components/FallbackInput.tsx
 import React, { useState } from 'react';
 
 interface FallbackInputProps {

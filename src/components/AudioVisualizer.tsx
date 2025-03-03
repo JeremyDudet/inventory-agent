@@ -1,3 +1,4 @@
+// frontend/src/components/AudioVisualizer.tsx
 import React, { useEffect, useRef } from 'react';
 
 interface AudioVisualizerProps {

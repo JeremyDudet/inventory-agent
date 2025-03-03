@@ -1,3 +1,4 @@
+// frontend/src/components/InventoryModal.tsx
 import React, { useState, useEffect } from 'react';
 import { InventoryItem } from './InventoryGrid';
 
