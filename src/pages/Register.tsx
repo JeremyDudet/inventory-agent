@@ -1,4 +1,4 @@
-// frontend/src/pages/Login.tsx
+// frontend/src/pages/Register.tsx
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -6,16 +6,22 @@ import { useNotification } from '../context/NotificationContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ThemeToggle from '../components/ThemeToggle';
 
-const Login: React.FC = () => {
+const Register: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const { signIn } = useAuth();
+  const { signUp } = useAuth();
   const { addNotification } = useNotification();
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
+    
+    if (!name) {
+      newErrors.name = 'Name is required';
+    }
     
     if (!email) {
       newErrors.email = 'Email is required';
@@ -27,6 +33,10 @@ const Login: React.FC = () => {
       newErrors.password = 'Password is required';
     } else if (password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters';
+    }
+    
+    if (password !== confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match';
     }
     
     setErrors(newErrors);
@@ -43,16 +53,16 @@ const Login: React.FC = () => {
     setIsLoading(true);
     
     try {
-      const { error } = await signIn(email, password);
+      const { error } = await signUp(email, password, name);
       
       if (error) {
         addNotification('error', error.message);
         return;
       }
       
-      addNotification('success', 'Login successful!');
+      addNotification('success', 'Registration successful! Check your email for confirmation.');
     } catch (error) {
-      addNotification('error', 'Login failed. Please try again.');
+      addNotification('error', 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -65,9 +75,23 @@ const Login: React.FC = () => {
       </div>
       <div className="card w-full max-w-md bg-base-100 shadow-xl transition-colors duration-200">
         <div className="card-body">
-          <h2 className="card-title text-2xl font-bold text-center mb-6">Inventory Agent</h2>
+          <h2 className="card-title text-2xl font-bold text-center mb-6">Create Account</h2>
           
           <form onSubmit={handleSubmit}>
+            <div className="form-control mb-4">
+              <label className="label">
+                <span className="label-text">Name</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Your full name"
+                className={`input input-bordered w-full ${errors.name ? 'input-error' : ''}`}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+              {errors.name && <span className="text-error text-xs mt-1">{errors.name}</span>}
+            </div>
+            
             <div className="form-control mb-4">
               <label className="label">
                 <span className="label-text">Email</span>
@@ -82,7 +106,7 @@ const Login: React.FC = () => {
               {errors.email && <span className="text-error text-xs mt-1">{errors.email}</span>}
             </div>
             
-            <div className="form-control mb-6">
+            <div className="form-control mb-4">
               <label className="label">
                 <span className="label-text">Password</span>
               </label>
@@ -94,9 +118,22 @@ const Login: React.FC = () => {
                 onChange={(e) => setPassword(e.target.value)}
               />
               {errors.password && <span className="text-error text-xs mt-1">{errors.password}</span>}
+            </div>
+            
+            <div className="form-control mb-6">
               <label className="label">
-                <a href="#" className="label-text-alt link link-hover">Forgot password?</a>
+                <span className="label-text">Confirm Password</span>
               </label>
+              <input
+                type="password"
+                placeholder="••••••"
+                className={`input input-bordered w-full ${errors.confirmPassword ? 'input-error' : ''}`}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+              {errors.confirmPassword && (
+                <span className="text-error text-xs mt-1">{errors.confirmPassword}</span>
+              )}
             </div>
             
             <div className="form-control">
@@ -105,15 +142,15 @@ const Login: React.FC = () => {
                 className="btn btn-primary w-full" 
                 disabled={isLoading}
               >
-                {isLoading ? <LoadingSpinner size="sm" /> : 'Login'}
+                {isLoading ? <LoadingSpinner size="sm" /> : 'Create Account'}
               </button>
             </div>
             
             <div className="text-center mt-4">
               <p className="text-sm">
-                Don't have an account yet?{' '}
-                <Link to="/register" className="text-primary hover:underline">
-                  Sign up
+                Already have an account?{' '}
+                <Link to="/login" className="text-primary hover:underline">
+                  Sign in
                 </Link>
               </p>
             </div>
@@ -124,4 +161,4 @@ const Login: React.FC = () => {
   );
 };
 
-export default Login; 
+export default Register;

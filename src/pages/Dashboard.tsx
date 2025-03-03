@@ -2,6 +2,7 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotification } from '../context/NotificationContext';
+import { useAuth } from '../context/AuthContext';
 import { createClient } from '@supabase/supabase-js';
 import InventoryGrid, { InventoryItem } from '../components/InventoryGrid';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -44,16 +45,23 @@ const Dashboard: React.FC = () => {
     }
   }, [isListening]);
 
+  const { user: authUser, signOut } = useAuth();
+  
   useEffect(() => {
     const loadUserAndInventory = async () => {
       try {
-        const userJson = localStorage.getItem('user');
-        if (!userJson) {
+        if (!authUser) {
           navigate('/login');
           return;
         }
-        setUser(JSON.parse(userJson));
-
+        
+        // Set user from Supabase auth
+        setUser({
+          email: authUser.email || '',
+          name: authUser.user_metadata?.name || 'User',
+          role: authUser.user_metadata?.role || 'staff'
+        });
+        
         const fetchedInventory = await fetchInventory();
         setInventory(fetchedInventory);
       } catch (error) {
@@ -64,7 +72,7 @@ const Dashboard: React.FC = () => {
       }
     };
     loadUserAndInventory();
-  }, [navigate]);
+  }, [navigate, authUser]);
 
   const fetchInventory = async (): Promise<InventoryItem[]> => {
     const { data, error } = await supabase
@@ -89,9 +97,8 @@ const Dashboard: React.FC = () => {
     }));
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('user');
-    navigate('/login');
+  const handleLogout = async () => {
+    await signOut();
   };
 
   const toggleVoiceControl = () => {

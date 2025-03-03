@@ -149,8 +149,9 @@ const Notification: React.FC<NotificationProps> = ({
         </button>
       </div>
       
-      {/* Add global styles for animation */}
-      <style jsx global>{`
+      {/* Add styles for animation - using regular style tag */}
+      <style dangerouslySetInnerHTML={{ 
+        __html: `
         @keyframes slideIn {
           from { transform: translateX(100%); }
           to { transform: translateX(0); }
@@ -170,7 +171,7 @@ const Notification: React.FC<NotificationProps> = ({
           from { opacity: 1; transform: scale(1); }
           to { opacity: 0; transform: scale(0.95); }
         }
-      `}</style>
+      `}} />
     </div>
   );
 };
