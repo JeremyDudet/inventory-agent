@@ -1,173 +1,137 @@
-// frontend/src/components/AudioVisualizer.tsx
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 interface AudioVisualizerProps {
-  isListening: boolean;
-  stream?: MediaStream | null;
+  /** Web Audio API AnalyserNode providing audio data */
+  analyser: AnalyserNode;
+  /** Width of the canvas in pixels or percentage (default: "100%" for full parent width) */
+  width?: number | string;
+  /** Height of the canvas in pixels (default: 60px for a subtle profile) */
+  height?: number;
+  /** Stroke color of the waveform (default: a subtle light blue) */
+  strokeColor?: string;
+  /** Line width of the waveform stroke (default: 2px) */
+  lineWidth?: number;
+  /** Background color of the canvas (default: transparent) */
+  backgroundColor?: string;
+  /** Additional CSS class for the canvas element */
+  className?: string;
 }
 
 /**
- * AudioVisualizer component provides visual feedback for audio input
- * It displays a waveform visualization of the audio being captured
+ * AudioVisualizer component renders a minimal, smooth waveform visualization of the audio input.
+ * It draws a subtle animated wave on a canvas, reacting to real-time audio data from a provided AnalyserNode.
  */
-const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ isListening, stream }) => {
+const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
+  analyser,
+  width = '100%',
+  height = 60,
+  strokeColor = '#6cf',     // default to a subtle light-blue color
+  lineWidth = 2,
+  backgroundColor = 'transparent',
+  className = '',
+}) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const animationRef = useRef<number>();
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
 
-  // Resize canvas to match container
-  const resizeCanvas = useCallback(() => {
-    if (!canvasRef.current || !containerRef.current) return;
-    
-    const container = containerRef.current;
+  useEffect(() => {
     const canvas = canvasRef.current;
-    
-    // Set canvas dimensions to match container size
-    canvas.width = container.clientWidth;
-    canvas.height = container.clientHeight;
-    
-    // Re-trigger visualization if needed
-    if (analyserRef.current && isListening) {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-      visualize();
-    }
-  }, [isListening]);
-
-  // Set up the audio analyser when the stream changes
-  useEffect(() => {
-    if (!isListening || !stream) {
-      if (audioContextRef.current) {
-        audioContextRef.current.close().catch(console.error);
-        audioContextRef.current = null;
-      }
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-      return;
-    }
-
-    try {
-      // Create a new AudioContext each time to ensure we have a fresh connection
-      if (audioContextRef.current) {
-        audioContextRef.current.close().catch(console.error);
-      }
-      
-      audioContextRef.current = new AudioContext();
-      analyserRef.current = audioContextRef.current.createAnalyser();
-      analyserRef.current.fftSize = 256;
-      
-      const source = audioContextRef.current.createMediaStreamSource(stream);
-      source.connect(analyserRef.current);
-      
-      // Make sure canvas is properly sized before visualizing
-      resizeCanvas();
-      
-      // Start the visualization
-      visualize();
-      
-      console.log('Audio visualizer initialized with stream');
-    } catch (error) {
-      console.error('Error setting up audio context:', error);
-    }
-
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
-  }, [isListening, stream, resizeCanvas]);
-
-  // Listen for window resize events
-  useEffect(() => {
-    window.addEventListener('resize', resizeCanvas);
-    
-    // Initial resize
-    resizeCanvas();
-    
-    return () => {
-      window.removeEventListener('resize', resizeCanvas);
-    };
-  }, [resizeCanvas]);
-
-  // Clean up on unmount
-  useEffect(() => {
-    return () => {
-      if (audioContextRef.current) {
-        audioContextRef.current.close().catch(console.error);
-      }
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
-  }, []);
-
-  // Draw the visualization
-  const visualize = useCallback(() => {
-    if (!canvasRef.current || !analyserRef.current) return;
-
-    const canvas = canvasRef.current;
-    const analyser = analyserRef.current;
+    if (!canvas || !analyser) return;
     const ctx = canvas.getContext('2d');
-    
     if (!ctx) return;
 
-    const bufferLength = analyser.frequencyBinCount;
+    // Set up canvas dimensions based on provided width/height props
+    function resizeCanvas() {
+      if (!canvas) return;
+      
+      if (typeof width === 'number') {
+        canvas.width = width;
+      } else if (typeof width === 'string') {
+        if (width.endsWith('%')) {
+          // If width is a percentage, calculate it relative to parent element or window
+          const percent = parseFloat(width);
+          const parentWidth = canvas.parentElement ? canvas.parentElement.clientWidth : window.innerWidth;
+          canvas.width = isNaN(percent) ? parentWidth : (parentWidth * percent) / 100;
+        } else {
+          // If width is a CSS length (e.g., "500px"), parse the number portion
+          const numeric = parseInt(width, 10);
+          canvas.width = isNaN(numeric) ? canvas.width : numeric;
+        }
+      } else {
+        // Default: full parent width or window width
+        canvas.width = canvas.parentElement ? canvas.parentElement.clientWidth : window.innerWidth;
+      }
+      // Set canvas height
+      canvas.height = height;
+    }
+
+    // Initial canvas size setup and event listener for future resizes
+    resizeCanvas();
+    const handleResize = () => resizeCanvas();
+    window.addEventListener('resize', handleResize);
+
+    // Prepare data array for waveform (time-domain) data
+    const bufferLength = analyser.fftSize;  // FFT size determines the length of time-domain data array
     const dataArray = new Uint8Array(bufferLength);
 
-    const draw = () => {
-      if (!ctx || !canvas) return;
-      
-      animationRef.current = requestAnimationFrame(draw);
-      
-      // Get the audio data
-      analyser.getByteFrequencyData(dataArray);
-      
-      // Clear canvas
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      // Set up the visualization style
-      const barWidth = (canvas.width / bufferLength) * 2.5;
-      let x = 0;
+    // Animation loop to draw the waveform
+    let animationId: number;
+    const drawWaveform = () => {
+      // Get current waveform data
+      analyser.getByteTimeDomainData(dataArray);
 
-      // Draw the visualization
-      for (let i = 0; i < bufferLength; i++) {
-        const barHeight = (dataArray[i] / 255) * canvas.height;
-        
-        // Use gradient for the bars
-        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-        gradient.addColorStop(0, '#4ade80'); // Green at top
-        gradient.addColorStop(1, '#3b82f6'); // Blue at bottom
-        
-        ctx.fillStyle = gradient;
-        ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
-        
-        x += barWidth + 1;
+      // Clear the canvas for fresh drawing
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (backgroundColor && backgroundColor !== 'transparent') {
+        ctx.fillStyle = backgroundColor;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
       }
+
+      // Set styles for the waveform line
+      ctx.lineWidth = lineWidth;
+      ctx.strokeStyle = strokeColor;
+      ctx.beginPath();
+
+      const widthFactor = canvas.width / bufferLength;
+      const centerY = canvas.height / 2;
+      // Move to the first point
+      const firstY = centerY + ((dataArray[0] - 128) / 128) * centerY;
+      ctx.moveTo(0, firstY);
+
+      // Draw line to each subsequent point
+      for (let i = 1; i < bufferLength; i++) {
+        const value = (dataArray[i] - 128) / 128;    // normalize audio data to [-1, 1]
+        const x = i * widthFactor;
+        const y = centerY + value * centerY;         // scale to canvas height (centered)
+        ctx.lineTo(x, y);
+      }
+
+      // Stroke the path to render the waveform
+      ctx.stroke();
+      // Queue next frame
+      animationId = requestAnimationFrame(drawWaveform);
     };
 
-    draw();
-  }, []);
+    // Start the animation loop
+    animationId = requestAnimationFrame(drawWaveform);
 
+    // Cleanup on component unmount
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      cancelAnimationFrame(animationId);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    };
+  }, [analyser, width, height, strokeColor, lineWidth, backgroundColor]);
+
+  // The canvas fills its container's width (if width is percentage) and uses the given height
   return (
-    <div 
-      ref={containerRef}
-      className="audio-visualizer mt-2 h-16 rounded-lg overflow-hidden bg-base-300 shadow-inner"
-    >
-      {isListening ? (
-        <canvas
-          ref={canvasRef}
-          className="w-full h-full"
-        />
-      ) : (
-        <div className="flex items-center justify-center h-full text-base-content/50">
-          <p>Start listening to see audio visualization</p>
-        </div>
-      )}
-    </div>
+    <canvas 
+      ref={canvasRef} 
+      className={className}
+      style={{ 
+        width: typeof width === 'string' ? width : `${width}px`, 
+        height: `${height}px`,
+        display: 'block' 
+      }} 
+    />
   );
 };
 

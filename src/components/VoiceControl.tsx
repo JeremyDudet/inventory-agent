@@ -12,7 +12,6 @@ interface VoiceControlProps {
 }
 
 const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onListeningChange, onConnectionChange }) => {
-  // Use for sync'ing with parent component's listening state
   const isFirstRender = useRef(true);
   const [transcript, setTranscript] = useState('');
   const [transcriptHistory, setTranscriptHistory] = useState<Array<{
@@ -42,42 +41,25 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
     confirmationTimer?: NodeJS.Timeout;
   } | null>(null);
   
-  // State for correction dialog
-  const [showCorrectionDialog, setShowCorrectionDialog] = useState(false);
-  const [correctionValues, setCorrectionValues] = useState<{
-    action: string;
-    item: string;
-    quantity: number;
-    unit: string;
-  } | null>(null);
-
   const { addNotification } = useNotification();
-
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const pingIntervalRef = useRef<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
 
-  // Add an effect to listen for isListening changes from the parent
   useEffect(() => {
-    // Skip the first render to avoid side effects during initialization
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
-
-    // Only respond to listening state changes initiated by the parent component
     if (!isListening && stream) {
-      console.log("Parent component requested stop recording");
       stopRecording();
     }
   }, [isListening]);
 
   useEffect(() => {
     const SOCKET_URL = 'http://localhost:8080/voice';
-    console.log('Connecting to:', SOCKET_URL);
-
     const socket = io(SOCKET_URL, {
       transports: ['websocket', 'polling'],
       reconnection: true,
@@ -90,19 +72,10 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
     });
 
     socket.on('connect', () => {
-      console.log('Connected:', socket.id);
       setIsConnected(true);
       setFeedback('Connected to voice server');
-      // Only show this notification if reconnecting after a failure
-      if (!isConnected) {
-        addNotification('success', 'Connected to voice server');
-      }
-      
-      // Notify parent component about connection status
-      if (onConnectionChange) {
-        onConnectionChange(true);
-      }
-      
+      if (!isConnected) addNotification('success', 'Connected to voice server');
+      if (onConnectionChange) onConnectionChange(true);
       socket.emit('ping');
       pingIntervalRef.current = window.setInterval(() => {
         if (socket.connected) socket.emit('ping');
@@ -110,168 +83,106 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
     });
 
     socket.on('connect_error', (error: Error) => {
-      console.error('Connection error:', error);
       setIsConnected(false);
       setFeedback(`Connection error: ${error.message}`);
       addNotification('error', 'Failed to connect');
-      
-      // Notify parent component about connection status
-      if (onConnectionChange) {
-        onConnectionChange(false);
-      }
-      
+      if (onConnectionChange) onConnectionChange(false);
       onFailure();
     });
 
     socket.on('disconnect', (reason: string) => {
-      console.log('Disconnected:', reason);
       setIsConnected(false);
       setFeedback(`Disconnected: ${reason}`);
       addNotification('warning', `Disconnected: ${reason}`);
-      
-      // Notify parent component about connection status
-      if (onConnectionChange) {
-        onConnectionChange(false);
-      }
+      if (onConnectionChange) onConnectionChange(false);
     });
 
     socket.on('error', (data: { message: string }) => {
-      console.error('Server error:', data.message);
       setFeedback(`Error: ${data.message}`);
       addNotification('error', data.message);
       stopRecording();
     });
-    
-    // Handle command confirmation via voice
+
     socket.on('command-confirmed', (confirmedCommand: any) => {
-      console.log('Command confirmed via voice:', confirmedCommand);
       handleInventoryUpdate(confirmedCommand);
       setFeedback(`Voice confirmed: ${confirmedCommand.action} ${confirmedCommand.quantity} ${confirmedCommand.unit} of ${confirmedCommand.item}`);
     });
-    
-    // Handle command correction via voice
+
     socket.on('command-corrected', (correctedCommand: any) => {
-      console.log('Command corrected via voice:', correctedCommand);
       handleInventoryUpdate(correctedCommand);
       setFeedback(`Command corrected: ${correctedCommand.action} ${correctedCommand.quantity} ${correctedCommand.unit} of ${correctedCommand.item}`);
     });
-    
-    // Handle command rejection via voice
+
     socket.on('command-rejected', () => {
-      console.log('Command rejected via voice');
       setPendingConfirmation(null);
       setFeedback('Command rejected via voice');
       addNotification('info', 'Command rejected');
     });
 
+    // **Key Change: Only show final transcriptions**
     socket.on('transcription', (data: { text: string; isFinal: boolean; confidence?: number }) => {
       console.log('Transcription received:', data);
-      setTranscript(data.text || '');
-      if (data.confidence !== undefined) setConfidence(data.confidence);
-
-      setTranscriptHistory(prev => {
-        const newEntry = {
-          text: data.text || '(no speech detected)',
-          isFinal: data.isFinal,
-          confidence: data.confidence || 0,
-          timestamp: Date.now()
-        };
-        const newHistory = [...prev, newEntry].slice(-10);
-        console.log('Updated history:', newHistory);
-        return newHistory;
-      });
-
-      if (data.isFinal && data.text.trim()) {
-        setProcessingCommand(true);
+      if (data.isFinal) {
+        setTranscript(data.text || '');
+        if (data.confidence !== undefined) setConfidence(data.confidence);
+        setTranscriptHistory(prev => {
+          const newEntry = {
+            text: data.text || '(no speech detected)',
+            isFinal: true,
+            confidence: data.confidence || 0,
+            timestamp: Date.now()
+          };
+          const newHistory = [...prev, newEntry].slice(-10);
+          console.log('Updated history:', newHistory);
+          return newHistory;
+        });
+        if (data.text.trim()) setProcessingCommand(true);
       }
     });
 
     socket.on('nlp-response', (data: { 
-    action: string; 
-    item: string; 
-    quantity: number; 
-    unit: string; 
-    confidence: number;
-    confirmationType?: string;
-    feedbackMode?: string;
-    timeoutSeconds?: number;
-    suggestedCorrection?: string;
-    riskLevel?: string;
-  }) => {
-      console.log('NLP response with confirmation details:', data);
+      action: string; 
+      item: string; 
+      quantity: number; 
+      unit: string; 
+      confidence: number;
+      confirmationType?: string;
+      feedbackMode?: string;
+      timeoutSeconds?: number;
+      suggestedCorrection?: string;
+      riskLevel?: string;
+    }) => {
       setProcessingCommand(false);
-      
-      // Handle based on confirmation type
-      const confirmationType = data.confirmationType || 'visual'; // Default to visual if not provided
+      const confirmationType = data.confirmationType || 'visual';
       const timeoutSeconds = data.timeoutSeconds || 0;
       const suggestedCorrection = data.suggestedCorrection;
-      
+
       if (confirmationType === 'implicit') {
-        // Implicit confirmation - automatic approval
         handleInventoryUpdate(data);
-        
-        // If there's a feedback mode, show a brief notification but don't require action
         if (data.feedbackMode === 'brief' || data.feedbackMode === 'detailed') {
           const message = `${data.action}ing ${data.quantity} ${data.unit} of ${data.item}`;
           addNotification('info', message);
           setFeedback(message);
         }
-      } 
-      else if (confirmationType === 'voice') {
-        // Voice confirmation - show UI but also enable voice response
-        setPendingConfirmation({
-          ...data,
-          confirmationType: 'voice',
-          timeoutSeconds: timeoutSeconds
-        });
-        
-        const promptMessage = suggestedCorrection || 
-          `Did you mean to ${data.action} ${data.quantity} ${data.unit} of ${data.item}? Say yes or no.`;
-        
+      } else if (confirmationType === 'voice') {
+        setPendingConfirmation({ ...data, confirmationType: 'voice', timeoutSeconds });
+        const promptMessage = suggestedCorrection || `Did you mean to ${data.action} ${data.quantity} ${data.unit} of ${data.item}? Say yes or no.`;
         setFeedback(promptMessage);
         addNotification('info', 'Please confirm with your voice or click a button');
-        
-        // In a real implementation, we'd activate voice confirmation mode here
-        // For now, we'll just show the UI buttons with the timeout
-      } 
-      else if (confirmationType === 'visual' || confirmationType === 'explicit') {
-        // Visual or explicit confirmation - require button click
-        setPendingConfirmation({
-          ...data,
-          confirmationType: confirmationType,
-          timeoutSeconds: timeoutSeconds
-        });
-        
-        // Different messaging for visual vs explicit
+      } else if (confirmationType === 'visual' || confirmationType === 'explicit') {
+        setPendingConfirmation({ ...data, confirmationType, timeoutSeconds });
         const message = data.action === 'unknown'
           ? `Unrecognized command: "${data.item}". Please retry or confirm manually.`
           : suggestedCorrection || `Confirm: ${data.action} ${data.quantity} ${data.unit} of ${data.item}?`;
-        
         setFeedback(message);
-        
-        // Use different notification types based on risk level
-        const notificationType = 
-          data.riskLevel === 'high' ? 'error' : 
-          data.riskLevel === 'medium' ? 'warning' : 'info';
-        
-        // Reduce duplicate notifications - just show in the UI via feedback
-        // We'll only notify for unknown commands since those are important errors
-        if (data.action === 'unknown') {
-          addNotification('error', 'Command not recognized');
-        }
-        
-        // If there's a timeout, set up auto-confirmation
+        if (data.action === 'unknown') addNotification('error', 'Command not recognized');
         if (timeoutSeconds > 0) {
-          // Set timeout for auto-confirmation
           const timer = setTimeout(() => {
-            // Only auto-confirm if still pending
             if (pendingConfirmation && pendingConfirmation.item === data.item) {
               handleInventoryUpdate(data);
               setFeedback(`Auto-confirmed: ${data.action} ${data.quantity} ${data.unit} of ${data.item}`);
             }
           }, timeoutSeconds * 1000);
-          
-          // Clear timer if component unmounts or confirmation changes
           return () => clearTimeout(timer);
         }
       }
@@ -280,7 +191,6 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
     setSocket(socket);
 
     return () => {
-      console.log('Cleaning up...');
       stopRecording();
       if (pingIntervalRef.current) window.clearInterval(pingIntervalRef.current);
       socket.disconnect();
@@ -292,8 +202,6 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
       onUpdate(data);
       setPendingConfirmation(null);
       setFeedback(`Updated: ${data.action}ed ${data.quantity} ${data.unit} of ${data.item}`);
-      // Notification will be shown by the parent component
-      // Not showing notification here to prevent duplicates
     } else {
       setFeedback('Command not recognized. Please try again.');
       setPendingConfirmation(null);
@@ -301,65 +209,51 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
   };
 
   const startRecording = async () => {
-    try {
-      if (!socket || !isConnected) {
-        setFeedback('Not connected to server');
-        return;
-      }
-
-      setPendingConfirmation(null);
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      });
-      streamRef.current = mediaStream;
-      setStream(mediaStream);
-
-      audioContextRef.current = new AudioContext();
-      analyserRef.current = audioContextRef.current.createAnalyser();
-      analyserRef.current.fftSize = 256;
-      const source = audioContextRef.current.createMediaStreamSource(mediaStream);
-      source.connect(analyserRef.current);
-
-      const mediaRecorder = new MediaRecorder(mediaStream, { mimeType: 'audio/webm;codecs=opus' });
-      mediaRecorderRef.current = mediaRecorder;
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0 && socket && isConnected) {
-          console.log('Sending chunk, size:', event.data.size);
-          socket.emit('voice-stream', event.data);
-        }
-      };
-
-      mediaRecorder.onstart = () => {
-        setIsListening(true);
-        setFeedback('Listening...');
-        setTranscript('');
-        setTranscriptHistory([]);
-        
-        // Notify parent component about listening state change
-        if (onListeningChange) {
-          onListeningChange(true, mediaStream);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
-        setFeedback('Stopped');
-      };
-
-      mediaRecorder.onerror = (event) => {
-        console.error('Recorder error:', event);
-        setFeedback('Recording error');
-        stopRecording();
-      };
-
-      mediaRecorder.start(500);
-      setConfidence(0);
-    } catch (error) {
-      console.error('Start error:', error);
-      setFeedback(`Microphone error: ${error instanceof Error ? error.message : String(error)}`);
-      addNotification('error', 'Microphone access failed');
-      onFailure();
+    if (!socket || !isConnected) {
+      setFeedback('Not connected to server');
+      return;
     }
+    setPendingConfirmation(null);
+    const mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    });
+    streamRef.current = mediaStream;
+    setStream(mediaStream);
+
+    audioContextRef.current = new AudioContext();
+    analyserRef.current = audioContextRef.current.createAnalyser();
+    analyserRef.current.fftSize = 256;
+    const source = audioContextRef.current.createMediaStreamSource(mediaStream);
+    source.connect(analyserRef.current);
+
+    const mediaRecorder = new MediaRecorder(mediaStream, { mimeType: 'audio/webm;codecs=opus' });
+    mediaRecorderRef.current = mediaRecorder;
+
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0 && socket && isConnected) {
+        socket.emit('voice-stream', event.data);
+      }
+    };
+
+    mediaRecorder.onstart = () => {
+      setIsListening(true);
+      setFeedback('Listening...');
+      setTranscript('');
+      if (onListeningChange) onListeningChange(true, mediaStream);
+    };
+
+    mediaRecorder.onstop = () => {
+      setFeedback('Stopped');
+    };
+
+    mediaRecorder.onerror = (event) => {
+      console.error('Recorder error:', event);
+      setFeedback('Recording error');
+      stopRecording();
+    };
+
+    mediaRecorder.start(500);
+    setConfidence(0);
   };
 
   const stopRecording = () => {
@@ -378,11 +272,7 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
       analyserRef.current = null;
     }
     setStream(null);
-    
-    // Notify parent component about listening state change
-    if (onListeningChange) {
-      onListeningChange(false, null);
-    }
+    if (onListeningChange) onListeningChange(false, null);
   };
 
   const toggleRecording = () => {
@@ -393,8 +283,6 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
   const confirmUpdate = () => {
     if (pendingConfirmation) {
       handleInventoryUpdate(pendingConfirmation);
-      
-      // Notify server about the confirmation for adaptive learning
       if (socket && isConnected) {
         socket.emit('confirm-command', {
           action: pendingConfirmation.action,
@@ -407,7 +295,6 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
   };
 
   const cancelUpdate = () => {
-    // Notify server about rejection for adaptive learning
     if (pendingConfirmation && socket && isConnected) {
       socket.emit('reject-command', {
         action: pendingConfirmation.action,
@@ -416,33 +303,8 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
         unit: pendingConfirmation.unit
       });
     }
-    
     setPendingConfirmation(null);
     setFeedback('Update cancelled');
-  };
-  
-  const correctCommand = (correctedCommand: {
-    action: string;
-    item: string;
-    quantity: number;
-    unit: string;
-  }, mistakeType: 'item' | 'quantity' | 'action' | 'unit' | 'multiple') => {
-    if (pendingConfirmation && socket && isConnected) {
-      // Notify server about the correction
-      socket.emit('correct-command', 
-        {
-          action: pendingConfirmation.action,
-          item: pendingConfirmation.item,
-          quantity: pendingConfirmation.quantity,
-          unit: pendingConfirmation.unit
-        },
-        correctedCommand,
-        mistakeType
-      );
-      
-      // Process the corrected command
-      handleInventoryUpdate(correctedCommand);
-    }
   };
 
   const getConfidenceClass = () => {
@@ -492,7 +354,9 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
         </button>
       </div>
 
-      <AudioVisualizer isListening={isListening} stream={stream} />
+      {analyserRef.current && (
+        <AudioVisualizer analyser={analyserRef.current} />
+      )}
 
       {feedback && (
         <div className="feedback mt-4 p-3 bg-base-200 rounded-lg">{feedback}</div>
@@ -517,7 +381,6 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
           {transcript ? (
             <p className={`text-lg ${getConfidenceClass()}`}>
               {transcript}
-              {isListening && <span className="animate-pulse ml-1">|</span>}
             </p>
           ) : (
             <p className="text-base-content/40">
@@ -540,14 +403,14 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
               {transcriptHistory.map((item, index) => (
                 <div
                   key={item.timestamp + index}
-                  className={`p-2 rounded text-sm ${item.isFinal ? 'bg-base-300' : 'bg-base-100 italic opacity-75'}`}
+                  className="p-2 rounded text-sm bg-base-300"
                 >
                   <div className="flex justify-between">
                     <span className={item.confidence > 0.8 ? 'text-success' : item.confidence > 0.5 ? 'text-warning' : 'text-error'}>
                       {item.text}
                     </span>
                     <span className="text-xs opacity-50">
-                      {item.isFinal ? 'Final' : 'Interim'} - {new Date(item.timestamp).toLocaleTimeString()} ({Math.round(item.confidence * 100)}%)
+                      Final - {new Date(item.timestamp).toLocaleTimeString()} ({Math.round(item.confidence * 100)}%)
                     </span>
                   </div>
                 </div>
@@ -559,28 +422,17 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
 
       {pendingConfirmation && (
         <div className={`confirmation mt-4 p-4 rounded-lg 
-          ${pendingConfirmation.riskLevel === 'high' 
-            ? 'bg-error/20 border border-error' 
-            : pendingConfirmation.riskLevel === 'medium'
-              ? 'bg-warning/20 border border-warning'
-              : 'bg-info/20 border border-info'
-          }`}>
-          {/* Header - changes based on confirmation type */}
+          ${pendingConfirmation.riskLevel === 'high' ? 'bg-error/20 border border-error' : 
+            pendingConfirmation.riskLevel === 'medium' ? 'bg-warning/20 border border-warning' : 'bg-info/20 border border-info'}`}>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center">
               <svg className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
               </svg>
               <h3 className="font-semibold">
-                {pendingConfirmation.confirmationType === 'voice' 
-                  ? 'Confirm with voice or buttons:' 
-                  : pendingConfirmation.confirmationType === 'explicit'
-                    ? 'Please confirm this action:'
-                    : 'Confirm this update:'}
+                {pendingConfirmation.confirmationType === 'voice' ? 'Confirm with voice or buttons:' : 'Confirm this update:'}
               </h3>
             </div>
-            
-            {/* If we have a timeout, show a countdown */}
             {pendingConfirmation.timeoutSeconds && pendingConfirmation.timeoutSeconds > 0 && (
               <div className="flex items-center text-sm opacity-70">
                 <svg className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
@@ -590,10 +442,7 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
               </div>
             )}
           </div>
-          
-          {/* Command details */}
-          <div className={`bg-base-100 p-3 rounded-lg mb-3 flex items-center
-            ${pendingConfirmation.confirmationType === 'voice' ? 'border-2 border-primary' : ''}`}>
+          <div className="bg-base-100 p-3 rounded-lg mb-3 flex items-center">
             <div className="p-2 rounded-full bg-base-200 mr-3">{getActionIcon(pendingConfirmation.action)}</div>
             <div className="flex-1">
               <span className="font-semibold capitalize">{pendingConfirmation.action}</span>
@@ -602,8 +451,6 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
               <span>of</span>
               <span className="ml-1 font-semibold">{pendingConfirmation.item}</span>
             </div>
-            
-            {/* Confidence indicator */}
             <div className="flex items-center ml-2">
               <div className="w-16 h-2 bg-base-300 rounded-full overflow-hidden">
                 <div
@@ -614,25 +461,6 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
               <span className="text-xs ml-1">{Math.round(pendingConfirmation.confidence * 100)}%</span>
             </div>
           </div>
-          
-          {/* Suggested correction if available */}
-          {pendingConfirmation.suggestedCorrection && (
-            <div className="bg-info/10 p-2 rounded mb-3 text-sm">
-              <span className="font-semibold">Suggestion:</span> {pendingConfirmation.suggestedCorrection}
-            </div>
-          )}
-          
-          {/* Voice instruction if applicable */}
-          {pendingConfirmation.confirmationType === 'voice' && (
-            <div className="mb-3 text-sm opacity-70 flex items-center">
-              <svg className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 2a2 2 0 00-2 2v4a2 2 0 104 0V4a2 2 0 00-2-2zM7 10v1a3 3 0 106 0v-1h1a1 1 0 011 1v3a1 1 0 01-1 1H6a1 1 0 01-1-1v-3a1 1 0 011-1h1z" clipRule="evenodd" />
-              </svg>
-              <span>Say "yes" to confirm or "no" to cancel</span>
-            </div>
-          )}
-          
-          {/* Action buttons */}
           <div className="flex space-x-2">
             <button onClick={confirmUpdate} className="btn btn-success flex-1">
               <svg className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
@@ -647,27 +475,6 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
               Cancel
             </button>
           </div>
-          
-          {/* For explicit confirmations with corrective actions */}
-          {pendingConfirmation.confirmationType === 'explicit' && (
-            <div className="mt-2">
-              <button onClick={() => {
-                // Open the correction dialog with current values
-                setCorrectionValues({
-                  action: pendingConfirmation.action,
-                  item: pendingConfirmation.item,
-                  quantity: pendingConfirmation.quantity,
-                  unit: pendingConfirmation.unit
-                });
-                setShowCorrectionDialog(true);
-              }} className="btn btn-ghost btn-sm w-full text-sm">
-                <svg className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" clipRule="evenodd" />
-                </svg>
-                Correct command details
-              </button>
-            </div>
-          )}
         </div>
       )}
 
@@ -684,130 +491,6 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
           </div>
         </div>
       </div>
-    
-
-    {showCorrectionDialog && correctionValues && (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-base-100 p-5 rounded-lg w-full max-w-md">
-          <h3 className="text-lg font-semibold mb-4">Correct Command Details</h3>
-          
-          <div className="form-control mb-4">
-            <label className="label">
-              <span className="label-text font-medium">Action</span>
-            </label>
-            <select 
-              className="select select-bordered w-full"
-              value={correctionValues?.action || ''}
-              onChange={(e) => setCorrectionValues(correctionValues ? {
-                ...correctionValues,
-                action: e.target.value
-              } : null)}
-              >
-              <option value="add">Add</option>
-              <option value="remove">Remove</option>
-              <option value="set">Set</option>
-            </select>
-          </div>
-          
-          <div className="form-control mb-4">
-            <label className="label">
-              <span className="label-text font-medium">Item</span>
-            </label>
-            <input 
-              type="text" 
-              className="input input-bordered"
-              value={correctionValues?.item || ''}
-              onChange={(e) => setCorrectionValues(correctionValues ? {
-                ...correctionValues,
-                item: e.target.value
-              } : null)}
-              />
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text font-medium">Quantity</span>
-              </label>
-              <input 
-                type="number" 
-                className="input input-bordered"
-                value={correctionValues?.quantity || 0}
-                onChange={(e) => setCorrectionValues(correctionValues ? {
-                  ...correctionValues,
-                  quantity: Number(e.target.value)
-                } : null)}
-                />
-            </div>
-            
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text font-medium">Unit</span>
-              </label>
-              <select 
-                className="select select-bordered w-full"
-                value={correctionValues?.unit || ''}
-                onChange={(e) => setCorrectionValues(correctionValues ? {
-                  ...correctionValues,
-                  unit: e.target.value
-                } : null)}
-                >
-                <option value="units">Units</option>
-                <option value="pounds">Pounds</option>
-                <option value="ounces">Ounces</option>
-                <option value="gallons">Gallons</option>
-                <option value="bottles">Bottles</option>
-                <option value="bags">Bags</option>
-                <option value="boxes">Boxes</option>
-                <option value="cases">Cases</option>
-              </select>
-            </div>
-          </div>
-          
-          <div className="flex justify-end space-x-2">
-            <button 
-              className="btn btn-ghost"
-              onClick={() => {
-                setShowCorrectionDialog(false);
-                setCorrectionValues(null);
-              }}
-              >
-              Cancel
-            </button>
-            
-            <button 
-              className="btn btn-primary"
-              onClick={() => {
-                if (pendingConfirmation && correctionValues) {
-                  // Determine what was changed
-                  let mistakeType: 'item' | 'quantity' | 'action' | 'unit' | 'multiple' = 'multiple';
-                  
-                  if (correctionValues.item !== pendingConfirmation.item) {
-                    mistakeType = 'item';
-                  } else if (correctionValues.quantity !== pendingConfirmation.quantity) {
-                    mistakeType = 'quantity';
-                  } else if (correctionValues.action !== pendingConfirmation.action) {
-                    mistakeType = 'action';
-                  } else if (correctionValues.unit !== pendingConfirmation.unit) {
-                    mistakeType = 'unit';
-                  }
-                  
-                  // Process the correction
-                  correctCommand(correctionValues, mistakeType);
-                  
-                  // Close the dialog
-                  setShowCorrectionDialog(false);
-                  setCorrectionValues(null);
-                  setPendingConfirmation(null);
-                }
-              }}
-              >
-              Confirm Correction
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
     </div>
   );
 };
