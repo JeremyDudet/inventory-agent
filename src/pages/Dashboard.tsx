@@ -1,3 +1,4 @@
+// frontend/src/pages/Dashboard.tsx
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotification } from '../context/NotificationContext';
