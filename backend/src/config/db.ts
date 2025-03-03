@@ -1,0 +1,51 @@
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
+
+// Supabase configuration
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || '';
+
+// Supabase configuration validation
+if (!supabaseUrl || !supabaseKey) {
+  console.error('SUPABASE_URL and SUPABASE_SERVICE_KEY or SUPABASE_ANON_KEY must be set in .env');
+  process.exit(1);
+}
+
+console.log(`Initializing Supabase client with URL: ${supabaseUrl.substring(0, 20)}...`);
+
+// Initialize Supabase client with service key for admin privileges in the backend
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  },
+  db: {
+    schema: 'public',
+  },
+  global: {
+    headers: {
+      'x-application-name': 'inventory-agent-backend',
+    },
+  },
+});
+
+// Test the connection
+(async () => {
+  try {
+    // Simple connection test
+    const { data, error } = await supabase.from('session_logs').select('count(*)', { count: 'exact', head: true });
+    
+    if (error) {
+      console.error('⚠️ Supabase connection test failed:', error.message);
+    } else {
+      console.log('✅ Supabase connection successful, database is accessible');
+    }
+  } catch (err) {
+    console.error('⚠️ Supabase connection test error:', err);
+  }
+})();
+
+export default supabase; 

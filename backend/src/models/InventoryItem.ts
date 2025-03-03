@@ -1,0 +1,59 @@
+// Inventory item model
+export interface InventoryItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  category: string;
+  threshold?: number;  // Alert threshold for low inventory
+  lastUpdated: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Supabase database types for inventory items
+export type InventoryItemInsert = Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt'>;
+export type InventoryItemUpdate = Partial<Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt'>>;
+
+// Database table name
+export const INVENTORY_TABLE = 'inventory_items';
+
+// Mock inventory data for MVP when database is not available
+export const mockInventory: InventoryItem[] = [
+  {
+    id: '1',
+    name: 'Coffee Beans (Dark Roast)',
+    quantity: 25,
+    unit: 'pounds',
+    category: 'ingredients',
+    threshold: 10,
+    lastUpdated: new Date().toISOString(),
+  },
+  {
+    id: '2',
+    name: 'Whole Milk',
+    quantity: 8,
+    unit: 'gallons',
+    category: 'dairy',
+    threshold: 3,
+    lastUpdated: new Date().toISOString(),
+  },
+  {
+    id: '3',
+    name: 'Sugar',
+    quantity: 15,
+    unit: 'pounds',
+    category: 'ingredients',
+    threshold: 5,
+    lastUpdated: new Date().toISOString(),
+  },
+  {
+    id: '4',
+    name: 'Paper Cups (12oz)',
+    quantity: 500,
+    unit: 'pieces',
+    category: 'supplies',
+    threshold: 100,
+    lastUpdated: new Date().toISOString(),
+  },
+]; 
