@@ -20,6 +20,14 @@ interface LoginResponse {
   };
 }
 
+// API Error types
+export interface ApiError extends Error {
+  status?: number;
+  code?: string;
+  details?: any;
+  isAuthError?: boolean;
+}
+
 interface InventoryItem {
   id: number;
   name: string;
@@ -62,7 +70,30 @@ const apiRequest = async <T>(
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `API request failed with status ${response.status}`);
+
+      // Create a custom error object
+      const apiError = new Error(
+        errorData.error?.message || errorData.message || `API request failed with status ${response.status}`
+      ) as ApiError;
+      
+      // Add additional error properties
+      apiError.status = response.status;
+      apiError.code = errorData.error?.code || 'API_ERROR';
+      apiError.details = errorData.error?.details || errorData.details;
+      
+      // Mark auth-related errors
+      apiError.isAuthError = (
+        response.status === 401 || 
+        response.status === 403 || 
+        apiError.code === 'UNAUTHORIZED' || 
+        apiError.code === 'FORBIDDEN' || 
+        apiError.code === 'MISSING_TOKEN' || 
+        apiError.code === 'INVALID_TOKEN' ||
+        apiError.message?.includes('Authentication Error') ||
+        apiError.message?.includes('Authorization Error')
+      );
+      
+      throw apiError;
     }
 
     return await response.json();

@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import Notification from '../components/Notification';
+import { ApiError } from '../services/api';
 
 // Define notification type
-export type NotificationType = 'success' | 'error' | 'info' | 'warning';
+export type NotificationType = 'success' | 'error' | 'info' | 'warning' | 'auth-error';
 
 // Define notification interface
 interface NotificationData {
@@ -16,6 +17,7 @@ interface NotificationData {
 interface NotificationContextType {
   notifications: NotificationData[];
   addNotification: (type: NotificationType, message: string, duration?: number) => void;
+  showApiError: (error: Error | ApiError, fallbackMessage?: string, duration?: number) => void;
   removeNotification: (id: string) => void;
 }
 
@@ -23,6 +25,7 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType>({
   notifications: [],
   addNotification: () => {},
+  showApiError: () => {},
   removeNotification: () => {},
 });
 
@@ -57,8 +60,35 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     setNotifications((prev) => prev.filter((notification) => notification.id !== id));
   };
 
+  // Show API error with appropriate styling based on error type
+  const showApiError = (error: Error | ApiError, fallbackMessage = 'An error occurred', duration = 6000) => {
+    const apiError = error as ApiError;
+    
+    // Determine if this is an auth/permission error
+    const isAuthError = apiError.isAuthError || 
+      apiError.status === 401 || 
+      apiError.status === 403;
+    
+    // Get the error message
+    const errorMessage = error.message || fallbackMessage;
+    
+    // Add notification with appropriate type
+    addNotification(
+      isAuthError ? 'auth-error' : 'error',
+      errorMessage,
+      duration
+    );
+    
+    // If it's an auth error, handle potential redirection
+    if (isAuthError) {
+      console.warn('Authentication error:', error);
+      // You could trigger auth-related actions here if needed
+      // such as showing a login modal or redirecting to login page
+    }
+  };
+
   return (
-    <NotificationContext.Provider value={{ notifications, addNotification, removeNotification }}>
+    <NotificationContext.Provider value={{ notifications, addNotification, showApiError, removeNotification }}>
       {children}
       <div className="notifications-container fixed top-4 right-4 z-50 flex flex-col gap-3 max-w-md" style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}>
         {notifications.map((notification) => (

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-export type NotificationType = 'success' | 'error' | 'info' | 'warning';
+export type NotificationType = 'success' | 'error' | 'info' | 'warning' | 'auth-error';
 
 interface NotificationProps {
   type: NotificationType;
@@ -60,6 +60,7 @@ const Notification: React.FC<NotificationProps> = ({
   const alertClasses = {
     success: 'alert-success',
     error: 'alert-error',
+    'auth-error': 'alert-error',
     info: 'alert-info',
     warning: 'alert-warning'
   };
@@ -68,7 +69,7 @@ const Notification: React.FC<NotificationProps> = ({
   const getIcon = () => {
     const iconClasses = `stroke-current shrink-0 h-6 w-6 ${
       type === 'success' ? 'text-success' :
-      type === 'error' ? 'text-error' :
+      type === 'error' || type === 'auth-error' ? 'text-error' :
       type === 'warning' ? 'text-warning' :
       'text-info'
     }`;
@@ -79,6 +80,14 @@ const Notification: React.FC<NotificationProps> = ({
           <div className="p-2 rounded-full bg-success/20">
             <svg xmlns="http://www.w3.org/2000/svg" className={iconClasses} fill="none" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+        );
+      case 'auth-error':
+        return (
+          <div className="p-2 rounded-full bg-error/20">
+            <svg xmlns="http://www.w3.org/2000/svg" className={iconClasses} fill="none" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 15v2m0-10v6M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z" />
             </svg>
           </div>
         );
@@ -121,6 +130,7 @@ const Notification: React.FC<NotificationProps> = ({
       <div className={`flex items-center p-4 rounded-lg shadow-xl border ${
         type === 'success' ? 'border-success/40 bg-base-100 text-base-content' :
         type === 'error' ? 'border-error/40 bg-base-100 text-base-content' :
+        type === 'auth-error' ? 'border-error/40 bg-red-50 text-base-content' :
         type === 'warning' ? 'border-warning/40 bg-base-100 text-base-content' :
         'border-info/40 bg-base-100 text-base-content'
       }`}>
@@ -137,7 +147,7 @@ const Notification: React.FC<NotificationProps> = ({
           }} 
           className={`rounded-full p-1 hover:bg-base-200 transition-colors duration-150 ${
             type === 'success' ? 'text-success hover:bg-success/20' :
-            type === 'error' ? 'text-error hover:bg-error/20' :
+            type === 'error' || type === 'auth-error' ? 'text-error hover:bg-error/20' :
             type === 'warning' ? 'text-warning hover:bg-warning/20' :
             'text-info hover:bg-info/20'
           }`}

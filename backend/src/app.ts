@@ -11,6 +11,7 @@ import confirmationService from './services/confirmationService';
 import speechFeedbackService from './services/speechFeedbackService';
 import { logTranscript, logSystemAction } from './services/sessionLogsService';
 import sessionLogsRoutes from './routes/sessionLogs';
+import inventoryRoutes from './routes/inventory';
 
 dotenv.config();
 
@@ -344,6 +345,7 @@ app.use(express.json());
 
 // Routes
 app.use('/api/logs', sessionLogsRoutes);
+app.use('/api/inventory', inventoryRoutes);
 
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html');

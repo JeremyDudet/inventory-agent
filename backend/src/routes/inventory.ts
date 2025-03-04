@@ -7,6 +7,7 @@ import {
   InventoryItemUpdate,
   INVENTORY_TABLE 
 } from '../models/InventoryItem';
+import { authMiddleware, authorize } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -135,7 +136,7 @@ router.get('/:id', async (req, res, next) => {
 });
 
 // Update inventory (add, remove, or set quantity)
-router.post('/update', async (req, res, next) => {
+router.post('/update', authMiddleware, authorize('inventory:write'), async (req, res, next) => {
   try {
     // Accept either itemId or item name
     const { itemId, item, action, quantity, unit } = req.body;
@@ -308,7 +309,7 @@ router.post('/update', async (req, res, next) => {
 });
 
 // Add a new inventory item
-router.post('/add-item', async (req, res, next) => {
+router.post('/add-item', authMiddleware, authorize('inventory:write'), async (req, res, next) => {
   try {
     const { name, quantity, unit, category, threshold } = req.body;
     
@@ -468,7 +469,7 @@ router.get('/categories', async (req, res, next) => {
 });
 
 // Delete an inventory item
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', authMiddleware, authorize('inventory:delete'), async (req, res, next) => {
   try {
     const { id } = req.params;
     
@@ -544,6 +545,47 @@ router.delete('/:id', async (req, res, next) => {
   } catch (error) {
     console.error('Unexpected error:', error);
     next(error);
+  }
+});
+
+// Endpoint to check user's permissions (for testing)
+router.get('/check-permissions', authMiddleware, (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Authentication required',
+        },
+      });
+    }
+
+    const userPermissions = req.user.permissions || {};
+    // Use type assertion to fix TypeScript error
+    const hasWritePermission = Boolean(userPermissions && (userPermissions as any)['inventory:write']);
+    const hasDeletePermission = Boolean(userPermissions && (userPermissions as any)['inventory:delete']);
+
+    res.status(200).json({
+      user: {
+        // Handle both User and AuthTokenPayload types
+        id: 'userId' in req.user ? req.user.userId : req.user.id,
+        email: req.user.email,
+        name: req.user.name,
+        role: req.user.role,
+      },
+      permissions: req.user.permissions,
+      canWrite: hasWritePermission,
+      canDelete: hasDeletePermission,
+      message: `User has ${hasWritePermission ? 'write' : 'no write'} and ${hasDeletePermission ? 'delete' : 'no delete'} permissions`
+    });
+  } catch (error) {
+    console.error('Error checking permissions:', error);
+    res.status(500).json({
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'Error checking permissions',
+      },
+    });
   }
 });
 

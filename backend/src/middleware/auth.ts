@@ -23,7 +23,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       return res.status(401).json({
         error: {
           code: 'MISSING_TOKEN',
-          message: 'Authentication token required',
+          message: 'Authentication Error: No token provided. Please log in to access this resource.',
         },
       });
     }
@@ -57,7 +57,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       return res.status(401).json({
         error: {
           code: 'INVALID_TOKEN',
-          message: 'Invalid or expired token',
+          message: 'Authentication Error: Invalid or expired token. Please log in again.',
         },
       });
     }
@@ -72,7 +72,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     return res.status(500).json({
       error: {
         code: 'AUTH_ERROR',
-        message: 'Authentication error occurred',
+        message: 'Authentication Error: An unexpected error occurred while processing your request.',
       },
     });
   }
@@ -91,18 +91,19 @@ export const authorize = (permission: keyof UserPermissions) => {
         return res.status(401).json({
           error: {
             code: 'UNAUTHORIZED',
-            message: 'Authentication required',
+            message: 'Authentication Error: You must be logged in to access this resource.',
           },
         });
       }
       
       // Check if user has required permission
-      if (!req.user.permissions || !req.user.permissions[permission]) {
+      if (!req.user.permissions || !(req.user.permissions as any)[permission]) {
         return res.status(403).json({
           error: {
             code: 'FORBIDDEN',
-            message: `You don't have ${permission} permission`,
+            message: `Authorization Error: You don't have the required ${permission} permission`,
             requiredPermission: permission,
+            userRole: req.user.role,
           },
         });
       }
@@ -114,7 +115,7 @@ export const authorize = (permission: keyof UserPermissions) => {
       return res.status(500).json({
         error: {
           code: 'AUTH_ERROR',
-          message: 'Authorization error occurred',
+          message: 'Authorization Error: An unexpected error occurred while checking your permissions.',
         },
       });
     }
@@ -134,7 +135,7 @@ export const requireRole = (roles: string[]) => {
         return res.status(401).json({
           error: {
             code: 'UNAUTHORIZED',
-            message: 'Authentication required',
+            message: 'Authentication Error: You must be logged in to access this resource.',
           },
         });
       }
@@ -144,7 +145,7 @@ export const requireRole = (roles: string[]) => {
         return res.status(403).json({
           error: {
             code: 'FORBIDDEN',
-            message: `Access denied. Required role: ${roles.join(' or ')}`,
+            message: `Authorization Error: Access denied. Your role (${req.user.role}) doesn't have permission for this action. Required role: ${roles.join(' or ')}`,
             userRole: req.user.role,
             requiredRoles: roles,
           },
@@ -158,7 +159,7 @@ export const requireRole = (roles: string[]) => {
       return res.status(500).json({
         error: {
           code: 'AUTH_ERROR',
-          message: 'Authorization error occurred',
+          message: 'Authorization Error: An unexpected error occurred while checking your role permissions.',
         },
       });
     }
@@ -173,7 +174,7 @@ export const authMiddleware = function(req: Request, res: Response, next: NextFu
     return res.status(500).json({
       error: {
         code: 'AUTH_ERROR',
-        message: 'Authentication error occurred',
+        message: 'Authentication Error: An unexpected error occurred while processing your request.',
       },
     });
   });
