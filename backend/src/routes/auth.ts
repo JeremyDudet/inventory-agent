@@ -50,6 +50,7 @@ router.post('/login', async function(req: Request, res: Response, next: NextFunc
       },
       token: result.token,
       permissions: result.user.permissions,
+      sessionId: result.sessionId,
       message: 'Login successful',
     });
   } catch (error) {
@@ -61,7 +62,7 @@ router.post('/login', async function(req: Request, res: Response, next: NextFunc
 // Register route
 router.post('/register', async function(req: Request, res: Response, next: NextFunction) {
   try {
-    const { email, password, name, inviteCode } = req.body;
+    const { email, password, name, inviteCode, paymentVerified } = req.body;
 
     if (!email || !password || !name) {
       return res.status(400).json({
@@ -73,8 +74,8 @@ router.post('/register', async function(req: Request, res: Response, next: NextF
     }
 
     try {
-      // Register the user with invite code
-      const result = await authService.registerUser(email, password, name, inviteCode);
+      // Register the user with invite code or payment verification
+      const result = await authService.registerUser(email, password, name, inviteCode, paymentVerified);
       
       if (!result) {
         return res.status(500).json({
@@ -94,6 +95,7 @@ router.post('/register', async function(req: Request, res: Response, next: NextF
         },
         token: result.token,
         permissions: result.user.permissions,
+        sessionId: result.sessionId,
         message: 'Registration successful',
       });
     } catch (error: any) {
@@ -138,7 +140,7 @@ router.get('/me', async function(req: Request, res: Response, next: NextFunction
     const token = authHeader.split(' ')[1];
     
     // First try to validate with our own JWT
-    const payload = authService.verifyToken(token);
+    const payload = await authService.verifyToken(token);
     
     if (payload) {
       // Get fresh permissions for the user's role
@@ -152,6 +154,7 @@ router.get('/me', async function(req: Request, res: Response, next: NextFunction
           role: payload.role,
         },
         permissions,
+        sessionId: payload.sessionId,
       });
     }
     
@@ -175,10 +178,44 @@ router.get('/me', async function(req: Request, res: Response, next: NextFunction
         role: user.role,
       },
       permissions: user.permissions,
+      sessionId: user.sessionId,
     });
   } catch (error) {
     console.error('Error verifying token:', error);
     next(error);
+  }
+});
+
+// Logout route
+router.post('/logout', async function(req: Request, res: Response, next: NextFunction) {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(200).json({
+        message: 'No active session'
+      });
+    }
+
+    const token = authHeader.split(' ')[1];
+    
+    // Revoke the token
+    const success = await authService.revokeToken(token, 'user_initiated_logout');
+    
+    if (!success) {
+      console.warn('Failed to revoke token during logout');
+    }
+    
+    res.status(200).json({
+      message: 'Logout successful',
+      success: true
+    });
+  } catch (error) {
+    console.error('Error during logout:', error);
+    // Still return success to client
+    res.status(200).json({
+      message: 'Logout processed',
+      success: true
+    });
   }
 });
 
@@ -199,7 +236,7 @@ export const requirePermission = (permission: string) => {
       const token = authHeader.split(' ')[1];
       
       // First try our own JWT token
-      const payload = authService.verifyToken(token);
+      const payload = await authService.verifyToken(token);
       
       if (payload && payload.permissions && payload.permissions[permission as keyof typeof payload.permissions]) {
         return next();

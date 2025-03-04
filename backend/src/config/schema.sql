@@ -297,12 +297,61 @@ CREATE TABLE IF NOT EXISTS invite_codes (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Create revoked_tokens table for logout and session invalidation
+CREATE TABLE IF NOT EXISTS revoked_tokens (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  token_jti TEXT UNIQUE NOT NULL, -- JWT ID (jti claim)
+  user_id UUID NOT NULL,
+  revoked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  reason TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Create indexes for invite code lookups
 CREATE INDEX IF NOT EXISTS invite_codes_code_idx ON invite_codes (code);
 CREATE INDEX IF NOT EXISTS invite_codes_used_idx ON invite_codes (used_by) WHERE used_by IS NULL;
 
--- Enable Row Level Security for invite_codes
+-- Enable Row Level Security for invite_codes and revoked_tokens
 ALTER TABLE invite_codes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE revoked_tokens ENABLE ROW LEVEL SECURITY;
+
+-- Create index on revoked_tokens for faster lookups
+CREATE INDEX IF NOT EXISTS revoked_tokens_jti_idx ON revoked_tokens (token_jti);
+CREATE INDEX IF NOT EXISTS revoked_tokens_user_idx ON revoked_tokens (user_id);
+CREATE INDEX IF NOT EXISTS revoked_tokens_expires_idx ON revoked_tokens (expires_at);
+
+-- Policy for revoking tokens (authenticated users can revoke their own tokens)
+CREATE POLICY "Users can revoke their own tokens"
+  ON revoked_tokens
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    user_id = auth.uid()
+  );
+  
+-- Policy for viewing revoked tokens (users can see their own revoked tokens)
+CREATE POLICY "Users can view their own revoked tokens"
+  ON revoked_tokens
+  FOR SELECT
+  TO authenticated
+  USING (
+    user_id = auth.uid()
+  );
+
+-- Create a function to clean up expired revoked tokens
+CREATE OR REPLACE FUNCTION cleanup_expired_revoked_tokens()
+RETURNS INTEGER AS $$
+DECLARE
+  deleted_count INTEGER;
+BEGIN
+  DELETE FROM revoked_tokens
+  WHERE expires_at < NOW()
+  RETURNING count(*) INTO deleted_count;
+  
+  RETURN deleted_count;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Policy for creating invite codes (only managers and owners)
 CREATE POLICY "Only managers and owners can create invite codes"

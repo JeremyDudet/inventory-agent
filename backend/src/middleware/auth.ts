@@ -32,7 +32,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     const token = authHeader.split(' ')[1];
     
     // First try to verify with our JWT
-    const payload = authService.verifyToken(token);
+    const payload = await authService.verifyToken(token);
     
     if (payload) {
       // Get fresh permissions for the user's role
@@ -45,6 +45,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
         name: payload.name,
         role: payload.role,
         permissions,
+        sessionId: payload.sessionId
       };
       
       return next();
@@ -62,7 +63,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       });
     }
     
-    // Attach user info to request
+    // Attach user info to request including sessionId
     req.user = user;
     
     // Continue to the next middleware/route handler

@@ -24,6 +24,7 @@ export interface User {
   name: string;
   role: UserRole;
   permissions?: UserPermissions;
+  sessionId?: string;
 }
 
 export interface AuthTokenPayload {
@@ -32,6 +33,8 @@ export interface AuthTokenPayload {
   name: string;
   role: UserRole;
   permissions?: UserPermissions;
+  sessionId: string;
+  jti: string; // JWT ID for token revocation
 }
 
 // Default permissions are now stored in the database (user_roles table)
@@ -131,39 +134,187 @@ class AuthService {
   }
 
   /**
-   * Generate a JWT token for a user
+   * Generate a JWT token for a user with session management
    */
-  generateToken(user: User): string {
+  generateToken(user: User, sessionId?: string): string {
     if (!this.isJwtConfigured()) {
       throw new Error('JWT secret is not configured');
     }
 
+    // Import here to avoid circular dependency
+    const { resetSessionId, getSessionId } = require('../services/sessionLogsService');
+    
+    // Generate a new session ID or use provided one
+    const session = sessionId || resetSessionId();
+    
+    // Generate a unique JWT ID for token revocation
+    const jwtId = require('crypto').randomBytes(16).toString('hex');
+    
     const payload: AuthTokenPayload = {
       userId: user.id,
       email: user.email,
       name: user.name,
       role: user.role,
-      permissions: user.permissions
+      permissions: user.permissions,
+      sessionId: session,
+      jti: jwtId // Include the JWT ID in the payload
     };
 
+    // Log the session creation
+    const { logSystemAction } = require('../services/sessionLogsService');
+    logSystemAction('auth:session:created', 'User session created', 'success', user.id).catch((err: Error) => {
+      console.error('Failed to log session creation:', err);
+    });
+
     return jwt.sign(payload, process.env.JWT_SECRET!, {
-      expiresIn: '24h' // Token expires in 24 hours
+      expiresIn: '24h', // Token expires in 24 hours
+      jwtid: jwtId // Set the JWT ID in the token
     });
   }
 
   /**
-   * Verify and decode a JWT token
+   * Verify and decode a JWT token, checking if it has been revoked
    */
-  verifyToken(token: string): AuthTokenPayload | null {
+  async verifyToken(token: string): Promise<AuthTokenPayload | null> {
     if (!this.isJwtConfigured()) {
       throw new Error('JWT secret is not configured');
     }
 
     try {
-      return jwt.verify(token, process.env.JWT_SECRET!) as AuthTokenPayload;
+      // First verify the token signature and expiration
+      const payload = jwt.verify(token, process.env.JWT_SECRET!) as AuthTokenPayload;
+      
+      // Check if the token has been revoked
+      if (payload.jti) {
+        const isRevoked = await this.isTokenRevoked(payload.jti);
+        if (isRevoked) {
+          console.warn(`Token with jti ${payload.jti} has been revoked`);
+          return null;
+        }
+      } else {
+        // For backwards compatibility with tokens that don't have jti
+        console.warn('Token does not have a jti claim, skipping revocation check');
+      }
+      
+      return payload;
     } catch (error) {
       console.error('Error verifying token:', error);
       return null;
+    }
+  }
+  
+  /**
+   * Check if a token has been revoked
+   */
+  private async isTokenRevoked(jti: string): Promise<boolean> {
+    try {
+      const { data, error } = await supabase
+        .from('revoked_tokens')
+        .select('token_jti')
+        .eq('token_jti', jti)
+        .single();
+        
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "No rows found"
+        console.error('Error checking for revoked token:', error);
+        // Default to treating the token as valid if we can't check
+        return false;
+      }
+      
+      // If we found a record, the token has been revoked
+      return !!data;
+    } catch (error) {
+      console.error('Exception checking for revoked token:', error);
+      // Default to treating the token as valid if we can't check
+      return false;
+    }
+  }
+
+  /**
+   * Revoke a token (logout)
+   */
+  async revokeToken(token: string, reason: string = 'user_logout'): Promise<boolean> {
+    try {
+      // First decode the token to get the payload without verifying
+      // This allows us to revoke tokens even if they're expired
+      let payload: any;
+      try {
+        // Try to verify the token first to make sure it's valid
+        payload = await this.verifyToken(token);
+      } catch (error) {
+        // If verification fails, try to decode without verification
+        payload = jwt.decode(token) as AuthTokenPayload;
+      }
+      
+      if (!payload || !payload.jti || !payload.userId) {
+        console.error('Cannot revoke token: Invalid or missing jti/userId in token payload');
+        return false;
+      }
+      
+      // Calculate token expiration from the exp claim
+      let expiresAt: Date;
+      if (payload.exp) {
+        expiresAt = new Date(payload.exp * 1000); // exp is in seconds since epoch
+      } else {
+        // Default to 24h from now if exp is missing
+        expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + 24);
+      }
+      
+      // Insert into revoked_tokens table
+      const { error } = await supabase
+        .from('revoked_tokens')
+        .insert({
+          token_jti: payload.jti,
+          user_id: payload.userId,
+          revoked_at: new Date().toISOString(),
+          expires_at: expiresAt.toISOString(),
+          reason
+        });
+        
+      if (error) {
+        console.error('Error revoking token:', error);
+        return false;
+      }
+      
+      // Log the logout action if we have a session ID
+      if (payload.sessionId) {
+        const { logSystemAction } = require('../services/sessionLogsService');
+        logSystemAction('auth:session:revoked', 'User session revoked: ' + reason, 'info', payload.userId).catch((err: Error) => {
+          console.error('Failed to log session revocation:', err);
+        });
+      }
+      
+      // Run cleanup of expired tokens occasionally to keep the table small
+      if (Math.random() < 0.1) { // 10% chance on each logout
+        this.cleanupExpiredRevokedTokens().catch(err => {
+          console.error('Error cleaning up expired revoked tokens:', err);
+        });
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Exception revoking token:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Clean up expired revoked tokens to keep the table small
+   */
+  private async cleanupExpiredRevokedTokens(): Promise<number> {
+    try {
+      const { data, error } = await supabase.rpc('cleanup_expired_revoked_tokens');
+      
+      if (error) {
+        console.error('Error cleaning up expired revoked tokens:', error);
+        return 0;
+      }
+      
+      console.log(`Cleaned up ${data} expired revoked tokens`);
+      return data || 0;
+    } catch (error) {
+      console.error('Exception cleaning up expired revoked tokens:', error);
+      return 0;
     }
   }
 
@@ -185,12 +336,22 @@ class AuthService {
       // Get permissions for the role
       const permissions = await this.getPermissionsForRole(role);
       
+      // Generate a new session ID for Supabase tokens
+      const { resetSessionId, logSystemAction } = require('../services/sessionLogsService');
+      const sessionId = resetSessionId();
+      
+      // Log the Supabase token validation
+      logSystemAction('auth:session:supabase', 'Supabase session validated', 'info', user.id).catch((err: Error) => {
+        console.error('Failed to log Supabase session validation:', err);
+      });
+      
       return {
         id: user.id,
         email: user.email || '',
         name: user.user_metadata?.name || 'User',
         role,
-        permissions
+        permissions,
+        sessionId
       };
     } catch (error) {
       console.error('Error validating Supabase token:', error);
@@ -199,9 +360,9 @@ class AuthService {
   }
 
   /**
-   * Authenticate a user based on credentials using Supabase Auth
+   * Authenticate a user based on credentials using Supabase Auth with session management
    */
-  async authenticateUser(email: string, password: string): Promise<{ user: User; token: string } | null> {
+  async authenticateUser(email: string, password: string): Promise<{ user: User; token: string; sessionId: string } | null> {
     try {
       // Authenticate with Supabase Auth
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -229,12 +390,25 @@ class AuthService {
         permissions
       };
       
-      // Generate our own JWT (optional, you could use Supabase's token)
-      const token = this.generateToken(user);
+      // Generate a new session ID for this login
+      const { resetSessionId, logSystemAction } = require('../services/sessionLogsService');
+      const sessionId = resetSessionId();
+      
+      // Log the login
+      await logSystemAction(
+        'auth:user:login', 
+        `User logged in: ${email}`,
+        'success',
+        data.user.id
+      );
+      
+      // Generate our own JWT with the session ID
+      const token = this.generateToken(user, sessionId);
       
       return {
         user,
-        token
+        token,
+        sessionId
       };
     } catch (error) {
       console.error('Error authenticating user:', error);
@@ -345,26 +519,31 @@ class AuthService {
   }
   
   /**
-   * Register a new user with Supabase Auth
+   * Register a new user with Supabase Auth with enhanced authentication flow
    */
   async registerUser(
     email: string, 
     password: string, 
     name: string, 
-    inviteCode?: string
-  ): Promise<{ user: User; token: string } | null> {
+    inviteCode?: string,
+    paymentVerified?: boolean
+  ): Promise<{ user: User; token: string; sessionId: string } | null> {
     try {
-      let role = UserRole.READONLY; // Default to readonly without invite code
+      let role = UserRole.READONLY; // Default to readonly
       
-      // If invite code is provided, validate it
+      // Determine the appropriate role based on input parameters
       if (inviteCode) {
+        // If invite code is provided, validate it
         const { valid, role: inviteRole } = await this.validateInviteCode(inviteCode);
         if (!valid) {
           throw new Error('Invalid or expired invite code');
         }
         role = inviteRole || UserRole.STAFF;
+      } else if (paymentVerified) {
+        // If payment is verified and no invite code, they can be an owner
+        role = UserRole.OWNER;
       } else if (role !== UserRole.READONLY) {
-        // If trying to register as non-readonly without invite code
+        // Per the App Flow Document, all non-readonly roles require either an invite code or payment verification
         throw new Error('Invite code required for staff and management roles');
       }
       
@@ -398,12 +577,25 @@ class AuthService {
         permissions
       };
       
-      // Generate JWT
-      const token = this.generateToken(user);
+      // Generate a new session ID and log onboarding
+      const { resetSessionId, logSystemAction } = require('../services/sessionLogsService');
+      const sessionId = resetSessionId();
+      
+      // Log the user registration
+      await logSystemAction(
+        'auth:user:registered', 
+        `New user registered: ${email} with role ${role}`,
+        'success',
+        data.user.id
+      );
+      
+      // Generate JWT with the session ID
+      const token = this.generateToken(user, sessionId);
       
       return {
         user,
-        token
+        token,
+        sessionId
       };
     } catch (error) {
       console.error('Error registering user:', error);
