@@ -11,7 +11,7 @@ type AuthContextType = {
     error: Error | null;
     data: { user: User | null; session: Session | null } | null;
   }>;
-  signUp: (email: string, password: string, name: string) => Promise<{
+  signUp: (email: string, password: string, name: string, inviteCode?: string) => Promise<{
     error: Error | null;
     data: { user: User | null; session: Session | null } | null;
   }>;
@@ -54,17 +54,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return await supabase.auth.signInWithPassword({ email, password });
   };
 
-  const signUp = async (email: string, password: string, name: string) => {
-    return await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          name,
-          role: 'staff' // Default role for new users
+  const signUp = async (email: string, password: string, name: string, inviteCode?: string) => {
+    try {
+      // If invite code is provided, verify it
+      let role = 'readonly'; // Default to readonly without invite code
+      
+      if (inviteCode) {
+        // Verify invite code with backend
+        const response = await fetch(`/api/auth/verify-invite/${inviteCode}`);
+        if (!response.ok) {
+          throw new Error('Invalid or expired invite code');
+        }
+        
+        const data = await response.json();
+        if (data.valid && data.role) {
+          role = data.role;
+        } else {
+          throw new Error('Invalid invite code data');
         }
       }
-    });
+      
+      // Register with Supabase
+      const result = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name,
+            role,
+            inviteCode // Store invite code for backend processing
+          }
+        }
+      });
+      
+      // If registration was successful and invite code was provided, inform backend
+      if (!result.error && result.data.user && inviteCode) {
+        try {
+          await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email,
+              password,
+              name,
+              inviteCode
+            })
+          });
+        } catch (error) {
+          console.error('Error informing backend about registration:', error);
+        }
+      }
+      
+      return result;
+    } catch (error: any) {
+      return {
+        error: { message: error.message },
+        data: { user: null, session: null }
+      };
+    }
   };
 
   const signOut = async () => {

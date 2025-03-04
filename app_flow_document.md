@@ -1,30 +1,88 @@
 # App Flow Document
 
 ## Introduction
-
-This application is a voice-driven AI agent designed for cafes and restaurants to manage their inventory using natural, real-time conversation. The main goal of the user journey is to allow staff, managers, inventory specialists, and owners to update and query inventory with minimal friction through voice commands while receiving immediate feedback. The system is built to handle multiple simultaneous users, maintain context through multi-turn dialogue, offer adaptive confirmation strategies, and provide a seamless fallback text-based interface when voice interaction fails. The application is designed with a cloud-based, containerized backend and a mobile-friendly friendly interface that ensures low latency and secure data handling.
+This application is a voice-driven AI agent specifically designed for cafes and restaurants to streamline their inventory management through natural, real-time conversation. By leveraging speech recognition and a flexible confirmation system, staff, managers, and owners can perform updates or queries with minimal friction. The application supports multiple concurrent users, sustains multi-turn dialogues with contextual awareness, and offers a smooth fallback text-based interface if voice interaction fails. Built on a cloud-based, containerized backend and a mobile-friendly frontend, the system delivers low latency and secure data handling for both small and large operations.
 
 ## Onboarding and Sign-In/Sign-Up
+Upon launching the app on a mobile device, tablet, or desktop, users encounter a clean, welcoming landing page.
 
-When a new user or an existing user opens the app on a mobile device or tablet, they first encounter a simple, clear landing page that welcomes them. New users are presented with an onboarding flow that guides them through the registration process. They are asked to provide only minimal personal details, select their role (such as Staff, Manager, Inventory Specialist, Owner, or Read-Only), and accept the voice-specific permissions. In addition to email-based sign-up, social login options are available to simplify the access process. Users who have an account simply sign in using their credentials. For those who forget their password, a recovery option is provided that prompts them to enter their registered email and follow verification steps to reset it. Once authenticated, the user session begins and the app stores a unique session identifier to manage context and permissions throughout the interaction.
+### Account Creation
+- **New User Registration**: Minimal personal details (name, email) and password are required. Users must also agree to voice permissions if they plan to utilize voice commands.
+- **Social Login**: To reduce friction, users can opt for social login mechanisms (e.g., Google, Facebook) if configured.
+- **Role Selection**:
+  - **Owner**: Reserved for paying customers, who either provide proof of payment or an “owner invite code.”
+  - **Staff/Manager**: Requires a valid invite code. If a user attempts to register as staff or manager without this code, the system rejects the registration.
+  - **Inventory Specialist/Read-Only**: May be assigned directly by an owner or manager, or through specialized invites.
+- **Invite Codes**:
+  - The application validates employee invite codes (for staff or manager) through a secure lookup table (e.g., a Supabase table or an in-memory store with limited usage).
+  - Owner roles may also require a special “owner invite code” or a separate payment validation step.
+  - If a code is invalid, an error message is immediately displayed.
+
+### Sign-In
+- **Returning Users**: Provide credentials or use a saved session token from previous logins.
+- **Password Recovery**: If credentials are forgotten, users can request a password reset link sent to their registered email.
+- Once the user is authenticated, the system generates a session identifier (and corresponding JWT) to track context and permissions throughout their interaction.
 
 ## Main Dashboard or Home Page
-
-After a user is successfully logged in, they are directed to a dashboard that is tailored to their role and responsibilities. Staff see a simplified interface with large visual elements displaying key inventory counts, a prominent update area, and a clearly marked “Start Listening” button to initiate voice interaction. Managers and inventory specialists are provided with additional options such as detailed audit logs, reorder thresholds, and administrative settings, while owners have access to global system settings and aggregated reports. The main screen includes a header with clear navigation options and status indicators for system connectivity and current session context. Users can easily navigate from the dashboard to other parts of the application such as detailed item views, historical audit trails, and settings pages.
+After logging in, users land on a role-tailored dashboard:
+- **Staff**: Sees large, high-contrast tiles showing critical inventory levels, a simple button to initiate voice updates, and minimal clutter.
+- **Manager/Inventory Specialist**: Gains additional functionality, such as the ability to review audit logs, adjust reorder thresholds, or manage employee invites.
+- **Owner**: Has full access to system-wide settings, billing details, and aggregated performance reports.
+- A persistent header provides key navigation (e.g., to Inventory, Logs, Settings, or Account), along with real-time status indicators for session context and connectivity.
 
 ## Detailed Feature Flows and Page Transitions
 
-When a user wishes to update inventory, they click on the “Start Listening” button on the dashboard. This action activates the voice interface where the system begins capturing the audio using a streaming ASR pipeline. As the user speaks, a partial transcription appears on the screen in real time, allowing the user to verify that their command is being recognized correctly. Once the spoken command is fully captured, it is passed through an NLP pipeline that uses a pre-trained language model to understand the intent. If the system has high confidence in the command and the update is routine (for example, adding a small number of items), it provides an implicit confirmation by updating the database and echoing the change on the screen. However, if the speech recognition confidence is low, if the input is ambiguous, or if the action involves a large change in inventory, the system pauses and explicitly asks for confirmation. The user is then presented with a voice prompt or an on-screen dialog asking for a yes or no answer, ensuring that any critical or ambiguous changes are verified before they are applied. Once the command is confirmed, the inventory database is updated in real time and an immediate response is generated via both synthesized speech and on-screen notifications. Throughout the flow, users can transition between voice commands and the fallback text-based interface which mirrors the voice flow in terms of validations and confirmation prompts. This design ensures that even in noisy environments or if the voice recognition fails, users can maintain a consistent and connected journey through their updates and queries.
+### Starting a Voice Command
+- Tapping the “Start Listening” button on the dashboard activates streaming ASR (Automatic Speech Recognition).
+- As the user speaks, partial transcriptions appear in real time, allowing immediate correction if recognition drifts.
+
+### Command Interpretation
+- Once speech input concludes, the NLP pipeline interprets the user’s intent. Typical commands might be:
+  - “Add three pounds of coffee beans”
+  - “Remove two gallons of milk”
+  - “Check how much sugar we have left”
+
+### Adaptive Confirmations
+- If the system detects high confidence and a routine update, it proceeds automatically.
+- In ambiguous or high-impact scenarios (e.g., large quantity changes, uncertain recognition), the system requires explicit confirmation.
+- The user receives a prompt (voice + on-screen) to confirm or correct the action.
+
+### Updating Inventory & Feedback
+- Confirmed commands update the inventory database in real time.
+- A synthesized voice message and an on-screen notification confirm that the change was successful.
+- In noisy conditions, or if repeated recognition errors occur, the system seamlessly offers a fallback text input to continue the same flow with typed commands.
 
 ## Settings and Account Management
+From the main dashboard, users can navigate to Settings to manage:
+- **Profile**: Update name, profile picture, password, or contact details.
+- **Voice Preferences**: Set voice recognition language, toggle partial transcriptions, or choose the frequency of spoken feedback.
+- **Notifications**: Adjust push/email notifications related to low-stock alerts or inventory changes.
+- **Role Management & Invites (Managers/Owners)**:
+  - Generate new invite codes for prospective employees.
+  - Review current employee roles, edit permissions if necessary, or deactivate invites.
+  - Owners can also confirm paying-customer status or invite additional owners.
+- **Billing (Owners)**: Manage subscription plans or payment details.
+- Changes are saved immediately. The user can return to the main dashboard with no interruption to their session context.
 
-Users can access a dedicated section from the main dashboard to manage their personal information and account settings. In this area, users can update their profile details, configure voice preference settings, adjust notification preferences, and, if applicable, manage billing information from a secure and easy-to-navigate page. Role-specific functionalities are also available where managers and owners have additional options to invite new users, assign roles, or review audit trails. The settings page is designed so that once changes are saved or updates confirmed, users can return to the main dashboard seamlessly with minimal disruption to their session. The interface ensures that all updates are immediately reflected in the user’s active session and that the application context remains intact across all changes.
+## Employee “Invite-Only” Onboarding
+
+### Invite Validation
+- Staff and Manager roles require a valid code at registration.
+- The app checks this code against a secure store (e.g., Supabase table).
+- If invalid or already used, registration is rejected with a clear error message.
+
+### Owner Invite
+- Paying customers may be provided a special “owner invite code,” or the system can automatically assign the owner role upon payment verification.
+- Owners can generate new invite codes for their employees, simplifying staff onboarding.
 
 ## Error States and Alternate Paths
-
-If users enter invalid data or the system cannot accurately process a voice command, clear error messages are displayed on the screen accompanied by synthesized voice responses. For instance, if the voice recognition system is uncertain about the command or the input is ambiguous, the system prompts the user with clear instructions on how to correct the input. In cases of connectivity issues or when the speech recognition repeatedly fails to capture the voice command correctly, the application automatically offers the fallback text-based interface. In this fallback mode, users are shown a text input field where they can enter the command manually. If a user attempts a restricted action or an operation exceeds their permission level, the system notifies them with a polite message and provides a prompt to either cancel the action or request managerial assistance. Users can also ping managers through the app to propose changes. Similar to a version control pull request, for example. Embedded error logging ensures that any issues encountered during the process are recorded, allowing for reviews and continuous improvement of the system’s performance.
+- **Voice Recognition Failures**: If speech input is too noisy or unclear, the system displays an error prompt and seamlessly offers a text field to re-enter the command.
+- **Invalid Data or Permissions**: If a user attempts to exceed their permission level (e.g., staff tries a manager-only action), a friendly error message appears explaining that they must request higher privileges.
+- **Connectivity Issues**: If the network is unreachable, users are alerted and can continue offline with a local queue that syncs once the connection is restored (if offline mode is supported).
+- **Invite Code Errors**: When a user tries to register as staff/manager without a valid invite code, the system rejects the registration and prompts them to contact the owner or manager for a proper invite.
+- All error events are logged for auditing, ensuring that system performance can be monitored and improved over time.
 
 ## Conclusion and Overall App Journey
+This application unifies voice-driven inventory updates, adaptive confirmations, and robust role-based access control to create an efficient, user-friendly experience for cafes and restaurants. From invite-only onboarding for employees to paid-owner registrations, the system ensures that users are properly vetted and assigned the correct permissions. Once logged in, each user’s dashboard highlights relevant data and tools, making day-to-day inventory tasks straightforward. When commands are issued, immediate feedback—via both text and voice—reassures users that the system understands and applies changes accurately. If ambiguities arise, confirmation steps minimize the risk of critical errors. Fallback text-based inputs and thorough error handling provide continuity in even the busiest or noisiest conditions.
 
-From the initial onboarding to everyday use, the application offers a seamless journey that combines robust voice-driven interaction with a dependable fallback text interface. New users are quickly onboarded with an intuitive sign-up process that includes clear explanations of role-based access and voice-specific permissions. Once logged in, users navigate through a personalized dashboard that highlights key inventory data while offering easy navigation to more specialized features. The core flow begins with the “Start Listening” function, where voice commands are processed in real time with adaptive confirmations to ensure accuracy. Detailed command processing, context-aware updates, and immediate user feedback create a smooth and highly responsive experience even in challenging operational environments. Whether a command is confirmed implicitly in routine updates or explicitly in ambiguous or critical cases, the user experience remains coherent and connected.\
-A successful user experience is contingent of a high speed of inventory input with 100% accuracy, and/or a frictionless ability to course correct errors. Finally, account management and comprehensive error handling provide continuous support and stability throughout the application’s use. Overall, the system enables cafes and restaurants to efficiently manage inventory with advanced voice interaction, while ensuring data integrity, security, and consistent performance even during peak operational periods.
+Overall, the combination of voice interaction, robust onboarding with invite codes and payment validation, and thoughtful role-based design allows businesses to maintain accurate, real-time inventory control with minimal friction and maximum reliability.

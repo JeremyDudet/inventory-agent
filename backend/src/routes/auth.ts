@@ -61,7 +61,7 @@ router.post('/login', async function(req: Request, res: Response, next: NextFunc
 // Register route
 router.post('/register', async function(req: Request, res: Response, next: NextFunction) {
   try {
-    const { email, password, name, role } = req.body;
+    const { email, password, name, inviteCode } = req.body;
 
     if (!email || !password || !name) {
       return res.status(400).json({
@@ -72,40 +72,50 @@ router.post('/register', async function(req: Request, res: Response, next: NextF
       });
     }
 
-    // Validate role
-    const userRole = role || UserRole.STAFF; // Default to staff if role not specified
-    if (!Object.values(UserRole).includes(userRole)) {
-      return res.status(400).json({
-        error: {
-          code: 'INVALID_ROLE',
-          message: 'Invalid role specified',
-        },
-      });
-    }
+    try {
+      // Register the user with invite code
+      const result = await authService.registerUser(email, password, name, inviteCode);
+      
+      if (!result) {
+        return res.status(500).json({
+          error: {
+            code: 'REGISTRATION_FAILED',
+            message: 'Failed to register user',
+          },
+        });
+      }
 
-    // Register the user with Supabase Auth
-    const result = await authService.registerUser(email, password, name, userRole);
-    
-    if (!result) {
-      return res.status(500).json({
-        error: {
-          code: 'REGISTRATION_FAILED',
-          message: 'Failed to register user',
+      res.status(201).json({
+        user: {
+          id: result.user.id,
+          email: result.user.email,
+          name: result.user.name,
+          role: result.user.role,
         },
+        token: result.token,
+        permissions: result.user.permissions,
+        message: 'Registration successful',
       });
+    } catch (error: any) {
+      // Handle specific error for invite code
+      if (error.message && error.message.includes('Invite code required')) {
+        return res.status(400).json({
+          error: {
+            code: 'INVITE_CODE_REQUIRED',
+            message: 'Invite code is required for staff and management roles',
+          },
+        });
+      } else if (error.message && error.message.includes('Invalid or expired invite code')) {
+        return res.status(400).json({
+          error: {
+            code: 'INVALID_INVITE_CODE',
+            message: 'Invalid or expired invite code',
+          },
+        });
+      }
+      
+      throw error; // Re-throw other errors to be caught by the catch block
     }
-
-    res.status(201).json({
-      user: {
-        id: result.user.id,
-        email: result.user.email,
-        name: result.user.name,
-        role: result.user.role,
-      },
-      token: result.token,
-      permissions: result.user.permissions,
-      message: 'Registration successful',
-    });
   } catch (error) {
     console.error('Error during registration:', error);
     next(error);
@@ -223,5 +233,77 @@ export const requirePermission = (permission: string) => {
     }
   };
 };
+
+// Create invite code route
+router.post('/invite-code', requirePermission('user:write'), async function(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { role = UserRole.STAFF, expiresInDays = 7 } = req.body;
+    
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Authentication required',
+        },
+      });
+    }
+    
+    // Validate role
+    if (!Object.values(UserRole).includes(role) || role === UserRole.READONLY) {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_ROLE',
+          message: 'Invalid role for invite code',
+        },
+      });
+    }
+    
+    const inviteCode = await authService.createInviteCode(role, req.user.id, expiresInDays);
+    
+    if (!inviteCode) {
+      return res.status(500).json({
+        error: {
+          code: 'INVITE_CODE_CREATION_FAILED',
+          message: 'Failed to create invite code',
+        },
+      });
+    }
+    
+    res.status(201).json({
+      code: inviteCode.code,
+      role: inviteCode.role,
+      expiresAt: inviteCode.expires_at,
+    });
+  } catch (error) {
+    console.error('Error creating invite code:', error);
+    next(error);
+  }
+});
+
+// Verify invite code route
+router.get('/verify-invite/:code', async function(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { code } = req.params;
+    
+    const result = await authService.validateInviteCode(code);
+    
+    if (!result.valid) {
+      return res.status(404).json({
+        error: {
+          code: 'INVALID_INVITE_CODE',
+          message: 'Invalid or expired invite code',
+        },
+      });
+    }
+    
+    res.status(200).json({
+      valid: true,
+      role: result.role,
+    });
+  } catch (error) {
+    console.error('Error verifying invite code:', error);
+    next(error);
+  }
+});
 
 export default router; 

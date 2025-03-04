@@ -11,6 +11,8 @@ const Register: React.FC = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
+  const [isEmployee, setIsEmployee] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { signUp } = useAuth();
@@ -39,6 +41,11 @@ const Register: React.FC = () => {
       newErrors.confirmPassword = 'Passwords do not match';
     }
     
+    // Validate invite code if user is registering as an employee
+    if (isEmployee && !inviteCode) {
+      newErrors.inviteCode = 'Invite code is required for employee registration';
+    }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -53,7 +60,13 @@ const Register: React.FC = () => {
     setIsLoading(true);
     
     try {
-      const { error } = await signUp(email, password, name);
+      // Only pass invite code if registering as an employee
+      const { error } = await signUp(
+        email, 
+        password, 
+        name, 
+        isEmployee ? inviteCode : undefined
+      );
       
       if (error) {
         addNotification('error', error.message);
@@ -120,7 +133,7 @@ const Register: React.FC = () => {
               {errors.password && <span className="text-error text-xs mt-1">{errors.password}</span>}
             </div>
             
-            <div className="form-control mb-6">
+            <div className="form-control mb-4">
               <label className="label">
                 <span className="label-text">Confirm Password</span>
               </label>
@@ -135,6 +148,41 @@ const Register: React.FC = () => {
                 <span className="text-error text-xs mt-1">{errors.confirmPassword}</span>
               )}
             </div>
+            
+            <div className="form-control mb-4">
+              <label className="label cursor-pointer justify-start gap-2">
+                <input
+                  type="checkbox"
+                  className="checkbox checkbox-primary"
+                  checked={isEmployee}
+                  onChange={(e) => setIsEmployee(e.target.checked)}
+                />
+                <span className="label-text">I'm registering as an employee (staff or manager)</span>
+              </label>
+            </div>
+            
+            {isEmployee && (
+              <div className="form-control mb-6">
+                <label className="label">
+                  <span className="label-text">Invite Code</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Enter your invite code"
+                  className={`input input-bordered w-full ${errors.inviteCode ? 'input-error' : ''}`}
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value)}
+                />
+                {errors.inviteCode && (
+                  <span className="text-error text-xs mt-1">{errors.inviteCode}</span>
+                )}
+                <label className="label">
+                  <span className="label-text-alt text-info">
+                    Employees must have an invite code to register
+                  </span>
+                </label>
+              </div>
+            )}
             
             <div className="form-control">
               <button 

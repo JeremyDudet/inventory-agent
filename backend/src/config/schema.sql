@@ -3,6 +3,7 @@
 
 -- Create extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- Create session_logs table for tracking voice interactions and system events
 CREATE TABLE IF NOT EXISTS session_logs (
@@ -263,3 +264,67 @@ BEGIN
   RETURN permissions->required_permission = 'true';
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create invite_codes table for employee onboarding
+CREATE TABLE IF NOT EXISTS invite_codes (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  code TEXT UNIQUE NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('owner', 'manager', 'staff')),
+  created_by UUID,
+  used_by UUID,
+  used_at TIMESTAMPTZ,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Create indexes for invite code lookups
+CREATE INDEX IF NOT EXISTS invite_codes_code_idx ON invite_codes (code);
+CREATE INDEX IF NOT EXISTS invite_codes_used_idx ON invite_codes (used_by) WHERE used_by IS NULL;
+
+-- Enable Row Level Security for invite_codes
+ALTER TABLE invite_codes ENABLE ROW LEVEL SECURITY;
+
+-- Policy for creating invite codes (only managers and owners)
+CREATE POLICY "Only managers and owners can create invite codes"
+  ON invite_codes
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    auth.jwt() ? 'user_metadata' AND
+    auth.jwt()->'user_metadata' ? 'role' AND
+    (
+      auth.jwt()->'user_metadata'->>'role' = 'manager' OR
+      auth.jwt()->'user_metadata'->>'role' = 'owner'
+    )
+  );
+
+-- Policy for viewing invite codes (only managers and owners)
+CREATE POLICY "Only managers and owners can view invite codes"
+  ON invite_codes
+  FOR SELECT
+  TO authenticated
+  USING (
+    auth.jwt() ? 'user_metadata' AND
+    auth.jwt()->'user_metadata' ? 'role' AND
+    (
+      auth.jwt()->'user_metadata'->>'role' = 'manager' OR
+      auth.jwt()->'user_metadata'->>'role' = 'owner'
+    )
+  );
+
+-- Function to generate a random invite code
+CREATE OR REPLACE FUNCTION generate_invite_code(length INTEGER DEFAULT 8)
+RETURNS TEXT AS $$
+DECLARE
+  chars TEXT := 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  result TEXT := '';
+  i INTEGER := 0;
+  pos INTEGER := 0;
+BEGIN
+  FOR i IN 1..length LOOP
+    pos := 1 + FLOOR(RANDOM() * LENGTH(chars))::INTEGER;
+    result := result || SUBSTRING(chars FROM pos FOR 1);
+  END LOOP;
+  RETURN result;
+END;
+$$ LANGUAGE plpgsql;

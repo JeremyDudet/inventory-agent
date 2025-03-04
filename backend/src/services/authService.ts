@@ -66,6 +66,17 @@ const rolePermissions: Record<UserRole, UserPermissions> = {
   }
 };
 
+interface InviteCode {
+  id: string;
+  code: string;
+  role: UserRole;
+  created_by?: string;
+  used_by?: string;
+  used_at?: string;
+  expires_at: string;
+  created_at: string;
+}
+
 class AuthService {
   /**
    * Helper to check if JWT secret is configured
@@ -221,10 +232,131 @@ class AuthService {
   }
   
   /**
+   * Create a new invite code
+   */
+  async createInviteCode(role: UserRole, createdBy: string, expiresInDays: number = 7): Promise<InviteCode | null> {
+    try {
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + expiresInDays);
+      
+      const { data, error } = await supabase.rpc('generate_invite_code');
+      if (error) {
+        console.error('Error generating invite code:', error);
+        // Fallback to simple random code if RPC fails
+        const code = Math.random().toString(36).substring(2, 10).toUpperCase();
+        
+        // Insert the invite code into the database
+        const { data: inviteData, error: insertError } = await supabase
+          .from('invite_codes')
+          .insert({
+            code: code,
+            role: role,
+            created_by: createdBy,
+            expires_at: expiresAt.toISOString()
+          })
+          .select()
+          .single();
+          
+        if (insertError) {
+          console.error('Error creating invite code:', insertError);
+          return null;
+        }
+        
+        return inviteData as InviteCode;
+      }
+      
+      // Insert the generated code
+      const { data: inviteData, error: insertError } = await supabase
+        .from('invite_codes')
+        .insert({
+          code: data,
+          role: role,
+          created_by: createdBy,
+          expires_at: expiresAt.toISOString()
+        })
+        .select()
+        .single();
+        
+      if (insertError) {
+        console.error('Error creating invite code:', insertError);
+        return null;
+      }
+      
+      return inviteData as InviteCode;
+    } catch (error) {
+      console.error('Error creating invite code:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Validate an invite code
+   */
+  async validateInviteCode(code: string): Promise<{ valid: boolean; role?: UserRole }> {
+    try {
+      const { data, error } = await supabase
+        .from('invite_codes')
+        .select('role, expires_at')
+        .eq('code', code)
+        .is('used_by', null)
+        .gt('expires_at', new Date().toISOString())
+        .single();
+      
+      if (error || !data) {
+        return { valid: false };
+      }
+      
+      return { valid: true, role: data.role as UserRole };
+    } catch (error) {
+      console.error('Error validating invite code:', error);
+      return { valid: false };
+    }
+  }
+  
+  /**
+   * Mark an invite code as used
+   */
+  async markInviteCodeAsUsed(code: string, userId: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('invite_codes')
+        .update({
+          used_by: userId,
+          used_at: new Date().toISOString()
+        })
+        .eq('code', code);
+      
+      return !error;
+    } catch (error) {
+      console.error('Error marking invite code as used:', error);
+      return false;
+    }
+  }
+  
+  /**
    * Register a new user with Supabase Auth
    */
-  async registerUser(email: string, password: string, name: string, role: UserRole = UserRole.STAFF): Promise<{ user: User; token: string } | null> {
+  async registerUser(
+    email: string, 
+    password: string, 
+    name: string, 
+    inviteCode?: string
+  ): Promise<{ user: User; token: string } | null> {
     try {
+      let role = UserRole.READONLY; // Default to readonly without invite code
+      
+      // If invite code is provided, validate it
+      if (inviteCode) {
+        const { valid, role: inviteRole } = await this.validateInviteCode(inviteCode);
+        if (!valid) {
+          throw new Error('Invalid or expired invite code');
+        }
+        role = inviteRole || UserRole.STAFF;
+      } else if (role !== UserRole.READONLY) {
+        // If trying to register as non-readonly without invite code
+        throw new Error('Invite code required for staff and management roles');
+      }
+      
       // Register with Supabase Auth
       const { data, error } = await supabase.auth.admin.createUser({
         email,
@@ -236,6 +368,11 @@ class AuthService {
       if (error || !data.user) {
         console.error('Supabase registration error:', error);
         return null;
+      }
+      
+      // If invite code was provided, mark it as used
+      if (inviteCode) {
+        await this.markInviteCodeAsUsed(inviteCode, data.user.id);
       }
       
       // Get permissions for the role
