@@ -93,7 +93,7 @@ const InventoryModal: React.FC<InventoryModalProps> = ({
       onSave({
         ...item,
         ...formData,
-        lastUpdated: new Date().toISOString()
+        lastupdated: new Date().toISOString()
       } as InventoryItem);
     }
   };

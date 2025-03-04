@@ -29,7 +29,8 @@ interface InventoryItem {
 }
 
 interface InventoryUpdateRequest {
-  item: string;
+  item?: string;      // Item name (when using voice commands)
+  itemId?: string;    // Item ID (when using direct selection)
   action: 'add' | 'remove' | 'set';
   quantity: number;
   unit: string;

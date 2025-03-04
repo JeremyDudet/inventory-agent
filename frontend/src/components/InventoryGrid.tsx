@@ -10,7 +10,7 @@ export interface InventoryItem {
   unit: string;
   category: string;
   threshold?: number;
-  lastUpdated: string;
+  lastupdated: string;
 }
 
 interface InventoryGridProps {
@@ -67,7 +67,7 @@ const InventoryGrid: React.FC<InventoryGridProps> = ({
               unit={item.unit}
               category={item.category}
               threshold={item.threshold}
-              lastUpdated={item.lastUpdated}
+              lastupdated={item.lastupdated}
               onSelect={handleSelect}
             />
           ))}

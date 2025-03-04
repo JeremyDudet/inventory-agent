@@ -1,13 +1,6 @@
 // backend/src/services/inventoryService.ts
-import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
-
-dotenv.config();
-
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import supabase from '../config/db';
+import { INVENTORY_TABLE } from '../models/InventoryItem';
 
 interface InventoryUpdate {
   action: string;
@@ -23,7 +16,7 @@ class InventoryService {
     try {
       // Find the item (case-insensitive partial match)
       const { data: items, error: fetchError } = await supabase
-        .from('inventory')
+        .from(INVENTORY_TABLE)
         .select('*')
         .ilike('name', `%${update.item}%`)
         .limit(1);
@@ -51,11 +44,11 @@ class InventoryService {
       }
 
       const { error: updateError } = await supabase
-        .from('inventory')
+        .from(INVENTORY_TABLE)
         .update({
           quantity: newQuantity,
           unit: update.unit, // Update unit if changed
-          last_updated: new Date().toISOString()
+          lastupdated: new Date().toISOString()
         })
         .eq('id', item.id);
 
@@ -71,9 +64,9 @@ class InventoryService {
 
   async fetchInventory(): Promise<any[]> {
     const { data, error } = await supabase
-      .from('inventory')
+      .from(INVENTORY_TABLE)
       .select('*')
-      .order('last_updated', { ascending: false });
+      .order('lastupdated', { ascending: false });
 
     if (error) {
       console.error('📦 Error fetching inventory:', error);

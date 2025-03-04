@@ -71,14 +71,20 @@ const Dashboard: React.FC = () => {
 
   const fetchInventory = async (): Promise<InventoryItem[]> => {
     const { data, error } = await supabase
-      .from('inventory')
+      .from('inventory_items')
       .select('*')
-      .order('last_updated', { ascending: false });
+      .order('lastupdated', { ascending: false });
 
     if (error) {
       console.error('Error fetching inventory:', error);
       addNotification('error', 'Failed to load inventory');
       return [];
+    }
+
+    // Log the first item to see the format of lastupdated
+    if (data && data.length > 0) {
+      console.log('First item lastupdated:', data[0].lastupdated);
+      console.log('First item full data:', data[0]);
     }
 
     return data.map(item => ({
@@ -88,7 +94,7 @@ const Dashboard: React.FC = () => {
       unit: item.unit,
       category: item.category,
       threshold: item.threshold,
-      lastUpdated: item.last_updated,
+      lastupdated: item.lastupdated,
     }));
   };
 
@@ -140,29 +146,48 @@ const Dashboard: React.FC = () => {
     setIsConnected(connected);
   };
 
-  const handleInventoryUpdate = async (update: { item: string; action: string; quantity: number; unit: string }) => {
+  const handleInventoryUpdate = async (update: { item: string; itemId?: string; action: string; quantity: number; unit: string }) => {
     try {
-      const { data: items, error: fetchError } = await supabase
-        .from('inventory')
-        .select('*')
-        .ilike('name', `%${update.item}%`)
-        .limit(1);
+      let itemToUpdate;
+      
+      if (update.itemId) {
+        // If itemId is provided, use it directly
+        const { data: item, error: fetchError } = await supabase
+          .from('inventory_items')
+          .select('*')
+          .eq('id', update.itemId)
+          .single();
+          
+        if (fetchError) throw fetchError;
+        itemToUpdate = item;
+      } else if (update.item) {
+        // If item name is provided, search for it
+        const { data: items, error: fetchError } = await supabase
+          .from('inventory_items')
+          .select('*')
+          .ilike('name', `%${update.item}%`)
+          .limit(1);
 
-      if (fetchError) throw fetchError;
-      if (!items || items.length === 0) {
-        addNotification('error', `Item "${update.item}" not found`);
+        if (fetchError) throw fetchError;
+        if (!items || items.length === 0) {
+          addNotification('error', `Item "${update.item}" not found`);
+          return;
+        }
+        
+        itemToUpdate = items[0];
+      } else {
+        addNotification('error', 'No item specified for update');
         return;
       }
 
-      const item = items[0];
       let newQuantity: number;
 
       switch (update.action.toLowerCase()) {
         case 'add':
-          newQuantity = item.quantity + update.quantity;
+          newQuantity = itemToUpdate.quantity + update.quantity;
           break;
         case 'remove':
-          newQuantity = Math.max(0, item.quantity - update.quantity);
+          newQuantity = Math.max(0, itemToUpdate.quantity - update.quantity);
           break;
         case 'set':
           newQuantity = update.quantity;
@@ -173,20 +198,20 @@ const Dashboard: React.FC = () => {
       }
 
       const { error: updateError } = await supabase
-        .from('inventory')
+        .from('inventory_items')
         .update({
           quantity: newQuantity,
           unit: update.unit,
-          last_updated: new Date().toISOString()
+          lastupdated: new Date().toISOString()
         })
-        .eq('id', item.id);
+        .eq('id', itemToUpdate.id);
 
       if (updateError) throw updateError;
 
       // Refresh inventory
       const updatedInventory = await fetchInventory();
       setInventory(updatedInventory);
-      addNotification('success', `${update.action}ed ${update.quantity} ${update.unit} of ${item.name}`);
+      addNotification('success', `${update.action}ed ${update.quantity} ${update.unit} of ${itemToUpdate.name}`);
     } catch (error) {
       console.error('Error updating inventory:', error);
       addNotification('error', 'Failed to update inventory');

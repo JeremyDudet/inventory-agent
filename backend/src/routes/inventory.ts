@@ -12,7 +12,7 @@ const router = express.Router();
 
 // Helper to check if Supabase is properly configured
 const isSupabaseConfigured = () => {
-  return process.env.SUPABASE_URL && process.env.SUPABASE_KEY;
+  return process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY);
 };
 
 // Get all inventory items
@@ -212,7 +212,7 @@ router.post('/update', async (req, res, next) => {
       // Prepare update data
       const updateData: InventoryItemUpdate = {
         quantity: newQuantity,
-        lastUpdated: new Date().toISOString(),
+        lastupdated: new Date().toISOString(),
       };
       
       // Update unit if provided
@@ -223,7 +223,11 @@ router.post('/update', async (req, res, next) => {
       // Update in database
       const { data: updatedItem, error: updateError } = await supabase
         .from(INVENTORY_TABLE)
-        .update(updateData)
+        .update({
+          quantity: updateData.quantity,
+          unit: updateData.unit,
+          lastupdated: updateData.lastupdated
+        })
         .eq('id', foundItem.id)
         .select()
         .single();
@@ -286,7 +290,7 @@ router.post('/update', async (req, res, next) => {
       }
       
       // Update lastUpdated timestamp
-      foundItem.lastUpdated = new Date().toISOString();
+      foundItem.lastupdated = new Date().toISOString();
       
       // Update mock inventory
       mockInventory[itemIndex] = foundItem;
@@ -352,7 +356,7 @@ router.post('/add-item', async (req, res, next) => {
         quantity: Number(quantity),
         unit,
         category,
-        lastUpdated: new Date().toISOString(),
+        lastupdated: new Date().toISOString(),
       };
       
       // Add threshold if provided
@@ -363,7 +367,14 @@ router.post('/add-item', async (req, res, next) => {
       // Insert into database
       const { data, error: insertError } = await supabase
         .from(INVENTORY_TABLE)
-        .insert(newItem)
+        .insert({
+          name: newItem.name,
+          quantity: newItem.quantity,
+          unit: newItem.unit,
+          category: newItem.category,
+          threshold: newItem.threshold,
+          lastupdated: newItem.lastupdated
+        })
         .select()
         .single();
       
@@ -391,7 +402,7 @@ router.post('/add-item', async (req, res, next) => {
         quantity: Number(quantity),
         unit,
         category,
-        lastUpdated: new Date().toISOString(),
+        lastupdated: new Date().toISOString(),
       };
       
       // Add threshold if provided

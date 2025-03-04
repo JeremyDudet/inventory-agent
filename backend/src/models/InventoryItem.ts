@@ -6,14 +6,14 @@ export interface InventoryItem {
   unit: string;
   category: string;
   threshold?: number;  // Alert threshold for low inventory
-  lastUpdated: string;
-  createdAt?: string;
-  updatedAt?: string;
+  lastupdated: string;
+  createdat?: string;
+  updatedat?: string;
 }
 
 // Supabase database types for inventory items
-export type InventoryItemInsert = Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt'>;
-export type InventoryItemUpdate = Partial<Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt'>>;
+export type InventoryItemInsert = Omit<InventoryItem, 'id' | 'createdat' | 'updatedat'>;
+export type InventoryItemUpdate = Partial<Omit<InventoryItem, 'id' | 'createdat' | 'updatedat'>>;
 
 // Database table name
 export const INVENTORY_TABLE = 'inventory_items';
@@ -27,7 +27,7 @@ export const mockInventory: InventoryItem[] = [
     unit: 'pounds',
     category: 'ingredients',
     threshold: 10,
-    lastUpdated: new Date().toISOString(),
+    lastupdated: new Date().toISOString(),
   },
   {
     id: '2',
@@ -36,7 +36,7 @@ export const mockInventory: InventoryItem[] = [
     unit: 'gallons',
     category: 'dairy',
     threshold: 3,
-    lastUpdated: new Date().toISOString(),
+    lastupdated: new Date().toISOString(),
   },
   {
     id: '3',
@@ -45,7 +45,7 @@ export const mockInventory: InventoryItem[] = [
     unit: 'pounds',
     category: 'ingredients',
     threshold: 5,
-    lastUpdated: new Date().toISOString(),
+    lastupdated: new Date().toISOString(),
   },
   {
     id: '4',
@@ -54,6 +54,6 @@ export const mockInventory: InventoryItem[] = [
     unit: 'pieces',
     category: 'supplies',
     threshold: 100,
-    lastUpdated: new Date().toISOString(),
+    lastupdated: new Date().toISOString(),
   },
 ]; 

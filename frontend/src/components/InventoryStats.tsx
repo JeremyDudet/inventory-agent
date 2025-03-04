@@ -41,7 +41,7 @@ const InventoryStats: React.FC<InventoryStatsProps> = ({ items }) => {
     oneDayAgo.setDate(oneDayAgo.getDate() - 1);
     
     const recentlyUpdated = items.filter(item => 
-      new Date(item.lastUpdated) > oneDayAgo
+      new Date(item.last_updated) > oneDayAgo
     );
     
     return {

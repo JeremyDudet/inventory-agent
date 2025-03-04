@@ -272,6 +272,7 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
 
   const handleInventoryUpdate = (data: { action: string; item: string; quantity: number; unit: string }) => {
     if (data.action !== 'unknown') {
+      // Pass item name to the parent component
       onUpdate(data);
       setPendingConfirmation(null);
       setFeedback(`Updated: ${data.action}ed ${data.quantity} ${data.unit} of ${data.item}`);
