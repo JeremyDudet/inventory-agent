@@ -137,13 +137,15 @@ router.get('/:id', async (req, res, next) => {
 // Update inventory (add, remove, or set quantity)
 router.post('/update', async (req, res, next) => {
   try {
-    const { itemId, action, quantity, unit } = req.body;
+    // Accept either itemId or item name
+    const { itemId, item, action, quantity, unit } = req.body;
     
-    if (!itemId || !action || quantity === undefined) {
+    // Check for required fields - either itemId or item name must be provided
+    if ((!itemId && !item) || !action || quantity === undefined) {
       return res.status(400).json({
         error: {
           code: 'MISSING_FIELDS',
-          message: 'Item ID, action, and quantity are required',
+          message: 'Either Item ID or Item name, action, and quantity are required',
         },
       });
     }
@@ -160,23 +162,19 @@ router.post('/update', async (req, res, next) => {
     
     // Using Supabase if configured
     if (isSupabaseConfigured()) {
-      // First, get the current item to calculate the new quantity
-      const { data: item, error: fetchError } = await supabase
-        .from(INVENTORY_TABLE)
-        .select('*')
-        .eq('id', itemId)
-        .single();
+      // Query for item - either by ID or by name
+      let query = supabase.from(INVENTORY_TABLE).select('*');
+      
+      if (itemId) {
+        query = query.eq('id', itemId);
+      } else if (item) {
+        query = query.ilike('name', `%${item}%`);
+      }
+      
+      // Find the item
+      const { data: items, error: fetchError } = await query.limit(1);
       
       if (fetchError) {
-        if (fetchError.code === 'PGRST116') {
-          return res.status(404).json({
-            error: {
-              code: 'ITEM_NOT_FOUND',
-              message: 'Inventory item not found',
-            },
-          });
-        }
-        
         return res.status(500).json({
           error: {
             code: 'DATABASE_ERROR',
@@ -186,14 +184,25 @@ router.post('/update', async (req, res, next) => {
         });
       }
       
+      if (!items || items.length === 0) {
+        return res.status(404).json({
+          error: {
+            code: 'ITEM_NOT_FOUND',
+            message: 'Inventory item not found',
+          },
+        });
+      }
+      
+      const foundItem = items[0];
+      
       // Calculate new quantity based on action
-      let newQuantity = item.quantity;
+      let newQuantity = foundItem.quantity;
       switch (action) {
         case 'add':
           newQuantity += Number(quantity);
           break;
         case 'remove':
-          newQuantity = Math.max(0, item.quantity - Number(quantity));
+          newQuantity = Math.max(0, foundItem.quantity - Number(quantity));
           break;
         case 'set':
           newQuantity = Number(quantity);
@@ -215,7 +224,7 @@ router.post('/update', async (req, res, next) => {
       const { data: updatedItem, error: updateError } = await supabase
         .from(INVENTORY_TABLE)
         .update(updateData)
-        .eq('id', itemId)
+        .eq('id', foundItem.id)
         .select()
         .single();
       
@@ -237,7 +246,15 @@ router.post('/update', async (req, res, next) => {
     } else {
       console.warn('Supabase not configured, using mock data');
       // Fall back to mock data
-      const itemIndex = mockInventory.findIndex(item => item.id === itemId);
+      let itemIndex = -1;
+      
+      if (itemId) {
+        itemIndex = mockInventory.findIndex(inventoryItem => inventoryItem.id === itemId);
+      } else if (item) {
+        itemIndex = mockInventory.findIndex(inventoryItem => 
+          inventoryItem.name.toLowerCase().includes(item.toLowerCase())
+        );
+      }
       
       if (itemIndex === -1) {
         return res.status(404).json({
@@ -248,35 +265,35 @@ router.post('/update', async (req, res, next) => {
         });
       }
       
-      const item = { ...mockInventory[itemIndex] };
+      const foundItem = { ...mockInventory[itemIndex] };
       
       // Update quantity based on action
       switch (action) {
         case 'add':
-          item.quantity += Number(quantity);
+          foundItem.quantity += Number(quantity);
           break;
         case 'remove':
-          item.quantity = Math.max(0, item.quantity - Number(quantity));
+          foundItem.quantity = Math.max(0, foundItem.quantity - Number(quantity));
           break;
         case 'set':
-          item.quantity = Number(quantity);
+          foundItem.quantity = Number(quantity);
           break;
       }
       
       // Update unit if provided
       if (unit) {
-        item.unit = unit;
+        foundItem.unit = unit;
       }
       
       // Update lastUpdated timestamp
-      item.lastUpdated = new Date().toISOString();
+      foundItem.lastUpdated = new Date().toISOString();
       
       // Update mock inventory
-      mockInventory[itemIndex] = item;
+      mockInventory[itemIndex] = foundItem;
       
       return res.status(200).json({
-        item,
-        message: `Inventory updated successfully: ${action} ${quantity} ${item.unit} of ${item.name}`,
+        item: foundItem,
+        message: `Inventory updated successfully: ${action} ${quantity} ${foundItem.unit} of ${foundItem.name}`,
         source: 'mock'
       });
     }

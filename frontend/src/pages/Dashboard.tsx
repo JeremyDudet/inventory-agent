@@ -3,19 +3,14 @@ import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotification } from '../context/NotificationContext';
 import { useAuth } from '../context/AuthContext';
-import { createClient } from '@supabase/supabase-js';
 import InventoryGrid, { InventoryItem } from '../components/InventoryGrid';
 import LoadingSpinner from '../components/LoadingSpinner';
 import AudioVisualizer from '../components/AudioVisualizer';
 import MinimizedAudioVisualizer from '../components/MinimizedAudioVisualizer';
 import ThemeToggle from '../components/ThemeToggle';
+import supabase from '../config/supabase';
 
 const VoiceControl = lazy(() => import('../components/VoiceControl'));
-
-// Supabase setup
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 interface User {
   email: string;

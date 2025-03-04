@@ -2,8 +2,8 @@
  * API service for making calls to the backend
  */
 
-// API base URL
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+// API base URL using Vite environment variables
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 // Types
 interface LoginCredentials {

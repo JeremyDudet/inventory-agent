@@ -1,11 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { createClient, Session, SupabaseClient, User } from '@supabase/supabase-js';
+import { Session, SupabaseClient, User } from '@supabase/supabase-js';
 import { useNavigate } from 'react-router-dom';
-
-// Initialize Supabase client
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import supabase from '../config/supabase';
 
 type AuthContextType = {
   user: User | null;

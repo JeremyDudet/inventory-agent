@@ -5,7 +5,7 @@ import {
   resetSessionId, 
   getSessionId 
 } from '../services/sessionLogsService';
-import { authMiddleware as authenticate } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
 import { UserRole } from '../services/authService';
 
 const router = express.Router();
@@ -68,13 +68,9 @@ const getUserSessionsHandler = async (req: express.Request, res: express.Respons
 };
 
 // Get all sessions for a user - keeping authentication required here
-// Use the synchronous authenticate function first
 router.get('/user/:userId/sessions', 
-  // Pass the authenticate function directly - it will be called with (req, res, next)
-  function(req, res, next) {
-    // Call the authenticate function explicitly
-    authenticate(req, res, next);
-  }, 
+  // Pass the authMiddleware function directly - it will be called with (req, res, next)
+  authMiddleware, 
   // Then use our handler
   getUserSessionsHandler
 );
