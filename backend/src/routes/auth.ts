@@ -306,4 +306,275 @@ router.get('/verify-invite/:code', async function(req: Request, res: Response, n
   }
 });
 
+// Create a new role
+router.post('/roles', requirePermission('user:write'), async function(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { name, permissions, description } = req.body;
+    
+    // Validate input
+    if (!name || !permissions) {
+      return res.status(400).json({
+        error: {
+          code: 'MISSING_FIELDS',
+          message: 'Role name and permissions are required',
+        },
+      });
+    }
+    
+    // Ensure the user is an owner for this operation
+    if (!req.user || req.user.role !== UserRole.OWNER) {
+      return res.status(403).json({
+        error: {
+          code: 'FORBIDDEN',
+          message: 'Only owners can create new roles',
+        },
+      });
+    }
+    
+    // Validate that permissions object contains all required keys
+    const requiredPermissions = ['inventory:read', 'inventory:write', 'inventory:delete', 'user:read', 'user:write'];
+    const missingPermissions = requiredPermissions.filter(perm => !(perm in permissions));
+    
+    if (missingPermissions.length > 0) {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_PERMISSIONS',
+          message: `Missing required permissions: ${missingPermissions.join(', ')}`,
+        },
+      });
+    }
+    
+    // Check if role already exists
+    const { data: existingRole } = await supabase
+      .from('user_roles')
+      .select('name')
+      .eq('name', name)
+      .single();
+      
+    if (existingRole) {
+      return res.status(400).json({
+        error: {
+          code: 'ROLE_EXISTS',
+          message: `Role "${name}" already exists`,
+        },
+      });
+    }
+    
+    // Create the new role
+    const { data, error } = await supabase
+      .from('user_roles')
+      .insert({
+        name,
+        permissions,
+        description: description || `Custom role: ${name}`,
+      })
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Error creating role:', error);
+      return res.status(500).json({
+        error: {
+          code: 'ROLE_CREATION_FAILED',
+          message: 'Failed to create role',
+        },
+      });
+    }
+    
+    res.status(201).json({
+      message: 'Role created successfully',
+      role: data,
+    });
+  } catch (error) {
+    console.error('Error creating role:', error);
+    next(error);
+  }
+});
+
+// Get all roles and their permissions
+router.get('/roles', requirePermission('user:read'), async function(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('*')
+      .order('name');
+    
+    if (error) {
+      console.error('Error fetching roles:', error);
+      return res.status(500).json({
+        error: {
+          code: 'ROLES_FETCH_FAILED',
+          message: 'Failed to fetch roles',
+        },
+      });
+    }
+    
+    res.status(200).json({ roles: data });
+  } catch (error) {
+    console.error('Error fetching roles:', error);
+    next(error);
+  }
+});
+
+// Update role permissions (Only available to owner)
+router.put('/roles/:name', requirePermission('user:write'), async function(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { name } = req.params;
+    const { permissions } = req.body;
+    
+    // Validate input
+    if (!name || !permissions) {
+      return res.status(400).json({
+        error: {
+          code: 'MISSING_FIELDS',
+          message: 'Role name and permissions are required',
+        },
+      });
+    }
+    
+    // Ensure the user is an owner for this operation
+    if (!req.user || req.user.role !== UserRole.OWNER) {
+      return res.status(403).json({
+        error: {
+          code: 'FORBIDDEN',
+          message: 'Only owners can update role permissions',
+        },
+      });
+    }
+    
+    // Validate that permissions object contains all required keys
+    const requiredPermissions = ['inventory:read', 'inventory:write', 'inventory:delete', 'user:read', 'user:write'];
+    const missingPermissions = requiredPermissions.filter(perm => !(perm in permissions));
+    
+    if (missingPermissions.length > 0) {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_PERMISSIONS',
+          message: `Missing required permissions: ${missingPermissions.join(', ')}`,
+        },
+      });
+    }
+    
+    // Prevent modifying owner role permissions for critical capabilities
+    if (name === UserRole.OWNER) {
+      const criticalPermissions = ['user:write', 'user:read'];
+      for (const perm of criticalPermissions) {
+        if (permissions[perm] === false) {
+          return res.status(400).json({
+            error: {
+              code: 'INVALID_PERMISSIONS',
+              message: `Cannot remove critical permission '${perm}' from owner role`,
+            },
+          });
+        }
+      }
+    }
+    
+    // Update the role permissions
+    const { data, error } = await supabase
+      .from('user_roles')
+      .update({ permissions, updatedAt: new Date().toISOString() })
+      .eq('name', name)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Error updating role permissions:', error);
+      return res.status(500).json({
+        error: {
+          code: 'ROLE_UPDATE_FAILED',
+          message: 'Failed to update role permissions',
+        },
+      });
+    }
+    
+    res.status(200).json({
+      message: 'Role permissions updated successfully',
+      role: data,
+    });
+  } catch (error) {
+    console.error('Error updating role permissions:', error);
+    next(error);
+  }
+});
+
+// Delete a role (only available to owner, cannot delete built-in roles)
+router.delete('/roles/:name', requirePermission('user:write'), async function(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { name } = req.params;
+    
+    // Ensure the user is an owner for this operation
+    if (!req.user || req.user.role !== UserRole.OWNER) {
+      return res.status(403).json({
+        error: {
+          code: 'FORBIDDEN',
+          message: 'Only owners can delete roles',
+        },
+      });
+    }
+    
+    // Prevent deleting built-in roles
+    const builtInRoles = [UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF, UserRole.READONLY];
+    if (builtInRoles.includes(name as UserRole)) {
+      return res.status(400).json({
+        error: {
+          code: 'CANNOT_DELETE_BUILTIN_ROLE',
+          message: `Cannot delete built-in role: ${name}`,
+        },
+      });
+    }
+    
+    // Check if role is currently in use by any users
+    const { data: userCount, error: userCountError } = await supabase.auth.admin.listUsers();
+    
+    if (userCountError) {
+      console.error('Error checking users for role:', userCountError);
+      return res.status(500).json({
+        error: {
+          code: 'USER_CHECK_FAILED',
+          message: 'Failed to check if role is in use',
+        },
+      });
+    }
+    
+    // Check if any users have this role
+    const usersWithRole = userCount.users.filter(user => 
+      user.user_metadata && user.user_metadata.role === name
+    );
+    
+    if (usersWithRole.length > 0) {
+      return res.status(400).json({
+        error: {
+          code: 'ROLE_IN_USE',
+          message: `Cannot delete role "${name}" because it is assigned to ${usersWithRole.length} user(s)`,
+          usersCount: usersWithRole.length,
+        },
+      });
+    }
+    
+    // Delete the role
+    const { error } = await supabase
+      .from('user_roles')
+      .delete()
+      .eq('name', name);
+    
+    if (error) {
+      console.error('Error deleting role:', error);
+      return res.status(500).json({
+        error: {
+          code: 'ROLE_DELETE_FAILED',
+          message: 'Failed to delete role',
+        },
+      });
+    }
+    
+    res.status(200).json({
+      message: `Role "${name}" deleted successfully`,
+    });
+  } catch (error) {
+    console.error('Error deleting role:', error);
+    next(error);
+  }
+});
+
 export default router; 

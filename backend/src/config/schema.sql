@@ -50,9 +50,21 @@ CREATE TABLE IF NOT EXISTS user_roles (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL UNIQUE,
   permissions JSONB NOT NULL DEFAULT '{}'::jsonb,
+  description TEXT,
   createdAt TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updatedAt TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Add description column if it doesn't exist (for backwards compatibility)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT FROM information_schema.columns 
+    WHERE table_name = 'user_roles' AND column_name = 'description'
+  ) THEN
+    ALTER TABLE user_roles ADD COLUMN description TEXT;
+  END IF;
+END $$;
 
 -- Create inventory_updates table for tracking history
 CREATE TABLE IF NOT EXISTS inventory_updates (
@@ -126,14 +138,22 @@ AFTER UPDATE ON inventory_items
 FOR EACH ROW
 EXECUTE FUNCTION log_inventory_update();
 
--- Insert default roles
-INSERT INTO user_roles (name, permissions)
+-- Insert or update default roles with permissions
+-- Using ON CONFLICT DO UPDATE to ensure existing installations get updated permissions
+INSERT INTO user_roles (name, permissions, description)
 VALUES 
-  ('owner', '{"inventory:read": true, "inventory:write": true, "inventory:delete": true, "user:read": true, "user:write": true}'::jsonb),
-  ('manager', '{"inventory:read": true, "inventory:write": true, "inventory:delete": false, "user:read": true, "user:write": false}'::jsonb),
-  ('staff', '{"inventory:read": true, "inventory:write": true, "inventory:delete": false, "user:read": false, "user:write": false}'::jsonb),
-  ('readonly', '{"inventory:read": true, "inventory:write": false, "inventory:delete": false, "user:read": false, "user:write": false}'::jsonb)
-ON CONFLICT (name) DO NOTHING;
+  ('owner', '{"inventory:read": true, "inventory:write": true, "inventory:delete": true, "user:read": true, "user:write": true}'::jsonb, 
+   'Full system access with all permissions'),
+  ('manager', '{"inventory:read": true, "inventory:write": true, "inventory:delete": false, "user:read": true, "user:write": false}'::jsonb,
+   'Can manage inventory and view users but cannot modify user permissions'),
+  ('staff', '{"inventory:read": true, "inventory:write": true, "inventory:delete": false, "user:read": false, "user:write": false}'::jsonb,
+   'Can view and update inventory but cannot manage users'),
+  ('readonly', '{"inventory:read": true, "inventory:write": false, "inventory:delete": false, "user:read": false, "user:write": false}'::jsonb,
+   'Can only view inventory information')
+ON CONFLICT (name) DO UPDATE 
+SET permissions = EXCLUDED.permissions,
+    description = EXCLUDED.description,
+    updatedAt = NOW();
 
 -- Insert some sample inventory items if needed for testing
 INSERT INTO inventory_items (name, quantity, unit, category, threshold)

@@ -9,7 +9,8 @@ A voice-driven AI agent designed for cafes/restaurants to manage inventory via n
 - Natural language processing for command interpretation
 - Adaptive confirmation strategies
 - Multi-turn context retention
-- Role-based access control
+- Role-based access control with invite-only registration for staff/managers and payment-verified owners
+- Secure JWT-based authentication with session tracking
 
 ## Tech Stack
 
@@ -69,13 +70,9 @@ A voice-driven AI agent designed for cafes/restaurants to manage inventory via n
 
 ## Usage
 
-1. Log in with the demo credentials:
-   - Email: demo@example.com
-   - Password: password
-
-2. Navigate to the dashboard
-
-3. Click the microphone button to start voice recognition
+1. Log in with demo credentials (email: demo@example.com, password: password) or register with an invite code (e.g., "STAFF123").
+2. Navigate to the dashboard; role-specific features (e.g., invite generation for managers) are gated by permissions.
+3. Use voice commands or manual input to manage inventory.
 
 4. Speak commands like:
    - "Add 5 pounds of coffee beans"

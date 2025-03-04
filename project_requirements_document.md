@@ -16,10 +16,10 @@ The project is being built to address the unique challenges of busy café and re
     *   Multi-turn context retention to support coherent dialogues.
     *   Barge-in support allowing users to interrupt ongoing TTS for corrections.
 
-*   Multi-user session management:
-
-    *   Role-based access control for owners, managers, inventory specialists, staff, read-only users, and system administrators.
-    *   Unique session identifiers to isolate simultaneous actions.
+Multi-user session management:
+  * Role-based access control (RBAC) for owners, managers, inventory specialists, staff, read-only users, and system administrators, enforced via a centralized permissions table in Supabase.
+  * Unique session identifiers (e.g., UUIDs) tied to JWTs for tracking user activity across sessions, with optional Redis integration for Post-MVP scalability.
+  * Support for concurrent user sessions with isolation to prevent data conflicts, including logout and token revocation mechanisms.
 
 *   Inventory database built from scratch:
 
@@ -34,10 +34,11 @@ The project is being built to address the unique challenges of busy café and re
     *   Use of containerized microservices (Docker/Kubernetes) for ASR, NLP, TTS, and communication.
     *   Streaming, event-driven pipelines to maintain response times under 1 second.
 
-*   Security and compliance:
-
-    *   Encrypted communications (TLS) for all data in transit.
-    *   Minimal retention of voice recordings and secure storage of sensitive inventory data.
+* Security and compliance:
+  * Encrypted communications (TLS) for all data in transit, with mandatory JWT_SECRET validation at startup.
+  * Robust authentication with rate limiting (e.g., 100 requests/15min per IP) and strong password policies (min. 8 characters, mixed case/numbers).
+  * Minimal retention of voice recordings (deleted after processing unless explicitly retained for debugging with user consent) and secure storage of sensitive inventory data in Supabase with role-based policies.
+  * Token revocation system to invalidate compromised or logged-out sessions, stored in a `revoked_tokens` table or Redis.
 
 *   Deployment and scaling on cloud platforms:
 
@@ -52,8 +53,7 @@ The project is being built to address the unique challenges of busy café and re
 *   Offline-first native mobile apps in the first version (the MVP will focus on web/mobile web access with fallback UI for manual control).
 
 ## User Flow
-
-A typical user journey begins when a staff member opens the application on a dedicated mobile device or tablet. Upon launching, the user is greeted by a simple login or registration screen where they select their role (e.g., Staff, Manager, Inventory Specialist, Owner, or Read-Only). After successful authentication, users are directed to a dashboard that displays real-time inventory data. The dashboard is customized depending on the user's role, highlighting critical information, such as current stock levels, alerts, and pending confirmations. Session-specific context is maintained throughout the interaction, ensuring that each dialogue with the system is seamless and context-aware.
+A typical user journey begins when a staff member opens the application on a dedicated mobile device or tablet. Upon launching, the user encounters a login screen with options for email/password or social login (owners only). New users must register with an invite code (staff/manager) or payment verification (owners), validated against Supabase. After successful authentication, a JWT with session ID is issued, persisting the session across app restarts. Users are directed to a role-customized dashboard displaying real-time inventory data. Errors (e.g., invalid credentials, expired invite codes) trigger clear prompts with recovery options (e.g., password reset, contact manager).
 
 When ready to update inventory, the user taps on a prominent “Start Listening” button to activate the voice interface. The system immediately begins capturing the spoken command with a streaming ASR pipeline, transcribing speech in real time. The displayed partial transcription gives users instant feedback, and the NLP engine processes the command to determine the intended action. If the command is routine and unambiguous, the system uses implicit confirmation and updates the inventory on the database while echoing the update in a natural language reply. For ambiguous or high-value commands, the system pauses to ask for explicit confirmation before proceeding. If voice input is unreliable, a fallback text interface is available, ensuring that updates can still be made smoothly.
 
@@ -74,6 +74,12 @@ When ready to update inventory, the user taps on a prominent “Start Listening�
 
     *   Maintaining recent dialogue and key inventory details via session state.
     *   Multi-turn conversation support with dynamic context feeding to the NLP model.
+
+* **Authentication & Authorization:**
+  * Secure login via Supabase Auth with email/password and optional social login (Google/Facebook) for owners.
+  * Registration restricted to invite-only for staff/managers (validated via Supabase `invite_codes` table) and payment-verified owners.
+  * Custom JWT generation with role and permission payloads, validated on every protected request via middleware.
+  * Permission checks for all inventory and user management actions, with audit logging of critical operations.
 
 *   **Role-Based Access Control (RBAC):**
 
@@ -260,11 +266,11 @@ When ready to update inventory, the user taps on a prominent “Start Listening�
     *   Implementation of role-based access control (RBAC) to limit actions based on user roles.
     *   Regular audits, logging, and monitoring to detect and mitigate potential security issues.
 
-*   **Scalability:**
-
-    *   Stateless backend services with session data offloaded to dedicated stores (e.g., Redis).
-    *   Autoscaling containerized services to handle variable loads.
-    *   Cloud deployment with geographic server optimization to cover the target regions (North America and Mexico).
+* Scalability:
+  * MVP: Handle up to 50 concurrent voice streams and 100 simultaneous users with a single Bun.js/Express monolith, horizontally scaled via load balancer if needed.
+  * Post-MVP: Support 500+ concurrent users across microservices, with independent scaling for auth, voice, and inventory services using Kubernetes autoscaling (e.g., CPU/memory thresholds at 70%).
+  * Stateless backend services with session data offloaded to Redis or Supabase for distributed systems.
+  * Geographic server optimization to cover target regions (North America and Mexico), with latency under 200ms for 95% of requests.
 
 *   **Usability:**
 

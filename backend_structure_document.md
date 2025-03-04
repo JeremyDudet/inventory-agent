@@ -40,6 +40,11 @@ Keeping these features in one codebase simplifies development, reduces overhead,
     *   Deployed in a single region (e.g., AWS or GCP) close to STT/NLP endpoints to minimize latency.
     *   Possibly on a simpler platform (like AWS Elastic Beanstalk, Heroku, or Docker on a single EC2 instance) to keep DevOps minimal.
 
+* Authentication & Authorization:
+  - Handled within the Bun.js/Express monolith via `authService.ts`, integrating Supabase Auth for login/registration and JWT generation.
+  - Invite code validation and permission checks occur in-process, querying Supabase `invite_codes` and `user_roles` tables.
+  - Session IDs generated via `sessionLogsService.ts` and embedded in JWTs for tracking.
+
 ### **MVP Rationale & Benefits**
 
 1.  **Speed to Market**: Fewer moving parts = faster implementation.
@@ -155,20 +160,9 @@ Regardless of phase, **Supabase/PostgreSQL** remains central:
 
 ## **Security Measures**
 
-*   **Encryption**
-
-    *   TLS everywhere: for voice data, REST endpoints, and WebSockets.
-    *   Minimal retention of raw voice data, especially if not needed for debugging or QA.
-
-*   **RBAC & Auditing**
-
-    *   MVP: Basic user roles enforced via the monolith, with Supabase role checks for critical inventory actions.
-    *   Post-MVP: Each microservice has token validation, possibly with an Auth service. Detailed logs across services feed into a centralized logging system (e.g., Datadog, ELK stack).
-
-*   **Secure Hosting**
-
-    *   Use best practices for container security (scanned images, least-privilege IAM roles).
-    *   Keep secrets in a secure store (AWS Secrets Manager, GCP Secret Manager).
+* Encryption: TLS 1.2+ for all endpoints, enforced via HSTS headers. Voice data encrypted in transit and discarded post-processing.
+* RBAC & Auditing: JWTs carry role/permission payloads, validated by middleware. Critical actions logged to Supabase `audit_logs` table with user ID and timestamp.
+* Secure Hosting: Docker images scanned for vulnerabilities (e.g., Trivy), secrets managed via AWS Secrets Manager, and rate limiting applied to auth endpoints.
 
 ## **Monitoring and Maintenance**
 

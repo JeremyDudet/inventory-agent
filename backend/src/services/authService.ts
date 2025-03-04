@@ -34,37 +34,7 @@ export interface AuthTokenPayload {
   permissions?: UserPermissions;
 }
 
-// Default permissions for different roles
-const rolePermissions: Record<UserRole, UserPermissions> = {
-  [UserRole.OWNER]: {
-    'inventory:read': true,
-    'inventory:write': true,
-    'inventory:delete': true,
-    'user:read': true,
-    'user:write': true
-  },
-  [UserRole.MANAGER]: {
-    'inventory:read': true,
-    'inventory:write': true,
-    'inventory:delete': false,
-    'user:read': true,
-    'user:write': false
-  },
-  [UserRole.STAFF]: {
-    'inventory:read': true,
-    'inventory:write': true,
-    'inventory:delete': false,
-    'user:read': false,
-    'user:write': false
-  },
-  [UserRole.READONLY]: {
-    'inventory:read': true,
-    'inventory:write': false,
-    'inventory:delete': false,
-    'user:read': false,
-    'user:write': false
-  }
-};
+// Default permissions are now stored in the database (user_roles table)
 
 interface InviteCode {
   id: string;
@@ -86,7 +56,7 @@ class AuthService {
   }
 
   /**
-   * Get permissions for a given role
+   * Get permissions for a given role from the database
    */
   async getPermissionsForRole(role: UserRole): Promise<UserPermissions> {
     try {
@@ -98,14 +68,55 @@ class AuthService {
         .single();
 
       if (error || !data) {
-        console.warn(`Role ${role} not found in database, using default permissions`);
-        return rolePermissions[role] || rolePermissions[UserRole.READONLY];
+        console.error(`Role ${role} not found in database, this should never happen!`);
+        // Create default fallback permission based on role
+        const defaultPermissions: UserPermissions = {
+          'inventory:read': true,  // All roles can read inventory
+          'inventory:write': role !== UserRole.READONLY, // All except READONLY can write
+          'inventory:delete': role === UserRole.OWNER, // Only OWNER can delete
+          'user:read': role === UserRole.OWNER || role === UserRole.MANAGER, // OWNER and MANAGER can read users
+          'user:write': role === UserRole.OWNER // Only OWNER can write users
+        };
+        
+        // Try to insert the missing role into the database for future use
+        await this.insertMissingRole(role, defaultPermissions);
+        return defaultPermissions;
       }
 
       return data.permissions as UserPermissions;
     } catch (error) {
       console.error('Error fetching permissions:', error);
-      return rolePermissions[role] || rolePermissions[UserRole.READONLY];
+      // If there's an error, default to read-only permissions for safety
+      return {
+        'inventory:read': true,
+        'inventory:write': false,
+        'inventory:delete': false,
+        'user:read': false,
+        'user:write': false
+      };
+    }
+  }
+  
+  /**
+   * Insert a missing role into the database with default permissions
+   * This is a recovery mechanism in case a role is missing
+   */
+  private async insertMissingRole(role: UserRole, permissions: UserPermissions): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('user_roles')
+        .insert({
+          name: role,
+          permissions: permissions
+        });
+        
+      if (error) {
+        console.error(`Failed to insert missing role ${role}:`, error);
+      } else {
+        console.log(`Successfully inserted missing role ${role} with default permissions`);
+      }
+    } catch (error) {
+      console.error(`Error inserting missing role ${role}:`, error);
     }
   }
 

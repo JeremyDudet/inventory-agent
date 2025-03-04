@@ -10,6 +10,10 @@ Keep the UI simple and easy to maintain, focusing on primary use cases (view/upd
 Achieve sub-1-second response times by efficiently handling real-time voice data and immediate UI updates.
 MVP Architecture
 React with Vite
+* Authentication Integration:
+  - Login/Registration pages (`/login`, `/register`) use Axios to call `/api/auth/login` and `/api/auth/register`, storing JWTs in `localStorage`.
+  - Role-based UI gating: Conditionally render dashboard components based on user role (e.g., `if (user.role === 'manager')` for audit logs).
+  - Session persistence: Check `localStorage` for JWT on app load, validate via `/api/auth/verify`, and redirect to login if invalid/revoked.
 
 Uses a single-page application (SPA) approach with Vite
 Deployed on Vercel for global CDN delivery and minimal setup.
@@ -21,6 +25,7 @@ Minimal Layout: A simple top-level nav or menu linking to “Inventory Dashboard
 Responsive: Focus on small screens (tablets, smartphones), ensuring text remains legible and buttons are finger-friendly.
 Role Awareness (Basic): Staff sees essential inventory screens, while managers can see extra details or history.
 Fallback UI
+* Role Awareness (Basic): Staff see essential inventory screens, while managers/owners access additional routes (e.g., `/settings/invites`, `/billing`) protected by a `ProtectedRoute` component checking JWT permissions.
 
 Provide a manual text input and basic forms for updating items if voice commands fail.
 Keep the fallback interface easily discoverable (e.g., a “Switch to Manual Entry” button).
@@ -41,6 +46,9 @@ Why Start with a Simplified MVP?
 Faster Time to Market: Focus on essential features for validating user adoption.
 Easier Maintenance: Fewer complex routing or advanced state patterns to manage early on.
 Direct Feedback Loop: Gather real-world usage data before investing in advanced UI flows.
+* Authentication Testing:
+  - Jest unit tests for auth service calls (e.g., login success/failure, token validation).
+  - Cypress E2E tests for login, registration with invite codes, and role-based UI rendering (e.g., "staff cannot access manager settings").
 Phase 2: Post-Validation Enhancements
 Once the MVP demonstrates viability and user feedback is in, the frontend can expand to support multiple roles, more sophisticated voice interactions, and advanced scalability.
 
