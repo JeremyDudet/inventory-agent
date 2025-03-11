@@ -482,6 +482,9 @@ const Register: React.FC = () => {
       </div>
       <div className="card w-full max-w-md bg-base-100 shadow-xl transition-colors duration-200">
         <div className="card-body">
+          <Link to="/" className="mb-4 -mt-2 text-sm text-primary hover:underline">
+            ← Back to home page
+          </Link>
           <h2 className="card-title text-2xl font-bold text-center">Create Account</h2>
           {renderStepIndicator()}
           <form onSubmit={handleSubmit}>

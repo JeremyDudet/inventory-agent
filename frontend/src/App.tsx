@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import Landing from './pages/Landing';
 import LoadingSpinner from './components/LoadingSpinner';
 
 // Protected route component that uses Supabase auth
@@ -42,6 +43,9 @@ const AuthRoute = () => {
 const AppRoutes = () => {
   return (
     <Routes>
+      {/* Public routes */}
+      <Route path="/" element={<Landing />} />
+      
       {/* Auth routes */}
       <Route element={<AuthRoute />}>
         <Route path="/login" element={<Login />} />
@@ -50,7 +54,6 @@ const AppRoutes = () => {
       
       {/* Protected routes */}
       <Route element={<ProtectedRoute />}>
-        <Route path="/" element={<Dashboard />} />
         <Route path="/dashboard" element={<Dashboard />} />
       </Route>
       
