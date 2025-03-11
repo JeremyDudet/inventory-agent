@@ -2,13 +2,17 @@
 import React from 'react';
 import { useTheme } from '../context/ThemeContext';
 
-const ThemeToggle: React.FC = () => {
+interface ThemeToggleProps {
+  className?: string;
+}
+
+const ThemeToggle: React.FC<ThemeToggleProps> = ({ className }) => {
   const { theme, toggleTheme } = useTheme();
 
   return (
     <button
       onClick={toggleTheme}
-      className="theme-toggle-btn p-2 rounded-full hover:bg-base-200 transition-colors"
+      className={`theme-toggle-btn p-2 rounded-full hover:bg-base-200 transition-colors ${className || ''}`}
       aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
       title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
     >

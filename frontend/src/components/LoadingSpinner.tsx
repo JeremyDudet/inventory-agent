@@ -5,6 +5,7 @@ interface LoadingSpinnerProps {
   color?: 'primary' | 'secondary' | 'accent' | 'neutral' | 'info' | 'success' | 'warning' | 'error';
   fullScreen?: boolean;
   text?: string;
+  className?: string;
 }
 
 /**
@@ -15,7 +16,8 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   size = 'md',
   color = 'primary',
   fullScreen = false,
-  text
+  text,
+  className = ''
 }) => {
   // Map size to Tailwind classes
   const sizeClasses = {
@@ -27,7 +29,7 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
 
   // Create the spinner element
   const spinner = (
-    <div className={`flex flex-col items-center justify-center ${fullScreen ? 'h-screen' : ''}`}>
+    <div className={`flex flex-col items-center justify-center ${fullScreen ? 'h-screen' : ''} ${className}`}>
       <span className={`loading loading-spinner ${sizeClasses[size]} text-${color}`}></span>
       {text && <p className="mt-4 text-base-content/70">{text}</p>}
     </div>
