@@ -31,6 +31,26 @@
     animation: soundWave 1.2s ease-in-out infinite;
     animation-delay: calc(var(--index) * 0.1s);
   }
+  
+  @keyframes typing {
+    from { width: 0 }
+    to { width: 100% }
+  }
+  
+  .animate-typing {
+    animation: typing 1.5s steps(30, end);
+    width: 100%;
+  }
+
+  @keyframes float {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-15px); }
+    100% { transform: translateY(0px); }
+  }
+  
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
 }
 
 /* Custom scrollbar */
