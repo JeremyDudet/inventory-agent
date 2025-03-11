@@ -14,9 +14,89 @@ const Register: React.FC = () => {
   const [inviteCode, setInviteCode] = useState('');
   const [isEmployee, setIsEmployee] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [emailExists, setEmailExists] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { signUp } = useAuth();
   const { addNotification } = useNotification();
+
+  // Check if email already exists
+  const checkEmailExists = async (email: string) => {
+    if (!email || !/\S+@\S+\.\S+/.test(email)) {
+      return;
+    }
+    
+    setIsCheckingEmail(true);
+    try {
+      console.log("Checking email:", email);
+      // Use a path that will be properly proxied
+      const apiUrl = `/api/auth/check-email/${encodeURIComponent(email)}`;
+      console.log("Making API request to:", apiUrl);
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      
+      console.log("Response status:", response.status, "Status text:", response.statusText);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log("API response data:", data);
+        setEmailExists(data.exists);
+        
+        if (data.exists) {
+          console.log("Email exists, setting error");
+          setErrors(prev => ({
+            ...prev,
+            email: 'This email is already taken'
+          }));
+        } else {
+          console.log("Email is available");
+          // Only clear the email error if it's the "already taken" error
+          setErrors(prev => {
+            const newErrors = { ...prev };
+            if (newErrors.email === 'This email is already taken') {
+              delete newErrors.email;
+            }
+            return newErrors;
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error checking email:', error);
+      addNotification('error', 'Could not connect to the server to verify email. Please try again.');
+      
+      // Reset the email validation state since we can't verify it
+      setEmailExists(false);
+    } finally {
+      setIsCheckingEmail(false);
+    }
+  };
+
+  // Debounce function to prevent too many requests
+  const debounce = (func: Function, delay: number) => {
+    let timeoutId: NodeJS.Timeout;
+    return (...args: any[]) => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => func(...args), delay);
+    };
+  };
+
+  // Debounced version of checkEmailExists
+  const debouncedCheckEmail = React.useCallback(
+    debounce(checkEmailExists, 500),
+    []
+  );
+
+  // Update email and check if it exists
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newEmail = e.target.value;
+    setEmail(newEmail);
+    debouncedCheckEmail(newEmail);
+  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -29,6 +109,8 @@ const Register: React.FC = () => {
       newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(email)) {
       newErrors.email = 'Email is invalid';
+    } else if (emailExists) {
+      newErrors.email = 'This email is already taken';
     }
     
     if (!password) {
@@ -109,13 +191,48 @@ const Register: React.FC = () => {
               <label className="label">
                 <span className="label-text">Email</span>
               </label>
-              <input
-                type="email"
-                placeholder="email@example.com"
-                className={`input input-bordered w-full ${errors.email ? 'input-error' : ''}`}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
+              <div className="relative">
+                <input
+                  type="email"
+                  placeholder="email@example.com"
+                  className={`input input-bordered w-full ${errors.email ? 'input-error' : ''}`}
+                  value={email}
+                  onChange={handleEmailChange}
+                />
+                {(() => {
+                  // Debug log the state of all variables used in conditions
+                  console.log("Rendering indicators with state:", {
+                    isCheckingEmail,
+                    email,
+                    emailValid: email ? /\S+@\S+\.\S+/.test(email) : false,
+                    emailExists
+                  });
+                  
+                  // Return null for this IIFE
+                  return null;
+                })()}
+                
+                {isCheckingEmail && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <LoadingSpinner size="xs" />
+                  </div>
+                )}
+                {!isCheckingEmail && email && !/\S+@\S+\.\S+/.test(email) && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <span className="text-warning text-xl">⚠</span>
+                  </div>
+                )}
+                {!isCheckingEmail && emailExists && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <span className="text-error text-xl">✗</span>
+                  </div>
+                )}
+                {!isCheckingEmail && email && /\S+@\S+\.\S+/.test(email) && !emailExists && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <span className="text-success text-xl">✓</span>
+                  </div>
+                )}
+              </div>
               {errors.email && <span className="text-error text-xs mt-1">{errors.email}</span>}
             </div>
             
@@ -188,10 +305,15 @@ const Register: React.FC = () => {
               <button 
                 type="submit" 
                 className="btn btn-primary w-full" 
-                disabled={isLoading}
+                disabled={isLoading || isCheckingEmail || emailExists}
               >
                 {isLoading ? <LoadingSpinner size="sm" /> : 'Create Account'}
               </button>
+              {emailExists && !isLoading && (
+                <p className="text-error text-xs mt-2 text-center">
+                  This email is already registered. Please use a different email or sign in.
+                </p>
+              )}
             </div>
             
             <div className="text-center mt-4">

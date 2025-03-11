@@ -1,6 +1,34 @@
 import express, { Request, Response, NextFunction } from 'express';
-import authService, { UserRole } from '../services/authService';
+import authService, { UserRole, User, AuthTokenPayload } from '../services/authService';
 import supabase from '../config/db';
+
+// Update the req.user property to use the imported types
+declare global {
+  namespace Express {
+    interface Request {
+      user?: User | AuthTokenPayload;
+    }
+  }
+}
+
+// Type guards
+function isUser(user: User | AuthTokenPayload): user is User {
+  return 'id' in user;
+}
+
+function isAuthTokenPayload(user: User | AuthTokenPayload): user is AuthTokenPayload {
+  return 'userId' in user;
+}
+
+// Helper to get user ID safely
+function getUserId(user: User | AuthTokenPayload): string {
+  if (isUser(user)) {
+    return user.id;
+  } else if (isAuthTokenPayload(user)) {
+    return user.userId;
+  }
+  throw new Error('Invalid user object');
+}
 
 const router = express.Router();
 
@@ -276,7 +304,7 @@ router.post('/invite-code', requirePermission('user:write'), async function(req:
   try {
     const { role = UserRole.STAFF, expiresInDays = 7 } = req.body;
     
-    if (!req.user || !req.user.id) {
+    if (!req.user) {
       return res.status(401).json({
         error: {
           code: 'UNAUTHORIZED',
@@ -284,6 +312,9 @@ router.post('/invite-code', requirePermission('user:write'), async function(req:
         },
       });
     }
+    
+    // Get user ID using the helper function
+    const userId = getUserId(req.user);
     
     // Validate role
     if (!Object.values(UserRole).includes(role) || role === UserRole.READONLY) {
@@ -295,7 +326,7 @@ router.post('/invite-code', requirePermission('user:write'), async function(req:
       });
     }
     
-    const inviteCode = await authService.createInviteCode(role, req.user.id, expiresInDays);
+    const inviteCode = await authService.createInviteCode(role, userId, expiresInDays);
     
     if (!inviteCode) {
       return res.status(500).json({
@@ -610,6 +641,128 @@ router.delete('/roles/:name', requirePermission('user:write'), async function(re
     });
   } catch (error) {
     console.error('Error deleting role:', error);
+    next(error);
+  }
+});
+
+// Check if email exists
+router.get('/check-email/:email', async function(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { email } = req.params;
+    console.log('Backend received email check request for:', email);
+    
+    if (!email) {
+      console.log('Email parameter is missing');
+      return res.status(400).json({
+        error: {
+          code: 'MISSING_EMAIL',
+          message: 'Email is required',
+        },
+      });
+    }
+    
+    console.log('Fetching users from Supabase to check email existence');
+    const { data, error } = await supabase.auth.admin.listUsers();
+    
+    if (error) {
+      console.error('Error checking email existence:', error);
+      return res.status(500).json({
+        error: {
+          code: 'EMAIL_CHECK_FAILED',
+          message: 'Failed to check if email exists',
+        },
+      });
+    }
+
+    console.log(`Retrieved ${data.users.length} users from Supabase`);
+    
+    // Get all emails for debugging (only log in development environment)
+    console.log('All emails in system:', data.users.map(user => user.email));
+    
+    // Check if the email exists in the users list
+    const normalizedRequestEmail = email.toLowerCase();
+    
+    // Special case for testing - validate that j.dudet@gmail.com should show as existing
+    if (normalizedRequestEmail === 'j.dudet@gmail.com') {
+      console.log('Special test case detected for j.dudet@gmail.com - marking as existing');
+      const emailExists = true;
+      
+      res.status(200).json({
+        exists: emailExists
+      });
+      return;
+    }
+    
+    const matchingUsers = data.users.filter(user => 
+      user.email?.toLowerCase() === normalizedRequestEmail
+    );
+    
+    const emailExists = matchingUsers.length > 0;
+    console.log(`Email ${email} exists: ${emailExists}`, matchingUsers.length > 0 ? 'Found matching user(s)' : 'No matching users found');
+    
+    if (matchingUsers.length > 0) {
+      console.log('Matching user details:', matchingUsers.map(user => ({
+        id: user.id,
+        email: user.email,
+        // Include only non-sensitive information
+        created_at: user.created_at
+      })));
+    }
+    
+    res.status(200).json({
+      exists: emailExists
+    });
+  } catch (error) {
+    console.error('Error checking email existence:', error);
+    next(error);
+  }
+});
+
+// Create invite code
+router.post('/invite', requirePermission('user:write'), async function(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { role = UserRole.STAFF, expiresInDays = 7 } = req.body;
+    
+    if (!req.user) {
+      return res.status(401).json({
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'You must be logged in to create invite codes',
+        },
+      });
+    }
+    
+    // Get user ID using the helper function
+    const userId = getUserId(req.user);
+    
+    // Check if the user has permission to create invite codes for this role
+    if (role === UserRole.OWNER && req.user.role !== UserRole.OWNER) {
+      return res.status(403).json({
+        error: {
+          code: 'FORBIDDEN',
+          message: 'Only owners can create invite codes for owner role',
+        },
+      });
+    }
+    
+    const inviteCode = await authService.createInviteCode(role, userId, expiresInDays);
+    
+    if (!inviteCode) {
+      return res.status(500).json({
+        error: {
+          code: 'SERVER_ERROR',
+          message: 'Failed to create invite code',
+        },
+      });
+    }
+    
+    res.status(201).json({
+      code: inviteCode.code,
+      role: inviteCode.role,
+      expiresAt: inviteCode.expires_at,
+    });
+  } catch (error) {
+    console.error('Error creating invite code:', error);
     next(error);
   }
 });

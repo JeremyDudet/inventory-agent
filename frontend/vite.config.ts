@@ -15,6 +15,13 @@ export default defineConfig({
   server: {
     port: 3000, // Match the default CRA port
     open: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8080', // Backend runs on port 8080
+        changeOrigin: true,
+        secure: false
+      }
+    },
   },
   build: {
     outDir: 'dist',

@@ -12,6 +12,7 @@ import speechFeedbackService from './services/speechFeedbackService';
 import { logTranscript, logSystemAction } from './services/sessionLogsService';
 import sessionLogsRoutes from './routes/sessionLogs';
 import inventoryRoutes from './routes/inventory';
+import authRoutes from './routes/auth';
 
 dotenv.config();
 
@@ -346,6 +347,7 @@ app.use(express.json());
 // Routes
 app.use('/api/logs', sessionLogsRoutes);
 app.use('/api/inventory', inventoryRoutes);
+app.use('/api/auth', authRoutes); // Register auth routes
 
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html');
