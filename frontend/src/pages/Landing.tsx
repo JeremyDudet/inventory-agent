@@ -1,7 +1,6 @@
 // frontend/src/pages/Landing.tsx
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import ThemeToggle from '../components/ThemeToggle';
 
 const Landing: React.FC = () => {
   const [scrolled, setScrolled] = useState(false);
@@ -45,7 +44,6 @@ const Landing: React.FC = () => {
               <span>Inventory Agent</span>
             </Link>
             <div className="flex items-center gap-2 md:gap-4">
-              <ThemeToggle />
               <Link to="/login" className="btn btn-ghost text-primary-content">Login</Link>
               <Link to="/register" className="btn btn-primary">Sign Up</Link>
             </div>
@@ -58,10 +56,11 @@ const Landing: React.FC = () => {
         <main className="flex flex-col-reverse md:flex-row items-center justify-between py-16 md:py-24">
           <div className="md:w-1/2 text-center md:text-left">
             <h1 className="text-4xl md:text-6xl font-bold mb-6 text-primary-content leading-tight">
-              Smart Inventory Management <span className="text-accent">Simplified</span>
+              <span className="block">Voice-Powered</span>
+              Inventory Management <span className="text-accent">for Restaurants</span>
             </h1>
             <p className="text-xl mb-8 text-primary-content opacity-90 max-w-lg">
-              Streamline your inventory tracking, reduce waste, and make data-driven decisions with our AI-powered inventory system.
+              Manage your restaurant inventory with simple voice commands. Update stock levels, track ingredients, and make data-driven decisions in real-time — all while keeping your hands free.
             </p>
             <div className="flex flex-wrap gap-4 justify-center md:justify-start">
               <Link to="/register" className="btn btn-primary btn-lg">Get Started Free</Link>
@@ -78,32 +77,64 @@ const Landing: React.FC = () => {
             <div className="relative">
               <div className="absolute -inset-1 bg-gradient-to-r from-accent to-secondary rounded-lg blur opacity-30"></div>
               <div className="relative bg-base-100 p-8 rounded-lg shadow-2xl">
-                <div className="h-64 bg-base-300 rounded-md flex items-center justify-center overflow-hidden">
+                <div className="h-80 bg-base-300 rounded-md flex items-center justify-center overflow-hidden relative">
+                  {/* Voice interaction visualization */}
                   <div className="w-full h-full bg-base-200 p-4 flex flex-col">
                     <div className="flex justify-between mb-4">
-                      <div className="w-32 h-6 bg-base-100 rounded"></div>
+                      <div className="flex items-center">
+                        <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center animate-pulse">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primary-content" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                          </svg>
+                        </div>
+                        <div className="ml-2 text-sm font-medium">Recording...</div>
+                      </div>
                       <div className="flex gap-2">
-                        <div className="w-6 h-6 bg-primary rounded-full"></div>
+                        <div className="w-6 h-6 bg-success rounded-full"></div>
                         <div className="w-6 h-6 bg-accent rounded-full"></div>
                       </div>
                     </div>
-                    <div className="flex-1 grid grid-cols-3 gap-2">
-                      {[...Array(6)].map((_, i) => (
-                        <div key={i} className="bg-base-100 rounded p-2 flex flex-col justify-between">
-                          <div className="w-full h-2 bg-primary/20 rounded-full"></div>
-                          <div className="w-3/4 h-2 bg-primary/40 rounded-full"></div>
+                    
+                    {/* Chat interface preview */}
+                    <div className="flex-1 flex flex-col gap-3 overflow-hidden">
+                      <div className="flex items-start">
+                        <div className="bg-primary/10 rounded-lg p-2 max-w-[80%]">
+                          <p className="text-sm">How can I help with inventory today?</p>
                         </div>
+                      </div>
+                      <div className="flex items-start justify-end">
+                        <div className="bg-primary/20 rounded-lg p-2 max-w-[80%]">
+                          <p className="text-sm">Add 5 kilos of flour to inventory</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start">
+                        <div className="bg-primary/10 rounded-lg p-2 max-w-[80%]">
+                          <p className="text-sm">Added 5 kg of flour to your inventory. Current total: 12 kg. Anything else?</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Audio wave visualization */}
+                    <div className="h-12 mt-4 w-full flex items-center justify-center space-x-1 animate-sound-wave">
+                      {[...Array(20)].map((_, i) => (
+                        <div 
+                          key={i} 
+                          className="h-full w-1 bg-primary rounded-full" 
+                          style={{ 
+                            opacity: 0.3 + Math.sin(i * 0.5) * 0.7,
+                            '--index': i
+                          } as React.CSSProperties}
+                        ></div>
                       ))}
                     </div>
-                    <div className="h-8 mt-4 bg-base-100 rounded w-full"></div>
                   </div>
                 </div>
                 <div className="mt-4 flex justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="badge badge-primary">Live</div>
-                    <span className="text-sm">Dashboard Demo</span>
+                    <div className="badge badge-success">Live Demo</div>
+                    <span className="text-sm">Voice Interface</span>
                   </div>
-                  <div className="text-sm text-primary">Responsive & Dynamic</div>
+                  <div className="text-sm text-primary">Sub-1s Response Time</div>
                 </div>
               </div>
             </div>
@@ -114,57 +145,61 @@ const Landing: React.FC = () => {
         <section className="py-8 md:py-16">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
             <div className="stat bg-base-100/30 backdrop-blur-sm rounded-lg p-4">
-              <div className="stat-title text-primary-content/70">Active Users</div>
-              <div className="stat-value text-primary-content">2,500+</div>
-            </div>
-            <div className="stat bg-base-100/30 backdrop-blur-sm rounded-lg p-4">
-              <div className="stat-title text-primary-content/70">Businesses</div>
-              <div className="stat-value text-primary-content">500+</div>
-            </div>
-            <div className="stat bg-base-100/30 backdrop-blur-sm rounded-lg p-4">
-              <div className="stat-title text-primary-content/70">Items Tracked</div>
-              <div className="stat-value text-primary-content">1.2M+</div>
+              <div className="stat-title text-primary-content/70">Response Time</div>
+              <div className="stat-value text-primary-content">1s</div>
+              <div className="stat-desc text-primary-content/60">Fast voice recognition</div>
             </div>
             <div className="stat bg-base-100/30 backdrop-blur-sm rounded-lg p-4">
               <div className="stat-title text-primary-content/70">Time Saved</div>
-              <div className="stat-value text-primary-content">30%</div>
+              <div className="stat-value text-primary-content">40%</div>
+              <div className="stat-desc text-primary-content/60">Compared to manual entry</div>
+            </div>
+            <div className="stat bg-base-100/30 backdrop-blur-sm rounded-lg p-4">
+              <div className="stat-title text-primary-content/70">Error Reduction</div>
+              <div className="stat-value text-primary-content">75%</div>
+              <div className="stat-desc text-primary-content/60">Fewer inventory mistakes</div>
+            </div>
+            <div className="stat bg-base-100/30 backdrop-blur-sm rounded-lg p-4">
+              <div className="stat-title text-primary-content/70">Hands-Free</div>
+              <div className="stat-value text-primary-content">100%</div>
+              <div className="stat-desc text-primary-content/60">No typing needed</div>
             </div>
           </div>
         </section>
         
         {/* Features section */}
         <section id="features" className="py-16 scroll-mt-24">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-center text-primary-content">Powerful Features</h2>
-          <p className="text-center text-primary-content/80 mb-12 max-w-2xl mx-auto">Our intelligent inventory system helps businesses of all sizes track, manage, and optimize their inventory with powerful tools designed for efficiency.</p>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-center text-primary-content">Voice-First Inventory Management</h2>
+          <p className="text-center text-primary-content/80 mb-12 max-w-2xl mx-auto">Our voice-driven AI agent enables restaurant staff to update and query inventory through natural conversation, eliminating manual data entry while maintaining pinpoint accuracy.</p>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="card bg-base-100 shadow-xl hover:shadow-2xl transition-all hover:-translate-y-1">
               <div className="card-body">
                 <div className="mb-4 bg-primary/10 p-3 rounded-lg inline-block">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                   </svg>
                 </div>
-                <h3 className="card-title text-xl">Real-Time Tracking</h3>
-                <p className="text-base-content/80">Monitor your inventory levels in real-time across multiple locations with live updates and alerts.</p>
+                <h3 className="card-title text-xl">Voice-Driven Updates</h3>
+                <p className="text-base-content/80">Simply speak commands in natural language to update inventory in real-time, even in busy kitchen environments.</p>
                 <ul className="mt-4 space-y-2">
                   <li className="flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span>Live stock levels</span>
+                    <span>Sub-1 second responses</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span>Low stock alerts</span>
+                    <span>Natural conversation flow</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span>Multi-location support</span>
+                    <span>Works in noisy environments</span>
                   </li>
                 </ul>
               </div>
@@ -177,26 +212,26 @@ const Landing: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                 </div>
-                <h3 className="card-title text-xl">AI-Powered Forecasting</h3>
-                <p className="text-base-content/80">Predict future stock needs based on historical data, seasonal trends, and market conditions.</p>
+                <h3 className="card-title text-xl">AI-Powered Conversations</h3>
+                <p className="text-base-content/80">Advanced AI understands your voice commands, maintains context, and learns from your restaurant's specific inventory patterns.</p>
                 <ul className="mt-4 space-y-2">
                   <li className="flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span>Demand prediction</span>
+                    <span>Context-aware memory</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span>Seasonal adjustment</span>
+                    <span>Smart confirmation</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span>Smart reordering</span>
+                    <span>Built on GPT-4/Claude</span>
                   </li>
                 </ul>
               </div>
@@ -206,29 +241,29 @@ const Landing: React.FC = () => {
               <div className="card-body">
                 <div className="mb-4 bg-accent/10 p-3 rounded-lg inline-block">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                   </svg>
                 </div>
-                <h3 className="card-title text-xl">Seamless Integration</h3>
-                <p className="text-base-content/80">Connect with your existing tools and platforms for a unified workflow that simplifies your operations.</p>
+                <h3 className="card-title text-xl">Robust Fallback UI</h3>
+                <p className="text-base-content/80">When voice isn't ideal, switch to our intuitive text interface. Perfect for extremely loud environments or detailed inventory tasks.</p>
                 <ul className="mt-4 space-y-2">
                   <li className="flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span>API connections</span>
+                    <span>Instant mode switching</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span>E-commerce plugins</span>
+                    <span>Role-based access</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span>Accounting software sync</span>
+                    <span>Error correction tools</span>
                   </li>
                 </ul>
               </div>
@@ -245,12 +280,12 @@ const Landing: React.FC = () => {
                 <div className="flex items-center mb-4">
                   <div className="avatar">
                     <div className="w-12 h-12 rounded-full bg-primary/30 flex items-center justify-center">
-                      <span className="text-primary font-bold text-lg">JD</span>
+                      <span className="text-primary font-bold text-lg flex items-center justify-center w-full h-full">MR</span>
                     </div>
                   </div>
                   <div className="ml-4">
-                    <h3 className="font-semibold">Jane Doe</h3>
-                    <p className="text-sm text-base-content/70">Retail Store Owner</p>
+                    <h3 className="font-semibold">Maria Rodriguez</h3>
+                    <p className="text-sm text-base-content/70">Restaurant Manager</p>
                   </div>
                 </div>
                 <div className="flex mb-2">
@@ -260,7 +295,7 @@ const Landing: React.FC = () => {
                     </svg>
                   ))}
                 </div>
-                <p className="text-base-content/90">"Inventory Agent has transformed how we manage our stock. We've reduced overstock by 30% and never run out of popular items anymore."</p>
+                <p className="text-base-content/90">"The voice control is a game-changer for our busy kitchen. My staff can update inventory while prepping or cooking, and the AI understands even with background noise. We've cut inventory time by 75%."</p>
               </div>
             </div>
             
@@ -269,12 +304,12 @@ const Landing: React.FC = () => {
                 <div className="flex items-center mb-4">
                   <div className="avatar">
                     <div className="w-12 h-12 rounded-full bg-secondary/30 flex items-center justify-center">
-                      <span className="text-secondary font-bold text-lg">JS</span>
+                      <span className="text-secondary font-bold text-lg flex items-center justify-center w-full h-full">CM</span>
                     </div>
                   </div>
                   <div className="ml-4">
-                    <h3 className="font-semibold">John Smith</h3>
-                    <p className="text-sm text-base-content/70">Warehouse Manager</p>
+                    <h3 className="font-semibold">Carlos Mendoza</h3>
+                    <p className="text-sm text-base-content/70">Executive Chef</p>
                   </div>
                 </div>
                 <div className="flex mb-2">
@@ -284,7 +319,7 @@ const Landing: React.FC = () => {
                     </svg>
                   ))}
                 </div>
-                <p className="text-base-content/90">"The voice control feature is game-changing for our warehouse staff. Hands-free inventory management has boosted our efficiency by 40%."</p>
+                <p className="text-base-content/90">"I'm constantly moving around the kitchen, and being able to say 'we're low on tomatoes' or 'add 20 pounds of chicken' without stopping what I'm doing is incredible. The system remembers context and even confirms large orders before processing."</p>
               </div>
             </div>
             
@@ -293,12 +328,12 @@ const Landing: React.FC = () => {
                 <div className="flex items-center mb-4">
                   <div className="avatar">
                     <div className="w-12 h-12 rounded-full bg-accent/30 flex items-center justify-center">
-                      <span className="text-accent font-bold text-lg">SC</span>
+                      <span className="text-accent font-bold text-lg flex items-center justify-center w-full h-full">JW</span>
                     </div>
                   </div>
                   <div className="ml-4">
-                    <h3 className="font-semibold">Sarah Chen</h3>
-                    <p className="text-sm text-base-content/70">E-commerce Founder</p>
+                    <h3 className="font-semibold">James Wilson</h3>
+                    <p className="text-sm text-base-content/70">Restaurant Owner</p>
                   </div>
                 </div>
                 <div className="flex mb-2">
@@ -308,7 +343,7 @@ const Landing: React.FC = () => {
                     </svg>
                   ))}
                 </div>
-                <p className="text-base-content/90">"The AI forecasting saved our business during peak seasons. We've cut costs while improving customer satisfaction with faster shipping times."</p>
+                <p className="text-base-content/90">"As someone running multiple restaurants, the role-based access is a lifesaver. My chefs can update inventory by voice, managers can approve orders, and I get real-time insights across all locations. Food waste is down 35% since implementing this system."</p>
               </div>
             </div>
           </div>
@@ -317,8 +352,8 @@ const Landing: React.FC = () => {
         {/* CTA section */}
         <section className="py-16">
           <div className="bg-gradient-to-r from-primary to-secondary p-8 md:p-12 rounded-xl text-center">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-primary-content">Ready to Transform Your Inventory Management?</h2>
-            <p className="text-xl mb-8 text-primary-content/90 max-w-2xl mx-auto">Join thousands of businesses using Inventory Agent to streamline operations and boost profitability.</p>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-primary-content">Ready to Transform Your Restaurant's Inventory?</h2>
+            <p className="text-xl mb-8 text-primary-content/90 max-w-2xl mx-auto">Join forward-thinking restaurants using voice-driven Inventory Agent to reduce waste, save time, and boost profitability.</p>
             <div className="flex flex-wrap gap-4 justify-center">
               <Link to="/register" className="btn btn-accent btn-lg">Get Started For Free</Link>
               <Link to="/login" className="btn btn-outline btn-primary-content btn-lg">Sign In</Link>
@@ -334,35 +369,36 @@ const Landing: React.FC = () => {
               <h3 className="font-bold text-primary-content mb-4">Product</h3>
               <ul className="space-y-2">
                 <li><a href="#features" className="text-primary-content/70 hover:text-primary-content">Features</a></li>
-                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">Pricing</a></li>
-                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">Integrations</a></li>
+                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">Restaurant Solutions</a></li>
+                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">Voice Technology</a></li>
                 <li><a href="#" className="text-primary-content/70 hover:text-primary-content">Updates</a></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-bold text-primary-content mb-4">Company</h3>
-              <ul className="space-y-2">
-                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">About</a></li>
-                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">Blog</a></li>
-                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">Careers</a></li>
-                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">Contact</a></li>
               </ul>
             </div>
             <div>
               <h3 className="font-bold text-primary-content mb-4">Resources</h3>
               <ul className="space-y-2">
-                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">Documentation</a></li>
-                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">Help Center</a></li>
-                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">Tutorials</a></li>
-                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">API</a></li>
+                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">Voice Command Guide</a></li>
+                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">Restaurant Case Studies</a></li>
+                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">ROI Calculator</a></li>
+                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">Kitchen Setup Guide</a></li>
               </ul>
             </div>
             <div>
-              <h3 className="font-bold text-primary-content mb-4">Legal</h3>
+              <h3 className="font-bold text-primary-content mb-4">Support</h3>
               <ul className="space-y-2">
-                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">Privacy</a></li>
-                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">Terms</a></li>
-                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">Security</a></li>
+                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">Documentation</a></li>
+                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">Help Center</a></li>
+                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">Video Tutorials</a></li>
+                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">Contact Support</a></li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-bold text-primary-content mb-4">Company</h3>
+              <ul className="space-y-2">
+                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">About Us</a></li>
+                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">Restaurant Partners</a></li>
+                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">Privacy Policy</a></li>
+                <li><a href="#" className="text-primary-content/70 hover:text-primary-content">Terms of Service</a></li>
               </ul>
             </div>
           </div>
