@@ -1,4 +1,4 @@
-# Inventory Agent
+# StockCount
 
 A voice-driven AI agent designed for cafes/restaurants to manage inventory via natural, real-time conversation. It leverages speech recognition, natural language processing, and text-to-speech to allow staff to update and query inventory.
 
@@ -32,8 +32,8 @@ A voice-driven AI agent designed for cafes/restaurants to manage inventory via n
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/inventory-agent.git
-   cd inventory-agent
+   git clone https://github.com/yourusername/stockcount.git
+   cd stockcount
    ```
 
 2. Install dependencies for the frontend:

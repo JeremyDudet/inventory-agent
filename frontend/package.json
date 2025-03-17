@@ -1,9 +1,11 @@
 {
-  "name": "inventory-agent-frontend",
+  "name": "stockcount-frontend",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "dependencies": {
+    "@headlessui/react": "^2.2.0",
+    "@heroicons/react": "^2.2.0",
     "@supabase/supabase-js": "^2.49.1",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
@@ -16,6 +18,8 @@
     "chart.js": "^4.3.0",
     "daisyui": "^3.5.0",
     "date-fns": "^2.30.0",
+    "install": "^0.13.0",
+    "npm": "^10.9.2",
     "react": "^18.2.0",
     "react-chartjs-2": "^5.2.0",
     "react-dom": "^18.2.0",

@@ -27,7 +27,7 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
   },
   global: {
     headers: {
-      'x-application-name': 'inventory-agent-backend',
+      'x-application-name': 'stockcount-backend',
     },
   },
 });

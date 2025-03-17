@@ -68,7 +68,7 @@ const Login: React.FC = () => {
           <Link to="/" className="mb-4 -mt-2 text-sm text-primary hover:underline">
             ← Back to home page
           </Link>
-          <h2 className="card-title text-2xl font-bold text-center mb-6">Inventory Agent</h2>
+          <h2 className="card-title text-2xl font-bold text-center mb-6">StockCount</h2>
           
           <form onSubmit={handleSubmit}>
             <div className="form-control mb-4">

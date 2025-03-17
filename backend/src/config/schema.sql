@@ -1,5 +1,5 @@
--- Schema for Inventory Agent Database
--- This file contains SQL statements to set up the database schema for the Inventory Agent application
+-- Schema for StockCount Database
+-- This file contains SQL statements to set up the database schema for the StockCount application
 
 -- Create extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";

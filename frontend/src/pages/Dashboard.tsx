@@ -224,7 +224,7 @@ const Dashboard: React.FC = () => {
     <div className="min-h-screen bg-base-200">
       <header className="bg-base-100 shadow-md transition-colors duration-200">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-primary">Inventory Agent</h1>
+          <h1 className="text-xl font-bold text-primary">StockCount</h1>
           <div className="flex items-center gap-3">
             <ThemeToggle />
             <button onClick={handleLogout} className="btn btn-ghost">Logout</button>

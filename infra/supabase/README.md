@@ -1,10 +1,10 @@
 # Supabase Authentication Setup
 
-This document provides instructions for setting up and using the Supabase authentication system in the Inventory Agent application.
+This document provides instructions for setting up and using the Supabase authentication system in the StockCount application.
 
 ## Overview
 
-The Inventory Agent uses Supabase for authentication and user management. The system includes:
+StockCount uses Supabase for authentication and user management. The system includes:
 
 - Email/password authentication
 - User profiles with roles
