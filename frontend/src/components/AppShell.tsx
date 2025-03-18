@@ -79,7 +79,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <body class="h-full">
         ```
       */}
-      <div>
+      <div className="min-h-screen flex flex-col">
         <Dialog open={sidebarOpen} onClose={setSidebarOpen} className="relative z-50 lg:hidden">
           <DialogBackdrop
             transition
@@ -332,12 +332,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     <span className="sr-only">Open user menu</span>
                     <img
                       alt=""
-                      src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
+                      src={`https://ui-avatars.com/api/?name=${encodeURIComponent(authUser?.user_metadata?.name || 'User')}&background=0D9488&color=fff`}
                       className="size-8 rounded-full bg-gray-50"
                     />
                     <span className="hidden lg:flex lg:items-center">
                       <span aria-hidden="true" className="ml-4 text-sm/6 font-semibold text-gray-900">
-                        Tom Cook
+                        {authUser?.user_metadata?.name || 'User'}
                       </span>
                       <ChevronDownIcon aria-hidden="true" className="ml-2 size-5 text-gray-400" />
                     </span>
@@ -367,7 +367,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
 
-          <main className="py-10">
+          <main className="py-10 flex-grow">
             <div className="px-4 sm:px-6 lg:px-8">{children}</div>
           </main>
         </div>
