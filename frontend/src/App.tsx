@@ -9,7 +9,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Landing from './pages/Landing';
 import LoadingSpinner from './components/LoadingSpinner';
-
+import Settings from './pages/Settings';
 // Protected route component that uses Supabase auth
 const ProtectedRoute = () => {
   const { user, isLoading } = useAuth();
@@ -55,6 +55,7 @@ const AppRoutes = () => {
       {/* Protected routes */}
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/settings" element={<Settings />} />
       </Route>
       
       {/* Fallback route */}

@@ -9,6 +9,7 @@ import AudioVisualizer from '../components/AudioVisualizer';
 import MinimizedAudioVisualizer from '../components/MinimizedAudioVisualizer';
 import ThemeToggle from '../components/ThemeToggle';
 import supabase from '../config/supabase';
+import AppShell from '@/components/AppShell';
 
 const VoiceControl = lazy(() => import('../components/VoiceControl'));
 
@@ -221,16 +222,8 @@ const Dashboard: React.FC = () => {
   if (isLoading) return <LoadingSpinner fullScreen text="Loading..." />;
 
   return (
-    <div className="min-h-screen bg-base-200">
-      <header className="bg-base-100 shadow-md transition-colors duration-200">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-primary">StockCount</h1>
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <button onClick={handleLogout} className="btn btn-ghost">Logout</button>
-          </div>
-        </div>
-      </header>
+    <AppShell>
+    <div className="min-h-screen">
 
       <main className="container mx-auto px-4 py-6">
         <div className="voice-control-section mb-6 relative">
@@ -345,6 +338,7 @@ const Dashboard: React.FC = () => {
         <InventoryGrid items={inventory} onItemSelect={() => {}} filterCategory={undefined} searchTerm="" />
       </main>
     </div>
+    </AppShell>
   );
 };
 
