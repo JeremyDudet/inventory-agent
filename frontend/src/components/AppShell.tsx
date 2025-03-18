@@ -169,6 +169,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                         ))}
                       </ul>
                     </li>
+                    
+                    {/* Notifications area - Mobile */}
+                    <li id="sidebar-notifications-mobile" className="min-h-[120px] flex-shrink-0 mt-4 mb-2 overflow-y-auto max-h-[180px]"></li>
+                    
                     <li className="mt-auto">
                       <Link
                         to="/settings"
@@ -268,6 +272,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     ))}
                   </ul>
                 </li>
+                
+                {/* Notifications area - Desktop */}
+                <li>
+                  <div className="text-xs/6 font-semibold text-gray-400">Notifications</div>
+                  <div id="sidebar-notifications" className="mt-1 overflow-y-auto max-h-[180px]"></div>
+                </li>
+                
                 <li className="mt-auto">
                   <Link
                     to="/settings"

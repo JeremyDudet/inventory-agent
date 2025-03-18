@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { Transition } from '@headlessui/react';
+import { XMarkIcon } from '@heroicons/react/20/solid';
 
 export type NotificationType = 'success' | 'error' | 'info' | 'warning' | 'auth-error';
 
@@ -21,168 +23,105 @@ const Notification: React.FC<NotificationProps> = ({
   onClose,
   isVisible
 }) => {
-  const [isShowing, setIsShowing] = useState(isVisible);
-
-  useEffect(() => {
-    setIsShowing(isVisible);
-    
-    let timer: NodeJS.Timeout;
-    
-    if (isVisible && duration > 0) {
-      timer = setTimeout(() => {
-        // Start exit animation
-        const element = document.getElementById(`notification-${type}-${message.slice(0, 10)}`);
-        if (element) {
-          element.style.animation = 'slideOut 0.3s ease-in forwards, fadeOut 0.3s ease-in forwards';
-          
-          // Actually remove after animation completes
-          setTimeout(() => {
-            setIsShowing(false);
-            if (onClose) onClose();
-          }, 300);
-        } else {
-          // Fallback if element not found
-          setIsShowing(false);
-          if (onClose) onClose();
-        }
-      }, duration);
-    }
-    
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
-  }, [isVisible, duration, onClose, type, message]);
-
-  // If not showing, don't render anything
-  if (!isShowing) return null;
-
-  // Map type to appropriate DaisyUI alert classes
-  const alertClasses = {
-    success: 'alert-success',
-    error: 'alert-error',
-    'auth-error': 'alert-error',
-    info: 'alert-info',
-    warning: 'alert-warning'
-  };
-
-  // Map type to appropriate icon with enhanced styling
-  const getIcon = () => {
-    const iconClasses = `stroke-current shrink-0 h-6 w-6 ${
-      type === 'success' ? 'text-success' :
-      type === 'error' || type === 'auth-error' ? 'text-error' :
-      type === 'warning' ? 'text-warning' :
-      'text-info'
-    }`;
-    
+  // Map type to appropriate colors and icons
+  const getTypeDetails = () => {
     switch (type) {
       case 'success':
-        return (
-          <div className="p-2 rounded-full bg-success/20">
-            <svg xmlns="http://www.w3.org/2000/svg" className={iconClasses} fill="none" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+        return {
+          bgColor: 'bg-success/10',
+          borderColor: 'border-success/40',
+          iconColor: 'text-success',
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 sm:h-4 sm:w-4 lg:h-3 lg:w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
-          </div>
-        );
-      case 'auth-error':
-        return (
-          <div className="p-2 rounded-full bg-error/20">
-            <svg xmlns="http://www.w3.org/2000/svg" className={iconClasses} fill="none" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 15v2m0-10v6M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z" />
-            </svg>
-          </div>
-        );
+          )
+        };
       case 'error':
-        return (
-          <div className="p-2 rounded-full bg-error/20">
-            <svg xmlns="http://www.w3.org/2000/svg" className={iconClasses} fill="none" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
+      case 'auth-error':
+        return {
+          bgColor: 'bg-error/10',
+          borderColor: 'border-error/40',
+          iconColor: 'text-error',
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 sm:h-4 sm:w-4 lg:h-3 lg:w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
-          </div>
-        );
+          )
+        };
       case 'warning':
-        return (
-          <div className="p-2 rounded-full bg-warning/20">
-            <svg xmlns="http://www.w3.org/2000/svg" className={iconClasses} fill="none" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        return {
+          bgColor: 'bg-warning/10',
+          borderColor: 'border-warning/40',
+          iconColor: 'text-warning',
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 sm:h-4 sm:w-4 lg:h-3 lg:w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
-          </div>
-        );
+          )
+        };
       case 'info':
       default:
-        return (
-          <div className="p-2 rounded-full bg-info/20">
-            <svg xmlns="http://www.w3.org/2000/svg" className={iconClasses} fill="none" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        return {
+          bgColor: 'bg-info/10',
+          borderColor: 'border-info/40',
+          iconColor: 'text-info',
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 sm:h-4 sm:w-4 lg:h-3 lg:w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-          </div>
-        );
+          )
+        };
     }
   };
 
+  const { bgColor, borderColor, iconColor, icon } = getTypeDetails();
+
   return (
-    <div 
-      id={`notification-${type}-${message.slice(0, 10)}`}
-      className={`notification-item transition-all duration-300 w-full opacity-100 hover:shadow-2xl`}
-      style={{
-        animation: `slideIn 0.3s ease-out forwards, fadeIn 0.3s ease-out forwards`
-      }}
+    <Transition
+      show={isVisible}
+      enter="transform transition duration-300 ease-out"
+      enterFrom="translate-y-2 opacity-0 sm:translate-y-0 sm:translate-x-2"
+      enterTo="translate-y-0 opacity-100 sm:translate-x-0"
+      leave="transition duration-100 ease-in"
+      leaveFrom="opacity-100"
+      leaveTo="opacity-0"
+      afterLeave={onClose}
     >
-      <div className={`flex items-center p-4 rounded-lg shadow-xl border ${
-        type === 'success' ? 'border-success/40 bg-base-100 text-base-content' :
-        type === 'error' ? 'border-error/40 bg-base-100 text-base-content' :
-        type === 'auth-error' ? 'border-error/40 bg-red-50 text-base-content' :
-        type === 'warning' ? 'border-warning/40 bg-base-100 text-base-content' :
-        'border-info/40 bg-base-100 text-base-content'
-      }`}>
-        <div className="flex-shrink-0 mr-3">
-          {getIcon()}
+      <div className="pointer-events-auto w-full overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-black/5 lg:max-w-full lg:mx-0 sm:max-w-[260px] sm:mx-auto">
+        <div className="p-1.5 sm:p-2 lg:p-1.5">
+          <div className="flex items-start lg:items-start">
+            <div className={`flex-shrink-0 ${iconColor} ${bgColor} p-0.5 rounded-full mt-0.5`}>
+              {icon}
+            </div>
+            <div className="ml-1.5 sm:ml-2 lg:ml-1.5 flex w-0 flex-1 justify-between">
+              <p className="w-0 flex-1 text-[10px] leading-tight sm:text-xs font-medium text-gray-900 break-words lg:text-[10px]" title={message}>
+                {message}
+              </p>
+              {(type === 'error' || type === 'auth-error') && (
+                <button
+                  type="button"
+                  className="ml-1 sm:ml-2 lg:ml-1 shrink-0 rounded-md bg-white text-[10px] sm:text-xs font-medium text-indigo-600 hover:text-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:ring-offset-1 lg:text-[10px]"
+                >
+                  <span className="hidden sm:inline lg:hidden">Try Again</span>
+                  <span className="sm:hidden lg:inline">Retry</span>
+                </button>
+              )}
+            </div>
+            <div className="ml-1 sm:ml-2 lg:ml-1 flex shrink-0">
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:ring-offset-1"
+              >
+                <span className="sr-only">Close</span>
+                <XMarkIcon className="h-3 w-3 sm:h-4 sm:w-4 lg:h-3 lg:w-3" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
         </div>
-        <div className="flex-1 mr-2">
-          <p className="text-sm font-semibold leading-5">{message}</p>
-        </div>
-        <button 
-          onClick={() => {
-            setIsShowing(false);
-            if (onClose) onClose();
-          }} 
-          className={`rounded-full p-1 hover:bg-base-200 transition-colors duration-150 ${
-            type === 'success' ? 'text-success hover:bg-success/20' :
-            type === 'error' || type === 'auth-error' ? 'text-error hover:bg-error/20' :
-            type === 'warning' ? 'text-warning hover:bg-warning/20' :
-            'text-info hover:bg-info/20'
-          }`}
-          aria-label="Close"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
       </div>
-      
-      {/* Add styles for animation - using regular style tag */}
-      <style dangerouslySetInnerHTML={{ 
-        __html: `
-        @keyframes slideIn {
-          from { transform: translateX(100%); }
-          to { transform: translateX(0); }
-        }
-        
-        @keyframes slideOut {
-          from { transform: translateX(0); }
-          to { transform: translateX(100%); }
-        }
-        
-        @keyframes fadeIn {
-          from { opacity: 0; transform: scale(0.95); }
-          to { opacity: 1; transform: scale(1); }
-        }
-        
-        @keyframes fadeOut {
-          from { opacity: 1; transform: scale(1); }
-          to { opacity: 0; transform: scale(0.95); }
-        }
-      `}} />
-    </div>
+    </Transition>
   );
 };
 

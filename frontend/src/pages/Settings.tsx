@@ -218,6 +218,25 @@ export default function Settings() {
                       </div>
                     </div>
 
+                    {/* Test notification button */}
+                    <div className="col-span-full">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          addNotification("success", "This is a test notification");
+                          setTimeout(() => {
+                            addNotification("error", "This is an error notification");
+                          }, 1000);
+                          setTimeout(() => {
+                            addNotification("warning", "This is a warning notification");
+                          }, 2000);
+                        }}
+                        className="text-sm text-indigo-600 hover:text-indigo-500"
+                      >
+                        Test notifications
+                      </button>
+                    </div>
+
                     <div className="sm:col-span-3">
                       <label
                         htmlFor="first-name"

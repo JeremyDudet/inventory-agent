@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import Notification from '../components/Notification';
 import { ApiError } from '../services/api';
+import ReactDOM from 'react-dom';
 
 // Define notification type
 export type NotificationType = 'success' | 'error' | 'info' | 'warning' | 'auth-error';
@@ -11,6 +12,7 @@ interface NotificationData {
   type: NotificationType;
   message: string;
   duration?: number;
+  visible: boolean;
 }
 
 // Define context interface
@@ -35,6 +37,59 @@ export const useNotification = () => useContext(NotificationContext);
 // Provider component
 export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
+  const [desktopSidebarEl, setDesktopSidebarEl] = useState<HTMLElement | null>(null);
+  const [mobileSidebarEl, setMobileSidebarEl] = useState<HTMLElement | null>(null);
+  const [mobileTopEl, setMobileTopEl] = useState<HTMLElement | null>(null);
+
+  // Check if notification areas are ready
+  useEffect(() => {
+    const checkElements = () => {
+      // For desktop sidebar notification area
+      const desktopSidebarNotificationsEl = document.getElementById('sidebar-notifications');
+      
+      // For mobile sidebar notification area
+      const mobileSidebarNotificationsEl = document.getElementById('sidebar-notifications-mobile');
+      
+      // For mobile top notifications (below search bar)
+      let mobileTopNotificationsEl = document.getElementById('mobile-notifications-container');
+      
+      if (!mobileTopNotificationsEl) {
+        // If the container doesn't exist, create it
+        mobileTopNotificationsEl = document.createElement('div');
+        mobileTopNotificationsEl.id = 'mobile-notifications-container';
+        mobileTopNotificationsEl.className = 'fixed top-16 z-40 left-0 right-0 px-4 py-1 lg:hidden';
+        
+        // Find the main element to insert before
+        const mainElement = document.querySelector('main');
+        if (mainElement && mainElement.parentNode) {
+          mainElement.parentNode.insertBefore(mobileTopNotificationsEl, mainElement);
+        } else {
+          // Fallback if we can't find the main element
+          document.body.appendChild(mobileTopNotificationsEl);
+        }
+      }
+      
+      setDesktopSidebarEl(desktopSidebarNotificationsEl);
+      setMobileSidebarEl(mobileSidebarNotificationsEl);
+      setMobileTopEl(mobileTopNotificationsEl);
+    };
+
+    // Check immediately and then with a slight delay to ensure DOM is ready
+    checkElements();
+    const timer = setTimeout(checkElements, 500);
+    
+    // Also add a mutation observer to catch when the elements are added to the DOM
+    const observer = new MutationObserver(() => {
+      checkElements();
+    });
+    
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+    };
+  }, []);
 
   // Add a new notification
   const addNotification = (type: NotificationType, message: string, duration = 5000) => {
@@ -42,7 +97,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     
     // Limit to maximum 3 notifications at once
     setNotifications((prev) => {
-      const newNotifications = [...prev, { id, type, message, duration }];
+      const newNotifications = [...prev, { id, type, message, duration, visible: true }];
       // If more than 3, remove the oldest one
       return newNotifications.length > 3 ? newNotifications.slice(-3) : newNotifications;
     });
@@ -50,7 +105,12 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     // Auto-remove notification after duration
     if (duration !== 0) {
       setTimeout(() => {
-        removeNotification(id);
+        // First set visible to false to trigger animation
+        setNotifications(prev => 
+          prev.map(notification => 
+            notification.id === id ? { ...notification, visible: false } : notification
+          )
+        );
       }, duration);
     }
   };
@@ -87,20 +147,69 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     }
   };
 
-  return (
-    <NotificationContext.Provider value={{ notifications, addNotification, showApiError, removeNotification }}>
-      {children}
-      <div className="notifications-container fixed top-4 right-4 z-50 flex flex-col gap-3 max-w-md" style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}>
+  // Notification content for desktop sidebar
+  const desktopNotificationContent = (
+    <div className="px-1">
+      <div className="flex flex-col gap-1.5">
         {notifications.map((notification) => (
           <Notification
             key={notification.id}
             type={notification.type}
             message={notification.message}
-            isVisible={true}
+            isVisible={notification.visible}
             onClose={() => removeNotification(notification.id)}
           />
         ))}
       </div>
+    </div>
+  );
+
+  // Notification content for mobile sidebar
+  const mobileSidebarNotificationContent = (
+    <div className="px-1">
+      <div className="flex flex-col gap-1.5">
+        {notifications.map((notification) => (
+          <Notification
+            key={notification.id}
+            type={notification.type}
+            message={notification.message}
+            isVisible={notification.visible}
+            onClose={() => removeNotification(notification.id)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+
+  // Notification content for mobile top area (below search)
+  const mobileTopNotificationContent = (
+    <div className="px-2 py-1">
+      <div className="flex flex-col gap-2 mx-auto">
+        {notifications.map((notification) => (
+          <Notification
+            key={notification.id}
+            type={notification.type}
+            message={notification.message}
+            isVisible={notification.visible}
+            onClose={() => removeNotification(notification.id)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <NotificationContext.Provider value={{ notifications, addNotification, showApiError, removeNotification }}>
+      {children}
+      
+      {/* Desktop sidebar notifications */}
+      {desktopSidebarEl && ReactDOM.createPortal(desktopNotificationContent, desktopSidebarEl)}
+      
+      {/* Mobile sidebar notifications */}
+      {mobileSidebarEl && ReactDOM.createPortal(mobileSidebarNotificationContent, mobileSidebarEl)}
+      
+      {/* Mobile notifications below search bar - only visible on small screens */}
+      {mobileTopEl && ReactDOM.createPortal(mobileTopNotificationContent, mobileTopEl)}
     </NotificationContext.Provider>
   );
 };
