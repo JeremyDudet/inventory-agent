@@ -1,40 +1,39 @@
-import { InboxIcon, TrashIcon, UsersIcon } from '@heroicons/react/24/outline'
+import { MicrophoneIcon, LightBulbIcon, ClockIcon } from '@heroicons/react/24/outline'
 
 const features = [
   {
-    name: 'Unlimited inboxes',
+    name: 'Voice-Driven Interface',
     description:
-      'Non quo aperiam repellendus quas est est. Eos aut dolore aut ut sit nesciunt. Ex tempora quia. Sit nobis consequatur dolores incidunt.',
-    href: '#',
-    icon: InboxIcon,
+      'Update inventory with natural voice commands. Say "Add 5 bags of flour," and it’s done instantly.',
+    href: '#voice-interface',
+    icon: MicrophoneIcon,
   },
   {
-    name: 'Manage team members',
+    name: 'Contextual Understanding',
     description:
-      'Vero eum voluptatem aliquid nostrum voluptatem. Vitae esse natus. Earum nihil deserunt eos quasi cupiditate. A inventore et molestiae natus.',
-    href: '#',
-    icon: UsersIcon,
+      'StockCount.io learns your habits, making updates faster and smarter over time.',
+    href: '#contextual-understanding',
+    icon: LightBulbIcon,
   },
   {
-    name: 'Spam report',
+    name: 'Quick Response Times',
     description:
-      'Et quod quaerat dolorem quaerat architecto aliquam accusantium. Ex adipisci et doloremque autem quia quam. Quis eos molestiae at iure impedit.',
-    href: '#',
-    icon: TrashIcon,
+      'Get accurate responses in under a second, even in a busy, noisy kitchen.',
+    href: '#quick-response',
+    icon: ClockIcon,
   },
 ]
 
-export default function Example() {
+export default function Features() {
   return (
     <div className="bg-white py-24 sm:py-32">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="mx-auto max-w-2xl lg:mx-0">
           <h2 className="text-pretty text-4xl font-semibold tracking-tight text-gray-900 sm:text-5xl">
-            Stay on top of customer support
+            Simplify your stock with tools that work for you
           </h2>
           <p className="mt-6 text-lg/8 text-gray-600">
-            Lorem ipsum dolor sit amet consect adipisicing elit. Possimus magnam voluptatum cupiditate veritatis in
-            accusamus quisquam.
+            StockCount.io makes inventory management intuitive and stress-free. Our innovative features let you update and track stock effortlessly, so your team can focus on delighting customers.
           </p>
         </div>
         <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none">

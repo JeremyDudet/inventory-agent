@@ -32,7 +32,7 @@ function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(' ')
 }
 
-export default function Example() {
+export default function Pricing() {
   return (
     <div id="pricing" className="relative isolate bg-white px-6 py-24 sm:py-32 lg:px-8">
       <div aria-hidden="true" className="absolute inset-x-0 -top-3 -z-10 transform-gpu overflow-hidden px-36 blur-3xl">

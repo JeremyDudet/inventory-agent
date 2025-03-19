@@ -13,7 +13,7 @@ const navigation = [
   { name: 'Company', href: '#' },
 ]
 
-export default function Example() {
+export default function Hero() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (

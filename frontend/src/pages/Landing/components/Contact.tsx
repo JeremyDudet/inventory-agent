@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { ChevronDownIcon } from '@heroicons/react/16/solid'
 import { Field, Label, Switch } from '@headlessui/react'
 
-export default function Example() {
+export default function Contact() {
   const [agreed, setAgreed] = useState(false)
 
   return (

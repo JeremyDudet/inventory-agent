@@ -1,10 +1,10 @@
-export default function Example() {
+export default function Benefits() {
   return (
     <div className="bg-white py-24 sm:py-32">
       <div className="mx-auto max-w-2xl px-6 lg:max-w-7xl lg:px-8">
-        <h2 className="text-base/7 font-semibold text-indigo-600">Deploy faster</h2>
+        <h2 className="text-base/7 font-semibold text-indigo-600">Stress-free inventory</h2>
         <p className="mt-2 max-w-lg text-pretty text-4xl font-semibold tracking-tight text-gray-950 sm:text-5xl">
-          Everything you need to deploy your app
+          Everything you need to manage your stock
         </p>
         <div className="mt-10 grid grid-cols-1 gap-4 sm:mt-16 lg:grid-cols-6 lg:grid-rows-2">
           <div className="relative lg:col-span-3">
@@ -16,11 +16,10 @@ export default function Example() {
                 className="h-80 object-cover object-left"
               />
               <div className="p-10 pt-4">
-                <h3 className="text-sm/4 font-semibold text-indigo-600">Performance</h3>
-                <p className="mt-2 text-lg font-medium tracking-tight text-gray-950">Lightning-fast builds</p>
+                <h3 className="text-sm/4 font-semibold text-indigo-600">Reduce Stress</h3>
+                <p className="mt-2 text-lg font-medium tracking-tight text-gray-950">Focus on what matters</p>
                 <p className="mt-2 max-w-lg text-sm/6 text-gray-600">
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit. In gravida justo et nulla efficitur, maximus
-                  egestas sem pellentesque.
+                  StockCount.io helps you manage your stock effortlessly, so you can focus on what matters most: your customers.
                 </p>
               </div>
             </div>
@@ -35,11 +34,10 @@ export default function Example() {
                 className="h-80 object-cover object-left lg:object-right"
               />
               <div className="p-10 pt-4">
-                <h3 className="text-sm/4 font-semibold text-indigo-600">Releases</h3>
-                <p className="mt-2 text-lg font-medium tracking-tight text-gray-950">Push to deploy</p>
+                <h3 className="text-sm/4 font-semibold text-indigo-600">Save Time</h3>
+                <p className="mt-2 text-lg font-medium tracking-tight text-gray-950">Update stock in seconds</p>
                 <p className="mt-2 max-w-lg text-sm/6 text-gray-600">
-                  Curabitur auctor, ex quis auctor venenatis, eros arcu rhoncus massa, laoreet dapibus ex elit vitae
-                  odio.
+                  No more manual logs or spreadsheets. With voice commands and instant updates, StockCount.io frees up hours for your busy day.
                 </p>
               </div>
             </div>
@@ -54,10 +52,10 @@ export default function Example() {
                 className="h-80 object-cover object-left"
               />
               <div className="p-10 pt-4">
-                <h3 className="text-sm/4 font-semibold text-indigo-600">Speed</h3>
-                <p className="mt-2 text-lg font-medium tracking-tight text-gray-950">Built for power users</p>
+                <h3 className="text-sm/4 font-semibold text-indigo-600">Boost Accuracy</h3>
+                <p className="mt-2 text-lg font-medium tracking-tight text-gray-950">Fewer mistakes</p>
                 <p className="mt-2 max-w-lg text-sm/6 text-gray-600">
-                  Sed congue eros non finibus molestie. Vestibulum euismod augue.
+                  StockCount.io listens closely and learns your workflow, helping you cut down errors so your inventory is always spot-on.
                 </p>
               </div>
             </div>
@@ -72,10 +70,10 @@ export default function Example() {
                 className="h-80 object-cover"
               />
               <div className="p-10 pt-4">
-                <h3 className="text-sm/4 font-semibold text-indigo-600">Integrations</h3>
-                <p className="mt-2 text-lg font-medium tracking-tight text-gray-950">Connect your favorite tools</p>
+                <h3 className="text-sm/4 font-semibold text-indigo-600">Fit Your Flow</h3>
+                <p className="mt-2 text-lg font-medium tracking-tight text-gray-950">Voice controls and manual fallback</p>
                 <p className="mt-2 max-w-lg text-sm/6 text-gray-600">
-                  Maecenas at augue sed elit dictum vulputate, in nisi aliquam maximus arcu.
+                  Designed for cafes, StockCount.io adapts to your team’s pace with voice controls and a fallback manual option for any situation.
                 </p>
               </div>
             </div>
@@ -90,10 +88,10 @@ export default function Example() {
                 className="h-80 object-cover"
               />
               <div className="p-10 pt-4">
-                <h3 className="text-sm/4 font-semibold text-indigo-600">Network</h3>
-                <p className="mt-2 text-lg font-medium tracking-tight text-gray-950">Globally distributed CDN</p>
+                <h3 className="text-sm/4 font-semibold text-indigo-600">Grow Confidently</h3>
+                <p className="mt-2 text-lg font-medium tracking-tight text-gray-950">Real-time insights</p>
                 <p className="mt-2 max-w-lg text-sm/6 text-gray-600">
-                  Aenean vulputate justo commodo auctor vehicula in malesuada semper.
+                  StockCount.io gives you real-time insights so you can make informed decisions and grow with confidence.
                 </p>
               </div>
             </div>
