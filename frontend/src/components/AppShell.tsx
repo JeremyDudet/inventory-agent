@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import NotificationFeed from './NotificationFeed'
 import {
   Dialog,
   DialogBackdrop,
@@ -171,7 +172,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     </li>
                     
                     {/* Notifications area - Mobile */}
-                    <li id="sidebar-notifications-mobile" className="min-h-[120px] flex-shrink-0 mt-4 mb-2 overflow-y-auto max-h-[180px]"></li>
+                    <li className="flex-shrink-0 mt-4 mb-2 overflow-y-auto flex-grow">
+                      <NotificationFeed />
+                    </li>
                     
                     <li className="mt-auto">
                       <Link
@@ -274,9 +277,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </li>
                 
                 {/* Notifications area - Desktop */}
-                <li>
-                  <div className="text-xs/6 font-semibold text-gray-400">Notifications</div>
-                  <div id="sidebar-notifications" className="mt-1 overflow-y-auto max-h-[180px]"></div>
+                <li className="flex-shrink-0 mt-4 mb-2 overflow-y-auto flex-grow">
+                  <NotificationFeed />
                 </li>
                 
                 <li className="mt-auto">

@@ -223,10 +223,8 @@ const Dashboard: React.FC = () => {
 
   return (
     <AppShell>
-    <div className="min-h-screen">
-
-      <main className="container mx-auto px-4 py-6">
-        <div className="voice-control-section mb-6 relative">
+      <div className="py-6">
+        <div className="voice-control-section mb-6">
           <div className="flex items-center gap-4">
             <button 
               onClick={toggleVoiceControl} 
@@ -322,7 +320,6 @@ const Dashboard: React.FC = () => {
             <div 
               className="relative mb-4" 
               style={{display: isVoiceMinimized ? 'none' : 'block'}}
-              // Keep the component mounted even when minimized, just hide it visually
             >
               <VoiceControl 
                 key={voiceControlKey}
@@ -335,9 +332,10 @@ const Dashboard: React.FC = () => {
           </Suspense>
         )}
 
-        <InventoryGrid items={inventory} onItemSelect={() => {}} filterCategory={undefined} searchTerm="" />
-      </main>
-    </div>
+        <div className="px-4 sm:px-6 lg:px-8">
+          <InventoryGrid items={inventory} onItemSelect={() => {}} filterCategory={undefined} searchTerm="" />
+        </div>
+      </div>
     </AppShell>
   );
 };
