@@ -1,5 +1,7 @@
 import { CheckIcon, HandThumbUpIcon, UserIcon } from '@heroicons/react/20/solid'
 import { formatDistanceToNow } from 'date-fns'
+import { Switch } from '@headlessui/react'
+import { useState } from 'react'
 
 const timeline = [
   {
@@ -11,6 +13,7 @@ const timeline = [
     datetime: new Date(Date.now() - 1000 * 60 * 5),
     icon: UserIcon,
     iconBackground: 'bg-gray-400',
+    isPersonal: true,
   },
   {
     id: 2,
@@ -21,6 +24,7 @@ const timeline = [
     datetime: new Date(Date.now() - 1000 * 60 * 60 * 2),
     icon: HandThumbUpIcon,
     iconBackground: 'bg-blue-500',
+    isPersonal: false,
   },
   {
     id: 3,
@@ -31,6 +35,7 @@ const timeline = [
     datetime: new Date(Date.now() - 1000 * 60 * 60 * 24),
     icon: CheckIcon,
     iconBackground: 'bg-green-500',
+    isPersonal: true,
   },
   {
     id: 4,
@@ -41,6 +46,7 @@ const timeline = [
     datetime: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3),
     icon: HandThumbUpIcon,
     iconBackground: 'bg-blue-500',
+    isPersonal: false,
   },
   {
     id: 5,
@@ -51,6 +57,7 @@ const timeline = [
     datetime: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7),
     icon: CheckIcon,
     iconBackground: 'bg-green-500',
+    isPersonal: true,
   },
 ]
 
@@ -96,14 +103,41 @@ function formatShortTime(date: Date): string {
 }
 
 export default function NotificationFeed() {
+  const [showTeamActivity, setShowTeamActivity] = useState(false)
+
+  const filteredTimeline = timeline.filter(event => 
+    showTeamActivity ? true : event.isPersonal
+  )
+
   return (
-    <div className="flow-root">
-      <h3 className="text-xs font-semibold text-gray-400 mb-2">Recent Activity</h3>
+    <div className="flow-root overflow-visible">
+      <div className="flex items-center justify-between mb-2 overflow-visible">
+        <h3 className="text-xs font-semibold text-gray-400">Recent Activity</h3>
+        <div className="flex items-center gap-2 overflow-visible">
+          <span className="text-xs text-gray-500">Team Activity</span>
+            <Switch
+              checked={showTeamActivity}
+              onChange={setShowTeamActivity}
+              className={classNames(
+                showTeamActivity ? 'bg-indigo-600' : 'bg-gray-200',
+                'relative inline-flex h-4 w-7 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-1'
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className={classNames(
+                  showTeamActivity ? 'translate-x-3' : 'translate-x-0',
+                  'pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out'
+                )}
+              />
+            </Switch>
+        </div>
+      </div>
       <ul role="list" className="-mb-8">
-        {timeline.map((event, eventIdx) => (
+        {filteredTimeline.map((event, eventIdx) => (
           <li key={event.id}>
             <div className="relative pb-4">
-              {eventIdx !== timeline.length - 1 ? (
+              {eventIdx !== filteredTimeline.length - 1 ? (
                 <span aria-hidden="true" className="absolute left-4 top-4 -ml-px h-full w-0.5 bg-gray-200" />
               ) : null}
               <div className="relative flex space-x-3">

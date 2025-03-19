@@ -172,7 +172,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     </li>
                     
                     {/* Notifications area - Mobile */}
-                    <li className="flex-shrink-0 mt-4 mb-2 overflow-y-auto flex-grow">
+                    <li className="flex-shrink-0 mt-4 mb-2 overflow-visible flex-grow">
                       <NotificationFeed />
                     </li>
                     
@@ -277,7 +277,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </li>
                 
                 {/* Notifications area - Desktop */}
-                <li className="flex-shrink-0 mt-4 mb-2 overflow-y-auto flex-grow">
+                <li className="flex-shrink-0 mt-4 mb-2 overflow-visible flex-grow">
                   <NotificationFeed />
                 </li>
                 
