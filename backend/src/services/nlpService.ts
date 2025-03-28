@@ -24,6 +24,7 @@ class NlpService {
     quantity: number;
     unit: string;
     confidence: number;
+    isComplete: boolean;
   }> {
     const startTime = Date.now();
     console.log(`🧠 [NLP] Processing transcription: "${transcription}"`);
@@ -51,6 +52,7 @@ class NlpService {
       console.log(`🧠 [NLP] Extracted quantity: ${result.quantity}`);
       console.log(`🧠 [NLP] Extracted unit: "${result.unit}"`);
       console.log(`🧠 [NLP] Confidence: ${(result.confidence * 100).toFixed(1)}%`);
+      console.log(`🧠 [NLP] Command complete: ${result.isComplete}`);
       
       return result;
     } catch (error) {
@@ -63,7 +65,8 @@ class NlpService {
         item: 'unknown',
         quantity: 0,
         unit: 'units',
-        confidence: 0.3
+        confidence: 0.3,
+        isComplete: false
       };
     }
   }
@@ -79,6 +82,7 @@ class NlpService {
     quantity: number;
     unit: string;
     confidence: number;
+    isComplete: boolean;
   }> {
     try {
       const response = await axios.post(
@@ -128,12 +132,16 @@ class NlpService {
         confidence = 0.6; // Lower confidence if any field is missing
       }
       
+      // Determine if the command is complete based on action type
+      const isComplete = this.isCommandComplete(action, item, quantity, unit);
+      
       return {
         action,
         item,
         quantity,
         unit,
-        confidence
+        confidence,
+        isComplete
       };
     } catch (error) {
       console.error('Error with OpenAI API:', error);
@@ -153,6 +161,7 @@ class NlpService {
     quantity: number;
     unit: string;
     confidence: number;
+    isComplete: boolean;
   }> {
     const lowerTranscription = transcription.toLowerCase().trim();
     
@@ -163,6 +172,7 @@ class NlpService {
         quantity: 0,
         unit: 'unknown',
         confidence: 0.1, // Very low confidence for empty transcription
+        isComplete: false
       };
     }
       
@@ -197,7 +207,8 @@ class NlpService {
           item: this.extractItemFromQuery(lowerTranscription),
           quantity: 0,
           unit: 'units',
-          confidence: 0.7
+          confidence: 0.7,
+          isComplete: false
         };
       }
       
@@ -226,7 +237,8 @@ class NlpService {
             item: this.extractItemName(lowerTranscription),
             quantity: 0,
             unit: 'units', // Default to units instead of unknown
-            confidence: 0.4
+            confidence: 0.4,
+            isComplete: false
           };
         }
       }
@@ -331,25 +343,29 @@ class NlpService {
           
           // If we have a direct item and unit extraction (check for the discriminator properties)
           if ('item' in extracted && 'unit' in extracted) {
-            return {
+            const result = {
               action,
               item: this.cleanUpItemName(extracted.item || ''),
               quantity,
               unit: this.normalizeUnit(extracted.unit || ''),
-              confidence: pattern.confidence
+              confidence: pattern.confidence,
+              isComplete: this.isCommandComplete(action, extracted.item || '', quantity, extracted.unit || '')
             };
+            return result;
           }
           
           // If we need to extract unit from the item string
           if ('itemWithUnit' in extracted) {
             const { item, unit } = this.extractItemAndUnit(extracted.itemWithUnit);
-            return {
+            const result = {
               action,
               item: this.cleanUpItemName(item),
               quantity,
               unit,
-              confidence: pattern.confidence * 0.9 // Slightly reduced confidence
+              confidence: pattern.confidence * 0.9, // Slightly reduced confidence
+              isComplete: this.isCommandComplete(action, item, quantity, unit)
             };
+            return result;
           }
         } catch (err) {
           console.error('Error processing pattern match:', err);
@@ -403,7 +419,8 @@ class NlpService {
       item,
       quantity,
       unit,
-      confidence
+      confidence,
+      isComplete: this.isCommandComplete(action, item, quantity, unit)
     };
   }
   
@@ -719,6 +736,45 @@ class NlpService {
     }
     
     return 'item'; // Better default than 'unknown'
+  }
+
+  /**
+   * Determine if a command is complete based on its components
+   */
+  private isCommandComplete(action: string, item: string, quantity: number, unit: string): boolean {
+    // Basic validation
+    if (!action || action === 'unknown') {
+      return false;
+    }
+
+    if (!item || item === 'unknown') {
+      return false;
+    }
+
+    // Action-specific validation
+    switch (action) {
+      case 'set':
+        // Set commands require all fields to be present and valid
+        // Also check for suspicious incomplete commands like "set X" without a quantity
+        const hasValidQuantity = quantity > 0 && unit !== 'unknown' && unit !== '';
+        
+        // Additional check for set commands that might be split across voice inputs
+        // If the item contains words like "to" at the end, it might be incomplete
+        const hasSuspiciousEndingPattern = /\b(the|to|cups|cup|of|for)\s*$/i.test(item.trim());
+        const hasSetToPattern = item.toLowerCase().includes(' to ');
+        
+        // If it contains words like "16 ounce paper cups" without a number+unit at the end,
+        // it's likely waiting for "to X sleeves/boxes/etc"
+        return hasValidQuantity && !hasSuspiciousEndingPattern && hasSetToPattern;
+      
+      case 'add':
+      case 'remove':
+        // Add/remove commands can work with just an item (quantity defaults to 1)
+        return true;
+      
+      default:
+        return false;
+    }
   }
 }
 

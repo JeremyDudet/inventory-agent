@@ -10,6 +10,7 @@ import inventoryService from './services/inventoryService';
 import confirmationService from './services/confirmationService';
 import speechFeedbackService from './services/speechFeedbackService';
 import { logTranscript, logSystemAction } from './services/sessionLogsService';
+import TranscriptionBuffer from './services/transcriptionBuffer';
 import sessionLogsRoutes from './routes/sessionLogs';
 import inventoryRoutes from './routes/inventory';
 import authRoutes from './routes/auth';
@@ -47,6 +48,13 @@ voiceNamespace.on('connection', (socket: Socket) => {
   let isProcessingVoiceCommand = false;
   let pendingConfirmation: any = null;
   
+  // Create transcription buffer
+  const transcriptionBuffer = new TranscriptionBuffer();
+  
+  // Add timeout tracking for command continuation
+  let lastTranscriptionTime = 0;
+  const COMMAND_CONTINUATION_TIMEOUT = 3000; // 3 seconds timeout to consider continuations
+  
   const callbacks = {
     onTranscript: async (transcript: string, isFinal: boolean, confidence: number) => {
       console.log(`🔊 Emitting transcription to ${socket.id}: "${transcript}" (isFinal: ${isFinal}, confidence: ${confidence})`);
@@ -62,8 +70,14 @@ voiceNamespace.on('connection', (socket: Socket) => {
         }
       }
       
+      const currentTime = Date.now();
+      const timeSinceLastTranscription = currentTime - lastTranscriptionTime;
+      
       // If this is a final transcription, process it through NLP and confirmation
       if (isFinal && transcript.trim() && !isProcessingVoiceCommand) {
+        // Update last transcription time
+        lastTranscriptionTime = currentTime;
+        
         try {
           // Check if this is a response to a pending confirmation
           if (pendingConfirmation) {
@@ -115,10 +129,41 @@ voiceNamespace.on('connection', (socket: Socket) => {
           // Mark as processing to prevent duplicate processing
           isProcessingVoiceCommand = true;
           
+          // Add current transcript to the buffer
+          transcriptionBuffer.addTranscription(transcript);
+          const bufferContent = transcriptionBuffer.getCurrentBuffer();
+          
+          console.log(`🔊 Processing transcription buffer: "${bufferContent}"`);
+          
           // Process the transcription through NLP
-          console.log(`🔊 Processing transcription for NLP: "${transcript}"`);
-          const nlpResult = await nlpService.processTranscription(transcript);
+          const nlpResult = await nlpService.processTranscription(bufferContent);
           console.log(`🔊 NLP result:`, nlpResult);
+          
+          // Only clear buffer if:
+          // 1. The command is complete, OR
+          // 2. It's been more than the timeout since the last transcription AND
+          //    we don't detect a pattern suggesting this is the first part of a split command
+          if (nlpResult.isComplete) {
+            transcriptionBuffer.clearBuffer();
+            console.log(`🔊 Command is complete. Buffer cleared.`);
+          } else if (timeSinceLastTranscription > COMMAND_CONTINUATION_TIMEOUT && 
+                    !transcript.toLowerCase().match(/^set\s+.+/i) && 
+                    !transcript.toLowerCase().match(/^update\s+.+/i)) {
+            // If it's been too long since the last transcription, and this isn't
+            // a "set" command which might be split across transcriptions
+            console.log(`🔊 Timeout exceeded. Clearing buffer despite incomplete command.`);
+            transcriptionBuffer.clearBuffer();
+          } else {
+            console.log(`🔊 Command is incomplete. Keeping buffer: "${bufferContent}"`);
+            // Special case: if this looks like a set command start, emit a UI hint
+            if (transcript.toLowerCase().match(/^set\s+.+/i) && 
+                !transcript.toLowerCase().includes(" to ")) {
+              socket.emit('transcription-hint', { 
+                message: "Waiting for quantity...", 
+                expectedContinuation: true 
+              });
+            }
+          }
           
           // If we have an unknown action, just return the result immediately
           if (nlpResult.action === 'unknown') {

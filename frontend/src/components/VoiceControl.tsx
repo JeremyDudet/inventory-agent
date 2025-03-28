@@ -27,6 +27,7 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
     timestamp: number;
     status?: 'success' | 'error' | 'pending' | 'info';
   }>>([]);
+  const [continuationHint, setContinuationHint] = useState<string | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [confidence, setConfidence] = useState(0);
   const [processingCommand, setProcessingCommand] = useState(false);
@@ -200,6 +201,19 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
           return newHistory;
         });
         if (data.text.trim()) setProcessingCommand(true);
+      }
+    });
+    
+    // Add a handler for transcription hints
+    socket.on('transcription-hint', (data: { message: string; expectedContinuation: boolean }) => {
+      console.log('Transcription hint received:', data);
+      if (data.expectedContinuation) {
+        setContinuationHint(data.message);
+        // Show visual feedback that more input is expected
+        setFeedback(`${data.message} (continue speaking...)`);
+        addNotification('info', data.message);
+      } else {
+        setContinuationHint(null);
       }
     });
 
@@ -470,6 +484,15 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
 
       {feedback && (
         <div className="feedback mt-4 p-3 bg-base-200 rounded-lg">{feedback}</div>
+      )}
+      
+      {continuationHint && (
+        <div className="continuation-hint mt-2 p-2 bg-warning/10 border border-warning/30 rounded-lg flex items-center">
+          <svg className="h-5 w-5 text-warning mr-2" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+          </svg>
+          <span className="text-sm font-medium">{continuationHint} <span className="opacity-75">(continue speaking...)</span></span>
+        </div>
       )}
 
       <SessionLogs 
