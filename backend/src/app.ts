@@ -81,49 +81,60 @@ voiceNamespace.on('connection', (socket: Socket) => {
         try {
           // Check if this is a response to a pending confirmation
           if (pendingConfirmation) {
-            // Process as a confirmation response
-            console.log(`🔊 Processing as confirmation response: "${transcript}"`);
-            const correctedCommand = confirmationService.processVoiceCorrection(
-              pendingConfirmation.command,
-              transcript
-            );
-            
-            if (correctedCommand) {
-              // User confirmed or corrected the command
-              console.log(`🔊 Voice confirmation received: ${JSON.stringify(correctedCommand)}`);
-              
-              // Record the confirmation result
-              const wasConfirmation = correctedCommand.mistakeType === 'multiple';
-              confirmationService.recordConfirmationResult(
-                socket.id, 
-                wasConfirmation,
-                {
-                  originalCommand: pendingConfirmation.command,
-                  correctedCommand: wasConfirmation ? undefined : correctedCommand,
-                  mistakeType: wasConfirmation ? undefined : correctedCommand.mistakeType
-                }
+            // Skip numeric-only segments or "to X" phrases as confirmation responses
+            // These are likely parts of multi-segment commands
+            if ((/^\d+\s+\w+$/i.test(transcript.toLowerCase())) || 
+                (/^to\s+.+/i.test(transcript.toLowerCase()))) {
+              console.log(`🔊 Detected likely multi-segment command part, not treating as confirmation response`);
+              // Continue processing as a new command by adding to buffer
+            } 
+            // For text that looks like confirmation responses, process them
+            else if (!(/^\d+$/.test(transcript.trim()))) { // Not just a single number
+              // Process as a confirmation response
+              console.log(`🔊 Processing as confirmation response: "${transcript}"`);
+              const correctedCommand = confirmationService.processVoiceCorrection(
+                pendingConfirmation.command,
+                transcript
               );
               
-              // Process the confirmed/corrected command
-              if (wasConfirmation) {
-                // Proceed with the original command
-                socket.emit('command-confirmed', pendingConfirmation.command);
-              } else {
-                // Update with the corrected command
-                socket.emit('command-corrected', correctedCommand);
+              if (correctedCommand) {
+                // User confirmed or corrected the command
+                console.log(`🔊 Voice confirmation received: ${JSON.stringify(correctedCommand)}`);
+                
+                // Record the confirmation result
+                const wasConfirmation = correctedCommand.mistakeType === 'multiple';
+                confirmationService.recordConfirmationResult(
+                  socket.id, 
+                  wasConfirmation,
+                  {
+                    originalCommand: pendingConfirmation.command,
+                    correctedCommand: wasConfirmation ? undefined : correctedCommand,
+                    mistakeType: wasConfirmation ? undefined : correctedCommand.mistakeType
+                  }
+                );
+                
+                // Process the confirmed/corrected command
+                if (wasConfirmation) {
+                  // Proceed with the original command
+                  socket.emit('command-confirmed', pendingConfirmation.command);
+                } else {
+                  // Update with the corrected command
+                  socket.emit('command-corrected', correctedCommand);
+                }
+                
+                // Reset pending confirmation
+                pendingConfirmation = null;
+                return;
+              } else if (/^(no|nope|incorrect|wrong|that's wrong|not right)$/i.test(transcript.toLowerCase().trim())) {
+                // User rejected without correction
+                console.log(`🔊 Voice rejection received`);
+                socket.emit('command-rejected');
+                pendingConfirmation = null;
+                return;
               }
-              
-              // Reset pending confirmation
-              pendingConfirmation = null;
-              return;
-            } else if (/^(no|nope|incorrect|wrong|that's wrong|not right)$/i.test(transcript.toLowerCase().trim())) {
-              // User rejected without correction
-              console.log(`🔊 Voice rejection received`);
-              socket.emit('command-rejected');
-              pendingConfirmation = null;
-              return;
+              // If we can't process it as a confirmation response, continue to process as a new command
             }
-            // If we can't process it as a confirmation response, continue to process as a new command
+            // If we get here, we'll continue to process as a new command
           }
           
           // Mark as processing to prevent duplicate processing
@@ -148,25 +159,49 @@ voiceNamespace.on('connection', (socket: Socket) => {
             console.log(`🔊 Command is complete. Buffer cleared.`);
           } else if (timeSinceLastTranscription > COMMAND_CONTINUATION_TIMEOUT && 
                     !transcript.toLowerCase().match(/^set\s+.+/i) && 
-                    !transcript.toLowerCase().match(/^update\s+.+/i)) {
+                    !transcript.toLowerCase().match(/^update\s+.+/i) &&
+                    !transcript.toLowerCase().match(/^remove\s*$/i) &&  // Don't timeout on just "remove"
+                    !transcript.toLowerCase().match(/^add\s*$/i) &&     // Don't timeout on just "add"
+                    !(/^\d+\s+\w+$/i.test(transcript.toLowerCase()))) {  // Don't timeout on numeric segments
             // If it's been too long since the last transcription, and this isn't
-            // a "set" command which might be split across transcriptions
+            // a command that might be split across transcriptions
             console.log(`🔊 Timeout exceeded. Clearing buffer despite incomplete command.`);
             transcriptionBuffer.clearBuffer();
           } else {
             console.log(`🔊 Command is incomplete. Keeping buffer: "${bufferContent}"`);
-            // Special case: if this looks like a set command start, emit a UI hint
+            // Special case hints for different command types
             if (transcript.toLowerCase().match(/^set\s+.+/i) && 
                 !transcript.toLowerCase().includes(" to ")) {
               socket.emit('transcription-hint', { 
                 message: "Waiting for quantity...", 
                 expectedContinuation: true 
               });
+            } else if (transcript.toLowerCase().match(/^remove\s*$/i)) {
+              socket.emit('transcription-hint', { 
+                message: "Waiting for item and quantity...", 
+                expectedContinuation: true 
+              });
+            } else if (/^\d+\s+\w+$/i.test(transcript.toLowerCase())) {
+              socket.emit('transcription-hint', { 
+                message: "Waiting for item name...", 
+                expectedContinuation: true 
+              });
             }
           }
           
-          // If we have an unknown action, just return the result immediately
+          // If we have an unknown action, try to use context from previous interactions
+          // before immediately returning the result
           if (nlpResult.action === 'unknown') {
+            // If it's a numeric-only segment or a "to X" segment, don't return yet -
+            // this is likely part of a multi-segment command
+            if ((/^\d+\s+\w+$/i.test(transcript.toLowerCase())) || 
+                (/^to\s+.+/i.test(transcript.toLowerCase()))) {
+              console.log(`🔊 Detected potential multi-segment command part, waiting for more input`);
+              isProcessingVoiceCommand = false;
+              return;
+            }
+            
+            // Otherwise, return the unknown action result
             socket.emit('nlp-response', {
               ...nlpResult,
               confirmationType: 'explicit',

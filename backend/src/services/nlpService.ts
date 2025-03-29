@@ -173,6 +173,65 @@ class NlpService {
       }
     }
     
+    // Special case for handling numeric-only segments (e.g., "50 gallons")
+    // This handles the case where the second segment is just a quantity and unit
+    if (this.previousCommand.action && 
+        (result.action === 'unknown' || result.action === this.previousCommand.action) &&
+        (typeof result.quantity === 'number' && result.quantity > 0) &&
+        (result.item === 'unknown' || !result.item || result.item === String(result.quantity))) {
+      console.log('🧠 [NLP] Detected quantity-only segment, merging with previous context');
+      
+      return {
+        action: this.previousCommand.action,
+        item: this.previousCommand.item || 'unknown',
+        quantity: result.quantity,
+        unit: result.unit !== 'unknown' ? result.unit : this.previousCommand.unit || 'unknown',
+        confidence: result.confidence,
+        isComplete: false  // Mark as incomplete to allow for more context
+      };
+    }
+    
+    // Special case for "remove X quantity" pattern - when quantity comes second
+    if (this.previousCommand.action === 'remove' && 
+        (typeof result.quantity === 'number' && result.quantity > 0) &&
+        (result.unit !== 'unknown')) {
+      console.log('🧠 [NLP] Detected quantity segment for remove command');
+      
+      return {
+        action: 'remove',
+        item: this.previousCommand.item || result.item,
+        quantity: result.quantity,
+        unit: result.unit,
+        confidence: Math.max(0.6, result.confidence),
+        isComplete: false  // Still need the item
+      };
+    }
+    
+    // Special case for handling the third part where item comes after quantity
+    // e.g., first="remove", second="50 gallons", third="to whole milk" or just "whole milk"
+    if (this.previousCommand.action &&
+        typeof this.previousCommand.quantity === 'number' && 
+        this.previousCommand.quantity > 0 &&
+        result.item !== 'unknown' && 
+        result.item) {
+      console.log('🧠 [NLP] Detected item segment after quantity, completing command');
+      
+      // Extract actual item name from potential "to X" pattern
+      let finalItem = result.item;
+      if (typeof finalItem === 'string' && finalItem.startsWith('to ')) {
+        finalItem = finalItem.substring(3).trim();
+      }
+      
+      return {
+        action: this.previousCommand.action,
+        item: finalItem,
+        quantity: this.previousCommand.quantity,
+        unit: this.previousCommand.unit || result.unit,
+        confidence: Math.max(0.7, result.confidence),
+        isComplete: true
+      };
+    }
+    
     // Merge non-unknown values, prioritizing current result for conflicts
     return {
       action: result.action !== 'unknown' ? result.action : this.previousCommand.action || 'unknown',
@@ -225,7 +284,9 @@ class NlpService {
               - Be aware that commands may be partial or incomplete, especially if they contain phrases like "to X" without a preceding action.
               - Pay special attention to phrase patterns like "set X to Y" which indicate a SET action.
               - If you see phrases like "to 5 gallons" without an action, mark the action as "unknown" and include the quantity and unit.
-              - For multi-part commands, extract as much context as possible from what's available.`
+              - For multi-part commands, extract as much context as possible from what's available.
+              - For inputs that are purely numeric with units (e.g., "50 gallons"), extract the quantity and unit but set action and item to "unknown".
+              - When you see phrases like "remove" followed later by quantities and items, they are likely part of the same command.`
             },
             {
               role: 'user',
@@ -327,7 +388,33 @@ class NlpService {
         isComplete: false // Mark as incomplete so it can be merged with previous context
       };
     }
+    
+    // Check for numeric-only patterns (e.g., "50 gallons")
+    const numericPattern = /^\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(.+)/i;
+    const numericMatch = lowerTranscription.match(numericPattern);
+    
+    if (numericMatch) {
+      console.log('🧠 [NLP] Detected numeric-only pattern, likely part of a multi-segment command');
+      const [, quantityStr, unitAndRemainder] = numericMatch;
       
+      // Convert word numbers to digits if needed
+      const quantity = /^\d+$/.test(quantityStr) ? 
+        parseInt(quantityStr, 10) : 
+        this.wordToNumber(quantityStr);
+      
+      // Extract unit from remainder
+      const { unit } = this.extractItemAndUnit(unitAndRemainder);
+      
+      return {
+        action: 'unknown', // Let the context merging handle this
+        item: 'unknown',   // No item specified in this segment
+        quantity,
+        unit,
+        confidence: 0.7,
+        isComplete: false  // Mark as incomplete so it can be merged with previous context
+      };
+    }
+    
     // Define variations of actions for more flexible matching
     const actionVariants = {
       add: ['add', 'adding', 'increase', 'put', 'added', 'more', 'need', 'want', 'get', 'bring', 'buy', 'purchase', 'order', 'include', 'insert', 'stock', 'supply', 'refill', 'restock'],
@@ -959,10 +1046,18 @@ class NlpService {
       
       case 'add':
       case 'remove':
-        // Add/remove commands can work with just an item (quantity defaults to 1)
-        // but if a quantity is specified, it should be valid
+        // Add/remove commands need at least an item to be complete
+        // but for multi-segment remove commands, we also want to ensure we have both quantity and item
+        if (item.toLowerCase().startsWith('to ')) {
+          // If the item starts with "to", it's likely part of a multi-segment command
+          // and we need to check if we have a valid quantity
+          return typeof quantity === 'number' && quantity > 0;
+        }
+        
+        // For normal add/remove commands, we're good if we have an item
+        // If quantity is specified, it should be valid
         if (quantity === 'unknown' || quantity === '') {
-          // No quantity specified, that's fine for add/remove
+          // No quantity specified, that's fine for basic add/remove
           return true;
         }
         
