@@ -13,6 +13,18 @@ const useOpenAI = openaiApiKey !== '';
  * NLP service for processing transcriptions and extracting inventory commands
  */
 class NlpService {
+  // Cache to store previous command context
+  private previousCommand: {
+    action: string;
+    item: string;
+    quantity: number | string;
+    unit: string;
+    timestamp: number;
+  } | null = null;
+  
+  // Time window for considering previous commands as context (5 seconds)
+  private contextWindowMs = 5000;
+
   /**
    * Process a transcription and extract inventory command
    * @param transcription - The transcription to process
@@ -42,6 +54,9 @@ class NlpService {
         result = await this.processWithRules(transcription);
       }
       
+      // Merge with previous command context if applicable
+      result = this.mergeWithPreviousContext(result);
+      
       // Calculate processing time
       const processTime = Date.now() - startTime;
       
@@ -53,6 +68,14 @@ class NlpService {
       console.log(`🧠 [NLP] Extracted unit: "${result.unit}"`);
       console.log(`🧠 [NLP] Confidence: ${(result.confidence * 100).toFixed(1)}%`);
       console.log(`🧠 [NLP] Command complete: ${result.isComplete}`);
+      
+      // Update context if command is not complete
+      if (!result.isComplete) {
+        this.updateCommandContext(result);
+      } else {
+        // Clear context if command is complete
+        this.previousCommand = null;
+      }
       
       return result;
     } catch (error) {
@@ -69,6 +92,101 @@ class NlpService {
         isComplete: false
       };
     }
+  }
+
+  /**
+   * Update the command context with the current result
+   */
+  private updateCommandContext(result: {
+    action: string;
+    item: string;
+    quantity: number | string;
+    unit: string;
+    confidence: number;
+    isComplete: boolean;
+  }): void {
+    // Only store meaningful parts of the command
+    this.previousCommand = {
+      action: result.action !== 'unknown' ? result.action : '',
+      item: result.item !== 'unknown' ? result.item : '',
+      quantity: result.quantity !== 'unknown' ? result.quantity : '',
+      unit: result.unit !== 'unknown' ? result.unit : '',
+      timestamp: Date.now()
+    };
+    
+    console.log(`🧠 [NLP] Updated command context: ${JSON.stringify(this.previousCommand)}`);
+  }
+
+  /**
+   * Merge current result with previous context if applicable
+   */
+  private mergeWithPreviousContext(result: {
+    action: string;
+    item: string;
+    quantity: number | string;
+    unit: string;
+    confidence: number;
+    isComplete: boolean;
+  }): {
+    action: string;
+    item: string;
+    quantity: number | string;
+    unit: string;
+    confidence: number;
+    isComplete: boolean;
+  } {
+    // If no previous context or previous context is too old, just return current result
+    if (!this.previousCommand || 
+        Date.now() - this.previousCommand.timestamp > this.contextWindowMs) {
+      return result;
+    }
+    
+    console.log(`🧠 [NLP] Merging with previous context: ${JSON.stringify(this.previousCommand)}`);
+    
+    // Special case for handling "set X to Y" pattern across multiple segments
+    if (this.previousCommand.action === 'set' && 
+        result.action === 'unknown' && 
+        /\bto\b/i.test(String(result.item))) {
+      console.log('🧠 [NLP] Detected potential "set X to Y" pattern across segments');
+      
+      // Example: Previous="set coffee" Current="to 5 pounds"
+      const toPattern = /\bto\b\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(.+)/i;
+      const match = String(result.item).match(toPattern);
+      
+      if (match) {
+        const [, quantityStr, unitAndRemainder] = match;
+        const quantity = /^\d+$/.test(quantityStr) ? 
+          parseInt(quantityStr, 10) : 
+          this.wordToNumber(quantityStr);
+          
+        // Try to extract unit from the remainder
+        const { unit } = this.extractItemAndUnit(unitAndRemainder);
+        
+        return {
+          action: 'set',
+          item: this.previousCommand.item || result.item,
+          quantity,
+          unit,
+          confidence: Math.max(0.6, result.confidence),
+          isComplete: true
+        };
+      }
+    }
+    
+    // Merge non-unknown values, prioritizing current result for conflicts
+    return {
+      action: result.action !== 'unknown' ? result.action : this.previousCommand.action || 'unknown',
+      item: result.item !== 'unknown' ? result.item : this.previousCommand.item || 'unknown',
+      quantity: result.quantity !== 'unknown' ? result.quantity : this.previousCommand.quantity || 'unknown',
+      unit: result.unit !== 'unknown' ? result.unit : this.previousCommand.unit || 'unknown',
+      confidence: result.confidence,
+      isComplete: result.isComplete || this.isCommandComplete(
+        result.action !== 'unknown' ? result.action : this.previousCommand.action || 'unknown',
+        result.item !== 'unknown' ? result.item : this.previousCommand.item || 'unknown',
+        result.quantity !== 'unknown' ? result.quantity : this.previousCommand.quantity || 'unknown',
+        result.unit !== 'unknown' ? result.unit : this.previousCommand.unit || 'unknown'
+      )
+    };
   }
 
   /**
@@ -99,9 +217,15 @@ class NlpService {
               4. Unit of measurement (as a string or "unknown")
               
               Respond with a JSON object with these fields: action, item, quantity, unit.
-              IMPORTANT: If any field is missing or unclear, set the field to "unknown".
-              If no quantity is provided, set the quantity to a string "unknown".
-              If no unit is provided, set the unit to a string "unknown".`
+              
+              IMPORTANT GUIDELINES:
+              - If any field is missing or unclear, set the field to "unknown".
+              - If no quantity is provided, set the quantity to a string "unknown".
+              - If no unit is provided, set the unit to a string "unknown".
+              - Be aware that commands may be partial or incomplete, especially if they contain phrases like "to X" without a preceding action.
+              - Pay special attention to phrase patterns like "set X to Y" which indicate a SET action.
+              - If you see phrases like "to 5 gallons" without an action, mark the action as "unknown" and include the quantity and unit.
+              - For multi-part commands, extract as much context as possible from what's available.`
             },
             {
               role: 'user',
@@ -177,6 +301,32 @@ class NlpService {
         isComplete: false
       };
     }
+    
+    // Check for the "to X" pattern which indicates partial set command
+    const toPattern = /^\s*to\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(.+)/i;
+    const toMatch = lowerTranscription.match(toPattern);
+    
+    if (toMatch) {
+      console.log('🧠 [NLP] Detected "to X" pattern, likely part of a SET command');
+      const [, quantityStr, unitAndRemainder] = toMatch;
+      
+      // Convert word numbers to digits if needed
+      const quantity = /^\d+$/.test(quantityStr) ? 
+        parseInt(quantityStr, 10) : 
+        this.wordToNumber(quantityStr);
+      
+      // Extract unit from remainder
+      const { unit } = this.extractItemAndUnit(unitAndRemainder);
+      
+      return {
+        action: 'unknown', // Let the context merging handle this
+        item: `to ${quantity} ${unit}`, // Keep the original pattern for context merging
+        quantity,
+        unit,
+        confidence: 0.7,
+        isComplete: false // Mark as incomplete so it can be merged with previous context
+      };
+    }
       
     // Define variations of actions for more flexible matching
     const actionVariants = {
@@ -194,6 +344,34 @@ class NlpService {
       })) {
         action = actionType;
         break;
+      }
+    }
+    
+    // Handle complete "set X to Y" pattern in a single command
+    if (action === 'set' || lowerTranscription.includes(' to ')) {
+      const setToPattern = /\b(?:set|update|change)?\s+(.+?)\s+to\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(.+)/i;
+      const match = lowerTranscription.match(setToPattern);
+      
+      if (match) {
+        console.log('🧠 [NLP] Detected complete "set X to Y" pattern');
+        const [, item, quantityStr, unitAndRemainder] = match;
+        
+        // Convert word numbers to digits if needed
+        const quantity = /^\d+$/.test(quantityStr) ? 
+          parseInt(quantityStr, 10) : 
+          this.wordToNumber(quantityStr);
+        
+        // Extract unit from remainder
+        const { unit } = this.extractItemAndUnit(unitAndRemainder);
+        
+        return {
+          action: 'set',
+          item: this.cleanUpItemName(item),
+          quantity,
+          unit,
+          confidence: 0.9,
+          isComplete: true
+        };
       }
     }
     
@@ -756,23 +934,40 @@ class NlpService {
     // Action-specific validation
     switch (action) {
       case 'set':
-        // Set commands require all fields to be present and valid
-        // Also check for suspicious incomplete commands like "set X" without a quantity
+        // For set commands, we need both a valid item AND a valid quantity/unit
         const hasValidQuantity = typeof quantity === 'number' && quantity > 0 && unit !== 'unknown' && unit !== '';
         
-        // Additional check for set commands that might be split across voice inputs
-        // If the item contains words like "to" at the end, it might be incomplete
-        const hasSuspiciousEndingPattern = /\b(the|to|cups|cup|of|for)\s*$/i.test(item.trim());
-        const hasSetToPattern = item.toLowerCase().includes(' to ');
+        // Special case for handling partial set commands
+        // If the item contains "to NUMBER UNIT" pattern, it might be complete
+        if (typeof item === 'string' && /\bto\s+\d+\s+\w+\b/i.test(item)) {
+          return hasValidQuantity;
+        }
         
-        // If it contains words like "16 ounce paper cups" without a number+unit at the end,
-        // it's likely waiting for "to X sleeves/boxes/etc"
-        return hasValidQuantity && !hasSuspiciousEndingPattern && hasSetToPattern;
+        // If item doesn't contain "to" but has a valid quantity, it's likely missing the quantity part
+        if (!item.toLowerCase().includes(' to ') && !hasValidQuantity) {
+          console.log('🧠 [NLP] Set command appears incomplete - missing "to QUANTITY UNIT" part');
+          return false;
+        }
+        
+        // Check for incomplete set commands
+        if (item.toLowerCase().endsWith(' to')) {
+          console.log('🧠 [NLP] Set command appears incomplete - ends with "to"');
+          return false;
+        }
+        
+        return hasValidQuantity;
       
       case 'add':
       case 'remove':
         // Add/remove commands can work with just an item (quantity defaults to 1)
-        return true;
+        // but if a quantity is specified, it should be valid
+        if (quantity === 'unknown' || quantity === '') {
+          // No quantity specified, that's fine for add/remove
+          return true;
+        }
+        
+        // Quantity was specified, so it should be a valid number
+        return typeof quantity === 'number' && quantity > 0;
       
       default:
         return false;
