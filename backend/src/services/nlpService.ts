@@ -21,7 +21,7 @@ class NlpService {
   async processTranscription(transcription: string): Promise<{
     action: string;
     item: string;
-    quantity: number;
+    quantity: number | string;
     unit: string;
     confidence: number;
     isComplete: boolean;
@@ -63,7 +63,7 @@ class NlpService {
       return {
         action: 'unknown',
         item: 'unknown',
-        quantity: 0,
+        quantity: 'unknown',
         unit: 'units',
         confidence: 0.3,
         isComplete: false
@@ -79,7 +79,7 @@ class NlpService {
   private async processWithOpenAI(transcription: string): Promise<{
     action: string;
     item: string;
-    quantity: number;
+    quantity: number | string;
     unit: string;
     confidence: number;
     isComplete: boolean;
@@ -93,20 +93,22 @@ class NlpService {
             {
               role: 'system',
               content: `You are an inventory management assistant. Extract the following information from the user's command:
-              1. Action (add, remove, or set)
-              2. Item name
-              3. Quantity (as a number)
-              4. Unit of measurement
+              1. Action (add, remove, or set, or unknown)
+              2. Item name (as a string or "unknown")
+              3. Quantity (as a number or a string "unknown")
+              4. Unit of measurement (as a string or "unknown")
               
               Respond with a JSON object with these fields: action, item, quantity, unit.
-              If any field is missing or unclear, make your best guess.`
+              IMPORTANT: If any field is missing or unclear, set the field to "unknown".
+              If no quantity is provided, set the quantity to a string "unknown".
+              If no unit is provided, set the unit to a string "unknown".`
             },
             {
               role: 'user',
               content: transcription
             }
           ],
-          temperature: 0.3,
+          temperature: 0.2,
           max_tokens: 150,
           response_format: { type: 'json_object' }
         },
@@ -121,10 +123,10 @@ class NlpService {
       const result = JSON.parse(response.data.choices[0].message.content);
       
       // Validate and normalize the result
-      const action = result.action?.toLowerCase() || '';
-      const item = result.item || '';
-      const quantity = parseInt(result.quantity, 10) || 0;
-      const unit = result.unit || '';
+      const action = result.action?.toLowerCase() || 'unknown';
+      const item = result.item || 'unknown';
+      const quantity = result.quantity === 'unknown' ? 'unknown' : parseInt(result.quantity, 10);
+      const unit = result.unit || 'unknown';
       
       // Calculate confidence based on completeness
       let confidence = 0.8; // Base confidence
@@ -741,7 +743,7 @@ class NlpService {
   /**
    * Determine if a command is complete based on its components
    */
-  private isCommandComplete(action: string, item: string, quantity: number, unit: string): boolean {
+  private isCommandComplete(action: string, item: string, quantity: number | string, unit: string): boolean {
     // Basic validation
     if (!action || action === 'unknown') {
       return false;
@@ -756,7 +758,7 @@ class NlpService {
       case 'set':
         // Set commands require all fields to be present and valid
         // Also check for suspicious incomplete commands like "set X" without a quantity
-        const hasValidQuantity = quantity > 0 && unit !== 'unknown' && unit !== '';
+        const hasValidQuantity = typeof quantity === 'number' && quantity > 0 && unit !== 'unknown' && unit !== '';
         
         // Additional check for set commands that might be split across voice inputs
         // If the item contains words like "to" at the end, it might be incomplete

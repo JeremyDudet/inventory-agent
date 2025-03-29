@@ -29,7 +29,7 @@ class SpeechFeedbackService {
    */
   generateCommandFeedback(
     action: string,
-    quantity: number,
+    quantity: number | string,
     unit: string,
     item: string,
     feedbackMode: FeedbackMode

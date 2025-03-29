@@ -33,9 +33,9 @@ export interface ConfirmationRequest {
   confidence: number;
   
   // Command details
-  action: 'add' | 'remove' | 'set';
+  action: 'add' | 'remove' | 'set' | 'unknown';
   item: string;
-  quantity: number;
+  quantity: number | string;
   unit: string;
   
   // Item context (if available)
@@ -112,7 +112,11 @@ class ConfirmationService {
     }
     
     // 4. Check if it's a large quantity change
-    if (request.isLargeQuantity || this.isLargeQuantityChange(action, quantity, currentQuantity)) {
+    if (request.isLargeQuantity || 
+        (action !== 'unknown' && 
+         this.isLargeQuantityChange(action as 'add' | 'remove' | 'set', 
+                                    typeof quantity === 'number' ? quantity : 0, 
+                                    currentQuantity))) {
       confirmationType = ConfirmationType.EXPLICIT;
       reason = reason || 'Large quantity change';
       riskLevel = 'high';
@@ -124,7 +128,7 @@ class ConfirmationService {
     if (action === 'remove' && 
         currentQuantity !== undefined && 
         threshold !== undefined &&
-        (currentQuantity - quantity) < threshold) {
+        (currentQuantity - (typeof quantity === 'number' ? quantity : 0)) < threshold) {
       confirmationType = ConfirmationType.EXPLICIT;
       reason = reason || 'Stock would drop below threshold';
       riskLevel = 'medium';
@@ -134,6 +138,7 @@ class ConfirmationService {
     // 6. Check if setting to a very different value
     if (action === 'set' && 
         currentQuantity !== undefined && 
+        typeof quantity === 'number' &&
         Math.abs(quantity - currentQuantity) > (currentQuantity * 0.5)) {
       confirmationType = ConfirmationType.VISUAL;
       reason = reason || 'Setting to a significantly different quantity';
