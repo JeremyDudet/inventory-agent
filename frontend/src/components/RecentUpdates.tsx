@@ -1,6 +1,7 @@
 // frontend/src/components/RecentUpdates.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import { format, formatDistanceToNow } from 'date-fns';
+import { useWebSocket } from '../hooks/useWebSocket';
 
 export interface InventoryUpdate {
   id: string;
@@ -16,16 +17,33 @@ export interface InventoryUpdate {
 interface RecentUpdatesProps {
   updates: InventoryUpdate[];
   maxItems?: number;
+  websocketUrl?: string;
 }
 
 /**
  * RecentUpdates component displays a list of recent inventory changes
- * with timestamps and user information
+ * with timestamps and user information, along with real-time transcription
  */
 const RecentUpdates: React.FC<RecentUpdatesProps> = ({
   updates,
-  maxItems = 5
+  maxItems = 5,
+  websocketUrl = 'ws://localhost:3001'
 }) => {
+  const [transcription, setTranscription] = useState('');
+  const [feedbackUpdates, setFeedbackUpdates] = useState<string[]>([]);
+
+  // Set up WebSocket connection
+  useWebSocket(websocketUrl, {
+    onMessage: (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === 'transcript') {
+        setTranscription(data.text);
+      } else if (data.type === 'feedback') {
+        setFeedbackUpdates(prev => [...prev, data.data.text]);
+      }
+    }
+  });
+
   // Sort updates by timestamp (newest first) and limit to maxItems
   const sortedUpdates = [...updates]
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
@@ -79,6 +97,29 @@ const RecentUpdates: React.FC<RecentUpdatesProps> = ({
     <div className="bg-base-100 rounded-lg shadow-md p-4">
       <h3 className="text-lg font-medium mb-4">Recent Updates</h3>
       
+      {/* Real-time transcription display */}
+      {transcription && (
+        <div className="mb-4 p-3 bg-base-200 rounded-lg">
+          <h4 className="text-sm font-medium mb-2">Current Transcription</h4>
+          <p className="text-sm text-base-content/80">{transcription}</p>
+        </div>
+      )}
+
+      {/* Feedback updates */}
+      {feedbackUpdates.length > 0 && (
+        <div className="mb-4">
+          <h4 className="text-sm font-medium mb-2">Feedback</h4>
+          <ul className="space-y-2">
+            {feedbackUpdates.map((update, idx) => (
+              <li key={idx} className="text-sm text-base-content/80">
+                {update}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      
+      {/* Inventory updates */}
       {sortedUpdates.length === 0 ? (
         <div className="text-center py-4 text-base-content/70">
           <p>No recent updates</p>

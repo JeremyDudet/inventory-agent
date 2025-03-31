@@ -1,3 +1,4 @@
+// backend/src/repositories/InventoryRepository.ts
 import supabase from '../config/db';
 import { INVENTORY_TABLE, InventoryItem, InventoryItemInsert } from '../models/InventoryItem';
 

@@ -1,0 +1,133 @@
+Test Fix Prioritization Plan
+===========================
+
+1. Critical Infrastructure Issues
+--------------------------------
+Priority: Highest
+Impact: Database and core service functionality
+Status: No critical infrastructure issues found in current failures
+- No database connection errors
+- No test setup issues
+- Core services (auth, inventory) tests are passing
+
+2. Core NLP Service Command Processing
+-------------------------------------
+Priority: High
+Impact: 10 failing tests
+Root Cause: Command parsing logic in NLP service
+Affected Tests:
+- Multiple command processing
+- Context management
+- Command completion status
+
+Action Items:
+1. Fix command parsing logic
+   - Address empty action returns
+   - Fix confidence scoring
+   - Improve incomplete command handling
+   - Expected to fix 10 assertion errors
+
+2. Fix context management
+   - Implement proper context clearing
+   - Fix context merging logic
+   - Expected to fix 4 related tests
+
+3. Fix multiple command processing
+   - Address array length mismatches
+   - Fix command splitting logic
+   - Expected to fix 3 array length errors
+
+3. Voice Command Processing
+--------------------------
+Priority: Medium
+Impact: 2 failing tests
+Root Cause: Confidence scoring algorithm
+Affected Tests:
+- Incomplete command handling
+- Missing quantity detection
+
+Action Items:
+1. Adjust confidence scoring
+   - Make scoring more conservative for incomplete commands
+   - Fix missing quantity handling
+   - Expected to fix 2 confidence score mismatches
+
+4. Code Coverage Improvements
+----------------------------
+Priority: Medium-Low
+Impact: Future test reliability
+Areas:
+- NLP Service (67.57% coverage)
+- Voice Command Processing
+- Other services (auth, confirmation, inventory)
+
+Action Plan
+==========
+
+Phase 1: Core NLP Service Fixes
+-----------------------------
+1. Command Parsing (Week 1)
+   - Fix empty action returns
+   - Implement proper confidence scoring
+   - Add tests for edge cases
+   - Expected to resolve 10 failures
+
+2. Context Management (Week 1-2)
+   - Implement context clearing
+   - Fix context merging
+   - Add context management tests
+   - Expected to resolve 4 failures
+
+3. Multiple Command Processing (Week 2)
+   - Fix command splitting
+   - Address array length issues
+   - Add multiple command tests
+   - Expected to resolve 3 failures
+
+Phase 2: Voice Command Processing
+-------------------------------
+1. Confidence Scoring (Week 2-3)
+   - Adjust scoring algorithm
+   - Fix incomplete command handling
+   - Add confidence scoring tests
+   - Expected to resolve 2 failures
+
+Phase 3: Coverage Improvements
+----------------------------
+1. NLP Service Coverage (Week 3)
+   - Add tests for command processing paths
+   - Improve context management coverage
+   - Add edge case tests
+
+2. Other Services Coverage (Week 4)
+   - Add tests for auth service
+   - Add tests for confirmation service
+   - Add tests for inventory service
+
+Rationale for Prioritization
+--------------------------
+1. NLP Service is prioritized highest because:
+   - Has the most failing tests (14)
+   - Core functionality for command processing
+   - Issues affect multiple test categories
+   - Fixes will improve overall system reliability
+
+2. Voice Command Processing is second because:
+   - Fewer failing tests (2)
+   - Depends on NLP service fixes
+   - Simpler issues to resolve
+
+3. Coverage improvements are last because:
+   - Not causing current failures
+   - Can be addressed after core functionality is fixed
+   - Will improve future test reliability
+
+Next Steps
+----------
+1. Begin with NLP service command parsing fixes
+2. Create test cases for each fix
+3. Implement fixes incrementally
+4. Run test suite after each fix
+5. Document any new issues discovered
+
+This prioritization focuses on fixing the most impactful issues first while maintaining a clear path to improving overall test coverage and system reliability. 

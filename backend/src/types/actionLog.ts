@@ -3,4 +3,5 @@ export interface ActionLog {
   itemId: string;
   quantity: number;
   previousQuantity?: number;
+  timestamp?: Date;
 } 

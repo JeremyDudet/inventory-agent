@@ -74,8 +74,14 @@ class SpeechFeedbackService {
       return null;
     }
     
-    // Format success message
-    const text = `${action}ed ${quantity} ${unit} of ${item}`;
+    // Handle past tense of verbs
+    let pastTense = action;
+    if (action === 'add') pastTense = 'added';
+    else if (action === 'remove') pastTense = 'removed';
+    else if (action === 'set') pastTense = 'set';
+    
+    // Format brief success message with 'Logged:' prefix
+    const text = `Logged: ${pastTense} ${quantity} ${unit} of ${item}`;
     
     return {
       text,

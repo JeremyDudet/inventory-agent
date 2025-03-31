@@ -116,15 +116,15 @@ export class NlpService {
       return [transcription];
     }
 
-    // Split by common delimiters
-    const commands = transcription
+    // Split by commas or 'and' for multiple items
+    const segments = transcription
       .split(/[,;]|\s+and\s+/i)
       .map(cmd => cmd.trim())
       .filter(cmd => cmd.length > 0);
 
     // If no delimiters found, try to detect multiple commands by pattern
-    if (commands.length === 1) {
-      const command = commands[0];
+    if (segments.length === 1) {
+      const command = segments[0];
       
       // Pattern for "X units of Y, Z units of W"
       const quantityUnitPattern = /(\d+)\s+(gallons?|pounds?|cups?|boxes?|sleeves?|units?)\s+of\s+([^,]+?)(?:\s*,\s*(\d+)\s+(gallons?|pounds?|cups?|boxes?|sleeves?|units?)\s+of\s+([^,]+?))*/gi;
@@ -140,9 +140,23 @@ export class NlpService {
       if (actionMatches.length > 1) {
         return actionMatches.map(match => match[0].trim());
       }
+
+      // Pattern for "add X and Y"
+      const andPattern = /(add|remove|set)\s+([^,]+?)\s+and\s+([^,]+?)/gi;
+      const andMatches = [...command.matchAll(andPattern)];
+      if (andMatches.length > 0) {
+        const match = andMatches[0];
+        const action = match[1];
+        const firstItem = match[2].trim();
+        const secondItem = match[3].trim();
+        return [
+          `${action} ${firstItem}`,
+          `${action} ${secondItem}`
+        ];
+      }
     }
     
-    return commands;
+    return segments;
   }
 
   /**
@@ -264,17 +278,13 @@ export class NlpService {
     
     // Merge non-unknown values, prioritizing current result for conflicts
     return {
-      action: result.action !== '' ? result.action : this.previousCommand.action || '',
-      item: result.item !== '' ? result.item : this.previousCommand.item || '',
-      quantity: result.quantity !== undefined ? result.quantity : this.previousCommand.quantity || undefined,
-      unit: result.unit !== '' ? result.unit : this.previousCommand.unit || '',
-      confidence: result.confidence,
-      isComplete: result.isComplete || this.isCommandComplete(
-        result.action !== '' ? result.action : this.previousCommand.action || '',
-        result.item !== '' ? result.item : this.previousCommand.item || '',
-        result.quantity !== undefined ? result.quantity : this.previousCommand.quantity || undefined,
-        result.unit !== '' ? result.unit : this.previousCommand.unit || ''
-      )
+      action: result.action || '',
+      item: result.item || '',
+      quantity: typeof result.quantity === 'number' ? result.quantity : undefined,
+      unit: result.unit?.toLowerCase(),
+      confidence: result.confidence || 0.8,
+      isComplete: this.isCommandComplete(result.action || '', result.item || '', result.quantity, result.unit || 'units'),
+      type: result.type // Include if present (e.g., 'undo')
     };
   }
 
@@ -295,9 +305,9 @@ export class NlpService {
               content: `You are a natural language processor for an inventory management system. Your task is to extract one or more inventory commands from the user's input. Each command should have:
 
 action: 'add', 'remove', or 'set' (empty string if not found)
-item: the inventory item name (empty string if not found)
+item: the item name, including any specified attributes like size (return an empty string if not found)
 quantity: a positive number if specified, undefined if not found
-unit: standard unit (e.g., 'gallons', 'pounds', default to 'units')
+unit: standard unit e.g., 'gallons', 'pounds', 'bags', 'boxes' (empty string if not found)
 confidence: 0 to 1 (0.95 for complete, 0.8 for action+item, 0.6 for partial)
 
 Additionally, if the input contains 'undo' or 'revert last', return a single command with {type: 'undo'}.
@@ -306,10 +316,16 @@ IMPORTANT RULES:
 1. If the input contains 'undo' or 'revert last', return a single command with {type: 'undo'}
 2. For statements about CURRENT inventory levels, ALWAYS use action: 'set'. Examples:
    - "We have 30 gallons of whole milk" → action: 'set'
+   - "30 gallons of whole milk" → action: 'set'
    - "There is 5 pounds of coffee" → action: 'set'
    - "We have 20 boxes of tea" → action: 'set'
 3. Only use 'add' when explicitly adding to inventory
 4. Only use 'remove' when explicitly removing from inventory
+5. When attributes like size are mentioned, include them in the item name. For example:
+   - "We have 60 bags of 12 ounce paper cups" → item: "12 ounce paper cups"
+   - "Add 10 boxes of large coffee filters" → item: "large coffee filters"
+6. If the input has a structure like "X units of Y item", treat it as a single command.
+   If the input lists multiple "X units of Y item" separated by "and" or commas, treat them as separate commands.
 
 Examples:
 Input: "We have 30 gallons of whole milk"
@@ -317,6 +333,18 @@ Output: [{"action": "set", "item": "whole milk", "quantity": 30, "unit": "gallon
 
 Input: "Add 5 gallons of milk"
 Output: [{"action": "add", "item": "milk", "quantity": 5, "unit": "gallons", "confidence": 0.95}]
+
+Input: "We have 60 bags of 12 ounce paper cups"
+Output: [{"action": "set", "item": "12 ounce paper cups", "quantity": 60, "unit": "bags", "confidence": 0.95}]
+
+Input: "Add 10 boxes of large coffee filters"
+Output: [{"action": "add", "item": "large coffee filters", "quantity": 10, "unit": "boxes", "confidence": 0.95}]
+
+Input: "We have 30 gallons of whole milk and 20 boxes of tea"
+Output: [
+  {"action": "set", "item": "whole milk", "quantity": 30, "unit": "gallons", "confidence": 0.95},
+  {"action": "set", "item": "tea", "quantity": 20, "unit": "boxes", "confidence": 0.95}
+]
 
 Return a JSON array of commands.`
             },
@@ -343,9 +371,9 @@ Return a JSON array of commands.`
         action: result.action?.toLowerCase() || '',
         item: result.item?.toLowerCase() || '',
         quantity: typeof result.quantity === 'number' ? result.quantity : undefined,
-        unit: result.unit?.toLowerCase() || 'units',
-        confidence: result.confidence || 0.8,
-        isComplete: this.isCommandComplete(result.action || '', result.item || '', result.quantity, result.unit || 'units'),
+        unit: result.unit?.toLowerCase(),
+        confidence: result.confidence,
+        isComplete: this.isCommandComplete(result.action || '', result.item || '', result.quantity || undefined, result.unit || ''),
         type: result.type // Include if present (e.g., 'undo')
       }));
     } catch (error) {
@@ -361,84 +389,87 @@ Return a JSON array of commands.`
    * @returns Array of extracted inventory commands
    */
   private processWithRules(transcription: string): NlpResult[] {
-    return this.extractMultipleCommands(transcription);
+    const results = this.extractMultipleCommands(transcription);
+    
+    // Process each result to ensure proper formatting and confidence
+    return results.map(result => {
+      // Clean up item names
+      const cleanItem = this.cleanUpItemName(result.item);
+      
+      // Ensure proper unit
+      const unit = result.unit || this.determineUnitForItem(cleanItem);
+      
+      // Determine if the command is complete
+      const isComplete = this.isCommandComplete(result.action, cleanItem, result.quantity, unit);
+      
+      // Calculate confidence based on completeness and available data
+      const confidence = this.calculateConfidence({
+        ...result,
+        item: cleanItem,
+        unit,
+        isComplete,
+        confidence: 0.6  // Add default confidence
+      });
+      
+      return {
+        ...result,
+        item: cleanItem,
+        unit,
+        confidence,
+        isComplete
+      };
+    });
   }
 
   /**
    * Extract multiple commands from a transcription using rule-based processing
    */
-  private extractMultipleCommands(transcription: string): Array<NlpResult> {
-    const lowerTranscription = transcription.toLowerCase();
-    const commands = [];
-
-    // Check for undo command first
-    if (lowerTranscription.includes('undo') || lowerTranscription.includes('revert last')) {
-      console.log('🧠 [NLP] Detected undo command');
+  private extractMultipleCommands(transcription: string): NlpResult[] {
+    // First check for undo command
+    if (transcription.toLowerCase().includes('undo') || 
+        transcription.toLowerCase().includes('revert last')) {
+      // Extract referenced item if present
+      const itemMatch = transcription.toLowerCase().match(/(?:undo|revert last)(?:\s+(?:the\s+)?(.+))?/i);
+      const referencedItem = itemMatch?.[1]?.trim() || '';
+      
       return [{
-        action: '',
-        item: '',
+        action: 'undo',
+        item: referencedItem,
         quantity: undefined,
-        unit: 'units',
+        unit: '',
         confidence: 0.95,
         isComplete: true,
-        type: 'undo'
+        type: 'undo' as const
       }];
     }
 
-    // Check for "We have X of Y" pattern first
-    const havePattern = /(?:we have|there is|there are)\s+(\d+)\s+(\w+)\s+(?:of\s+)?(.+)/i;
-    const haveMatch = lowerTranscription.match(havePattern);
-    if (haveMatch) {
-      console.log('🧠 [NLP] Detected "We have X of Y" pattern');
-      return [{
-        action: 'set',
-        item: haveMatch[3].trim(),
-        quantity: parseInt(haveMatch[1], 10),
-        unit: this.normalizeUnit(haveMatch[2]),
-        confidence: 0.95,
-        isComplete: true
-      }];
-    }
+    // Split by common delimiters
+    const segments = transcription.split(/[,;]|\band\b/).map(s => s.trim());
+    let lastUnit: string | undefined;
+    let lastAction: string | undefined;
 
-    // Split by commas or 'and' for multiple items
-    const segments = lowerTranscription.split(/,\s*|\s+and\s+/i);
-    for (const segment of segments) {
-      let action = '';
-      let item = '';
-      let quantity: number | undefined = undefined;
-      let unit = 'units';
-      let confidence = 0.95;
+    return segments.map(segment => {
+      const result = this.extractSingleCommand(segment);
+      
+      // Inherit unit from previous command if not specified
+      if (!result.unit && lastUnit) {
+        result.unit = lastUnit;
+      }
+      lastUnit = result.unit;
 
-      if (segment.includes('add')) action = 'add';
-      else if (segment.includes('remove')) action = 'remove';
-      else if (segment.includes('set')) action = 'set';
+      // Inherit action from previous command if not specified
+      if (!result.action && lastAction) {
+        result.action = lastAction;
+      }
+      lastAction = result.action;
 
-      const unitPattern = /(\d+)\s+(\w+)\s+(?:of\s+)?(.+)/i;
-      const match = segment.match(unitPattern);
-      if (match) {
-        quantity = parseInt(match[1], 10);
-        unit = this.normalizeUnit(match[2]);
-        item = match[3].trim();
-      } else {
-        item = segment.replace(/\b(add|remove|set)\b/g, '').trim();
-        unit = this.determineUnitForItem(item);
+      // Special case for "We have X" or "There is X" -> set command
+      if (segment.toLowerCase().match(/^(we have|there (is|are))/)) {
+        result.action = 'set';
       }
 
-      const isComplete = this.isCommandComplete(action, item, quantity, unit);
-      if (!isComplete) confidence = 0.6;
-      if (action && item) {
-        commands.push({ action, item, quantity, unit, confidence, isComplete });
-      }
-    }
-    console.log('🧠 [NLP] Rule-based extracted commands:', commands);
-    return commands.length > 0 ? commands : [{
-      action: '',
-      item: '',
-      quantity: undefined,
-      unit: 'units',
-      confidence: 0.3,
-      isComplete: false
-    }];
+      return result;
+    });
   }
 
   /**
@@ -499,8 +530,8 @@ Return a JSON array of commands.`
       }
     }
     
-    // If no match, return generic units
-    return 'units';
+    // If no match, return empty string instead of default unit
+    return '';
   }
 
   /**
@@ -578,7 +609,7 @@ Return a JSON array of commands.`
    * Clean up item names by removing unnecessary words
    */
   private cleanUpItemName(item: string): string {
-    if (!item) return 'item'; // Safety check for undefined or empty input
+    if (!item) return ''; // Safety check for undefined or empty input
     
     // Remove filler words and unnecessary prepositions
     const fillerWords = [
@@ -609,8 +640,8 @@ Return a JSON array of commands.`
     // Remove common punctuation
     cleanItem = cleanItem.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '').trim();
     
-    // Ensure we have something to return
-    if (!cleanItem) return 'item';
+    // Return empty string if no valid item remains
+    if (!cleanItem) return '';
     
     return cleanItem;
   }
@@ -733,31 +764,164 @@ Return a JSON array of commands.`
   /**
    * Determine if a command is complete based on its components
    */
-  private isCommandComplete(action: string, item: string, quantity: number | undefined, unit: string): boolean {
-    // If action is empty, command is incomplete
-    if (!action) {
-      return false;
+  private isCommandComplete(action: string, item: string, quantity?: number, unit?: string): boolean {
+    // Special case for undo commands
+    if (action === 'undo') {
+      return true;
     }
 
-    // For set commands, we need all fields and quantity must be greater than 0
+    // For set commands, we need all fields
     if (action === 'set') {
-      if (!item || !unit || quantity === undefined || quantity === null || quantity === 0) {
-        console.log('🧠 [NLP] Set command appears incomplete - missing required fields or zero quantity');
-        return false;
-      }
-      return true;
+      return Boolean(item && typeof quantity === 'number' && quantity > 0 && unit);
     }
 
     // For add/remove commands, we need at least an item
-    if (action === 'add' || action === 'remove') {
-      if (!item) {
-        console.log('🧠 [NLP] Add/remove command appears incomplete - missing item');
-        return false;
-      }
-      return true;
+    if (['add', 'remove'].includes(action)) {
+      return Boolean(item);
     }
 
-    // If we get here, the command is incomplete
     return false;
+  }
+
+  private calculateConfidence(result: NlpResult): number {
+    // Undo commands always have high confidence
+    if (result.type === 'undo' || result.action === 'undo') {
+      return 0.95;
+    }
+
+    // Base confidence levels
+    if (!result.isComplete) {
+      return 0.45;
+    }
+
+    // Complete commands with action and item
+    if (result.action && result.item) {
+      if (typeof result.quantity === 'number' && result.quantity > 0) {
+        return 0.95;
+      }
+      return 0.8;
+    }
+
+    // Default low confidence for other cases
+    return 0.6;
+  }
+
+  private extractSingleCommand(segment: string): NlpResult {
+    const lowerSegment = segment.toLowerCase();
+    let action = '';
+    let item = '';
+    let quantity: number | undefined;
+    let unit = '';
+    let type: 'undo' | undefined;
+
+    // Check for undo command first
+    if (lowerSegment.includes('undo') || lowerSegment.includes('revert last')) {
+      // Extract referenced item if present
+      const itemMatch = lowerSegment.match(/(?:undo|revert last)(?:\s+(?:the\s+)?(.+))?/i);
+      const referencedItem = itemMatch?.[1]?.trim() || '';
+      
+      return {
+        action: 'undo',
+        item: referencedItem,
+        quantity: undefined,
+        unit: '',
+        confidence: 0.95,
+        isComplete: true,
+        type: 'undo' as const
+      };
+    }
+
+    // Extract action
+    if (lowerSegment.includes('add')) action = 'add';
+    else if (lowerSegment.includes('remove')) action = 'remove';
+    else if (lowerSegment.includes('set')) action = 'set';
+
+    // Extract quantity, unit, and item
+    const patterns = [
+      // Pattern 1: "{number} {unit} of {item}"
+      /(\d+)\s+(\w+)\s+(?:of\s+)?(.+)/i,
+      // Pattern 2: "{action} {number} {unit} of {item}"
+      /(?:add|remove|set)\s+(\d+)\s+(\w+)\s+(?:of\s+)?(.+)/i,
+      // Pattern 3: "{item} to {number} {unit}"
+      /(.+?)\s+to\s+(\d+)\s+(\w+)/i
+    ];
+
+    let matched = false;
+    for (const pattern of patterns) {
+      const match = lowerSegment.match(pattern);
+      if (match) {
+        matched = true;
+        if (pattern === patterns[2]) {
+          // Pattern 3: item comes first
+          item = match[1].trim();
+          quantity = parseInt(match[2], 10);
+          unit = this.normalizeUnit(match[3]);
+        } else {
+          // Pattern 1 & 2: quantity comes first
+          quantity = parseInt(match[1], 10);
+          unit = this.normalizeUnit(match[2]);
+          item = match[3].trim();
+        }
+        break;
+      }
+    }
+
+    // If no patterns matched but we have a number at the start, treat it as quantity and unit
+    if (!matched) {
+      const numberMatch = lowerSegment.match(/^(\d+)\s+(.+)/);
+      if (numberMatch) {
+        quantity = parseInt(numberMatch[1], 10);
+        const remainder = numberMatch[2].trim();
+        // For incomplete commands, keep the full text as the item
+        item = `${quantity} ${remainder}`;
+        // Try to extract unit from the remainder
+        const unitMatch = remainder.match(/^(\w+)(?:\s+(?:of\s+)?(.+))?/i);
+        if (unitMatch) {
+          unit = this.normalizeUnit(unitMatch[1]);
+          if (unitMatch[2]) {
+            // Only update item if we have a complete command
+            if (action) {
+              item = unitMatch[2].trim();
+            }
+          }
+        }
+      } else {
+        // Try to extract just the item
+        item = segment
+          .replace(/\b(add|remove|set)\b/gi, '')
+          .replace(/\b(to|of)\b/gi, '')
+          .trim();
+      }
+    }
+
+    // Clean up item name and determine default unit if none specified
+    item = this.cleanUpItemName(item);
+    if (!unit) {
+      unit = this.determineUnitForItem(item);
+    }
+
+    // Determine if command is complete
+    const isComplete = this.isCommandComplete(action, item, quantity, unit);
+
+    // Calculate confidence
+    const confidence = this.calculateConfidence({
+      action,
+      item,
+      quantity,
+      unit,
+      confidence: 0.6,
+      isComplete,
+      type
+    });
+
+    return {
+      action,
+      item,
+      quantity,
+      unit,
+      confidence,
+      isComplete,
+      type
+    };
   }
 } 

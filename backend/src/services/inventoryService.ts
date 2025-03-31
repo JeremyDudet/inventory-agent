@@ -25,17 +25,44 @@ class InventoryService {
     return item;
   }
 
+  async findBestMatch(extractedItem: string): Promise<InventoryItem> {
+    const allItems = await this.repository.getAll();
+    
+    // Extract base name and size from the input
+    const normalizedInput = extractedItem.toLowerCase();
+    const sizeMatch = normalizedInput.match(/(\d+)\s*(?:ounce|oz)/);
+    const size = sizeMatch ? sizeMatch[1] : null;
+    
+    // Remove size information to get base name
+    const baseName = normalizedInput.replace(/\d+\s*(?:ounce|oz)\s*/, '').trim();
+
+    // Find matching items
+    const matches = allItems.filter(item => {
+      const itemName = item.name.toLowerCase();
+      const itemSizeMatch = itemName.match(/(\d+)\s*(?:ounce|oz)/);
+      const itemSize = itemSizeMatch ? itemSizeMatch[1] : null;
+      
+      // Remove size information to get base name
+      const itemBaseName = itemName.replace(/\d+\s*(?:ounce|oz)\s*/, '').trim();
+      
+      // Check if base names match and sizes match
+      return itemBaseName.includes(baseName) && 
+             (!size || !itemSize || size === itemSize);
+    });
+
+    if (matches.length === 0) {
+      throw new NotFoundError(`No matching item found for "${extractedItem}"`);
+    }
+
+    return matches[0];
+  }
+
   async updateInventory(update: InventoryUpdate): Promise<void> {
     console.log(`📦 Updating inventory: ${update.action} ${update.quantity} ${update.unit} of ${update.item}`);
 
     try {
-      // Find the item by name
-      const items = await this.repository.findByName(update.item);
-      if (!items || items.length === 0) {
-        throw new NotFoundError(`Item "${update.item}" not found`);
-      }
-
-      const item = items[0];
+      // Find the item using smart matching
+      const item = await this.findBestMatch(update.item);
       let newQuantity: number;
 
       switch (update.action.toLowerCase()) {
