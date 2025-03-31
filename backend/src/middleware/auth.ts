@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import authService, { AuthTokenPayload, UserPermissions, User } from '../services/authService';
 import { asyncMiddleware } from './utils';
+import { UnauthorizedError, ForbiddenError } from '../errors/AuthError';
 
 // Define custom request interface with user property
 declare global {
@@ -20,12 +21,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     // Check if authorization header exists
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
-        error: {
-          code: 'MISSING_TOKEN',
-          message: 'Authentication Error: No token provided. Please log in to access this resource.',
-        },
-      });
+      throw new UnauthorizedError('No token provided. Please log in to access this resource.');
     }
 
     // Extract token
@@ -55,12 +51,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     const user = await authService.validateSupabaseToken(token);
     
     if (!user) {
-      return res.status(401).json({
-        error: {
-          code: 'INVALID_TOKEN',
-          message: 'Authentication Error: Invalid or expired token. Please log in again.',
-        },
-      });
+      throw new UnauthorizedError('Invalid or expired token. Please log in again.');
     }
     
     // Attach user info to request including sessionId
@@ -69,13 +60,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     // Continue to the next middleware/route handler
     next();
   } catch (error) {
-    console.error('Authentication error:', error);
-    return res.status(500).json({
-      error: {
-        code: 'AUTH_ERROR',
-        message: 'Authentication Error: An unexpected error occurred while processing your request.',
-      },
-    });
+    next(error);
   }
 };
 
@@ -89,36 +74,18 @@ export const authorize = (permission: keyof UserPermissions) => {
     try {
       // Ensure user is authenticated
       if (!req.user) {
-        return res.status(401).json({
-          error: {
-            code: 'UNAUTHORIZED',
-            message: 'Authentication Error: You must be logged in to access this resource.',
-          },
-        });
+        throw new UnauthorizedError('You must be logged in to access this resource.');
       }
       
       // Check if user has required permission
       if (!req.user.permissions || !(req.user.permissions as any)[permission]) {
-        return res.status(403).json({
-          error: {
-            code: 'FORBIDDEN',
-            message: `Authorization Error: You don't have the required ${permission} permission`,
-            requiredPermission: permission,
-            userRole: req.user.role,
-          },
-        });
+        throw new ForbiddenError(`You don't have the required ${permission} permission`);
       }
       
       // User has permission, continue
       next();
     } catch (error) {
-      console.error('Authorization error:', error);
-      return res.status(500).json({
-        error: {
-          code: 'AUTH_ERROR',
-          message: 'Authorization Error: An unexpected error occurred while checking your permissions.',
-        },
-      });
+      next(error);
     }
   };
 };
@@ -133,36 +100,20 @@ export const requireRole = (roles: string[]) => {
     try {
       // Ensure user is authenticated
       if (!req.user) {
-        return res.status(401).json({
-          error: {
-            code: 'UNAUTHORIZED',
-            message: 'Authentication Error: You must be logged in to access this resource.',
-          },
-        });
+        throw new UnauthorizedError('You must be logged in to access this resource.');
       }
       
       // Check if user has required role
       if (!roles.includes(req.user.role)) {
-        return res.status(403).json({
-          error: {
-            code: 'FORBIDDEN',
-            message: `Authorization Error: Access denied. Your role (${req.user.role}) doesn't have permission for this action. Required role: ${roles.join(' or ')}`,
-            userRole: req.user.role,
-            requiredRoles: roles,
-          },
-        });
+        throw new ForbiddenError(
+          `Access denied. Your role (${req.user.role}) doesn't have permission for this action. Required role: ${roles.join(' or ')}`
+        );
       }
       
       // User has the required role, continue
       next();
     } catch (error) {
-      console.error('Role check error:', error);
-      return res.status(500).json({
-        error: {
-          code: 'AUTH_ERROR',
-          message: 'Authorization Error: An unexpected error occurred while checking your role permissions.',
-        },
-      });
+      next(error);
     }
   };
 };
@@ -170,15 +121,7 @@ export const requireRole = (roles: string[]) => {
 // Wrap the async authenticate middleware for Express compatibility
 export const authMiddleware = function(req: Request, res: Response, next: NextFunction) {
   // Call authenticate and handle the promise
-  authenticate(req, res, next).catch(err => {
-    console.error('Authentication error:', err);
-    return res.status(500).json({
-      error: {
-        code: 'AUTH_ERROR',
-        message: 'Authentication Error: An unexpected error occurred while processing your request.',
-      },
-    });
-  });
+  authenticate(req, res, next).catch(next);
 };
 
 // For backward compatibility

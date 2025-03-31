@@ -1,6 +1,7 @@
 // backend/src/services/inventoryService.ts
 import { InventoryRepository } from '../repositories/InventoryRepository';
 import { InventoryItem, InventoryItemInsert } from '../models/InventoryItem';
+import { NotFoundError, ValidationError } from '../errors';
 
 interface InventoryUpdate {
   action: string;
@@ -16,18 +17,22 @@ class InventoryService {
     this.repository = new InventoryRepository();
   }
 
-  async findById(id: string): Promise<InventoryItem | null> {
-    return this.repository.findById(id);
+  async findById(id: string): Promise<InventoryItem> {
+    const item = await this.repository.findById(id);
+    if (!item) {
+      throw new NotFoundError(`Inventory item with ID ${id} not found`);
+    }
+    return item;
   }
 
-  async updateInventory(update: InventoryUpdate): Promise<{ success: boolean; message?: string }> {
+  async updateInventory(update: InventoryUpdate): Promise<void> {
     console.log(`📦 Updating inventory: ${update.action} ${update.quantity} ${update.unit} of ${update.item}`);
 
     try {
       // Find the item by name
       const items = await this.repository.findByName(update.item);
       if (!items || items.length === 0) {
-        return { success: false, message: `Item "${update.item}" not found` };
+        throw new NotFoundError(`Item "${update.item}" not found`);
       }
 
       const item = items[0];
@@ -44,58 +49,54 @@ class InventoryService {
           newQuantity = update.quantity;
           break;
         default:
-          return { success: false, message: `Unknown action: ${update.action}` };
+          throw new ValidationError(`Invalid action: ${update.action}`);
       }
 
       const success = await this.repository.updateQuantity(item.id, newQuantity);
       if (!success) {
-        throw new Error('Failed to update inventory');
+        throw new ValidationError('Failed to update inventory quantity');
       }
 
       console.log(`📦 Successfully updated ${item.name} to ${newQuantity} ${update.unit}`);
-      return { success: true };
     } catch (error) {
       console.error('📦 Error updating inventory:', error);
-      return { success: false, message: 'Failed to update inventory' };
+      throw error instanceof ValidationError || error instanceof NotFoundError
+        ? error
+        : new ValidationError('Failed to update inventory');
     }
   }
 
-  async fetchInventory(): Promise<any[]> {
+  async fetchInventory(): Promise<InventoryItem[]> {
     return this.repository.getAll();
   }
 
-  async addItem(item: InventoryItemInsert): Promise<{ success: boolean; message?: string; item?: any }> {
+  async addItem(item: InventoryItemInsert): Promise<InventoryItem> {
     try {
       const newItem = await this.repository.create({
         ...item,
         lastupdated: new Date().toISOString()
       });
+      
       if (!newItem) {
-        return { success: false, message: 'Failed to create inventory item' };
+        throw new ValidationError('Failed to create inventory item');
       }
 
-      return { 
-        success: true, 
-        message: `Successfully added ${newItem.name}`,
-        item: newItem
-      };
+      return newItem;
     } catch (error) {
       console.error('Error adding inventory item:', error);
-      return { success: false, message: 'Failed to add inventory item' };
+      throw new ValidationError('Failed to add inventory item');
     }
   }
 
-  async deleteItem(id: string): Promise<{ success: boolean; message?: string }> {
+  async deleteItem(id: string): Promise<void> {
     try {
       const success = await this.repository.delete(id);
       if (!success) {
-        return { success: false, message: 'Failed to delete inventory item' };
+        throw new ValidationError('Failed to delete inventory item');
       }
-
-      return { success: true, message: 'Successfully deleted inventory item' };
     } catch (error) {
       console.error('Error deleting inventory item:', error);
-      return { success: false, message: 'Failed to delete inventory item' };
+      throw new ValidationError('Failed to delete inventory item');
     }
   }
 

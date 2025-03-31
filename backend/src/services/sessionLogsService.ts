@@ -4,8 +4,6 @@ import {
   createSystemActionLog, 
   getSessionLogs, 
   getUserSessions,
-  TranscriptLog,
-  SystemActionLog
 } from '../models/SessionLog';
 
 // Cache the current session ID

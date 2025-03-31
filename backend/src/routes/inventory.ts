@@ -8,6 +8,8 @@ import {
 import { authMiddleware, authorize } from '../middleware/auth';
 import inventoryService from '../services/inventoryService';
 import { inventoryUpdateSchema, inventoryItemSchema } from '../validation/inventoryValidation';
+import { NotFoundError } from '../errors/NotFoundError';
+import { ValidationError } from '../errors/ValidationError';
 
 const router = express.Router();
 
@@ -56,7 +58,6 @@ router.get('/', async (req, res, next) => {
       source: 'database'
     });
   } catch (error) {
-    console.error('Unexpected error:', error);
     next(error);
   }
 });
@@ -71,12 +72,7 @@ router.get('/:id', async (req, res, next) => {
       const item = mockInventory.find(item => item.id === id);
       
       if (!item) {
-        return res.status(404).json({
-          error: {
-            code: 'ITEM_NOT_FOUND',
-            message: 'Inventory item not found',
-          },
-        });
+        throw new NotFoundError('Inventory item not found');
       }
       
       return res.status(200).json({ 
@@ -86,22 +82,11 @@ router.get('/:id', async (req, res, next) => {
     }
     
     const item = await inventoryService.findById(id);
-    
-    if (!item) {
-      return res.status(404).json({
-        error: {
-          code: 'ITEM_NOT_FOUND',
-          message: 'Inventory item not found',
-        },
-      });
-    }
-    
     res.status(200).json({ 
       item: item as InventoryItem,
       source: 'database' 
     });
   } catch (error) {
-    console.error('Unexpected error:', error);
     next(error);
   }
 });
@@ -112,39 +97,23 @@ router.post('/update', authMiddleware, authorize('inventory:write'), async (req,
     const validationResult = inventoryUpdateSchema.safeParse(req.body);
     
     if (!validationResult.success) {
-      return res.status(400).json({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid input data',
-          details: validationResult.error.errors
-        },
-      });
+      throw new ValidationError('Invalid input data');
     }
 
     const { action, item, quantity, unit } = validationResult.data;
     
-    const result = await inventoryService.updateInventory({
+    await inventoryService.updateInventory({
       action,
       item,
       quantity,
       unit
     });
     
-    if (!result.success) {
-      return res.status(400).json({
-        error: {
-          code: 'UPDATE_FAILED',
-          message: result.message || 'Failed to update inventory',
-        },
-      });
-    }
-    
     res.status(200).json({
-      message: result.message || 'Inventory updated successfully',
+      message: 'Inventory updated successfully',
       source: 'database'
     });
   } catch (error) {
-    console.error('Unexpected error:', error);
     next(error);
   }
 });
@@ -155,34 +124,18 @@ router.post('/add-item', authMiddleware, authorize('inventory:write'), async (re
     const validationResult = inventoryItemSchema.safeParse(req.body);
     
     if (!validationResult.success) {
-      return res.status(400).json({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid input data',
-          details: validationResult.error.errors
-        },
-      });
+      throw new ValidationError('Invalid input data');
     }
 
     const newItem = validationResult.data;
-    const result = await inventoryService.addItem(newItem);
-    
-    if (!result.success) {
-      return res.status(400).json({
-        error: {
-          code: 'CREATE_FAILED',
-          message: result.message || 'Failed to add inventory item',
-        },
-      });
-    }
+    const item = await inventoryService.addItem(newItem);
     
     res.status(201).json({
-      item: result.item,
-      message: result.message || 'New item added successfully',
+      item,
+      message: `Successfully added ${item.name}`,
       source: 'database'
     });
   } catch (error) {
-    console.error('Unexpected error:', error);
     next(error);
   }
 });
@@ -207,7 +160,6 @@ router.get('/categories', async (req, res, next) => {
       source: 'database'
     });
   } catch (error) {
-    console.error('Unexpected error:', error);
     next(error);
   }
 });
@@ -222,12 +174,7 @@ router.delete('/:id', authMiddleware, authorize('inventory:delete'), async (req,
       const itemIndex = mockInventory.findIndex(item => item.id === id);
       
       if (itemIndex === -1) {
-        return res.status(404).json({
-          error: {
-            code: 'ITEM_NOT_FOUND',
-            message: 'Inventory item not found',
-          },
-        });
+        throw new NotFoundError('Inventory item not found');
       }
       
       const deletedItem = { ...mockInventory[itemIndex] };
@@ -240,23 +187,13 @@ router.delete('/:id', authMiddleware, authorize('inventory:delete'), async (req,
       });
     }
     
-    const result = await inventoryService.deleteItem(id);
-    
-    if (!result.success) {
-      return res.status(400).json({
-        error: {
-          code: 'DELETE_FAILED',
-          message: result.message || 'Failed to delete inventory item',
-        },
-      });
-    }
+    await inventoryService.deleteItem(id);
     
     res.status(200).json({
-      message: result.message || 'Item deleted successfully',
+      message: 'Item deleted successfully',
       source: 'database'
     });
   } catch (error) {
-    console.error('Unexpected error:', error);
     next(error);
   }
 });

@@ -1,28 +1,36 @@
 import { Request, Response, NextFunction } from 'express';
+import { ApiError } from '../errors/ApiError';
 
-interface ErrorWithStatus extends Error {
-  status?: number;
-  code?: string;
-}
-
-const errorHandler = (
-  err: ErrorWithStatus,
+export const errorHandler = (
+  err: Error,
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
-  console.error('Error:', err);
-
-  const status = err.status || 500;
-  const message = err.message || 'Internal Server Error';
-  const code = err.code || 'INTERNAL_ERROR';
-
-  res.status(status).json({
-    error: {
-      code,
-      message,
-    },
+  // Log error details
+  console.error('Error details:', {
+    message: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
   });
-};
 
-export default errorHandler; 
+  if (err instanceof ApiError) {
+    // Handle operational errors (known errors)
+    return res.status(err.statusCode).json({
+      status: 'error',
+      type: err.type,
+      message: err.isOperational ? err.message : 'An unexpected error occurred'
+    });
+  }
+
+  // Handle unknown errors
+  return res.status(500).json({
+    status: 'error',
+    type: 'INTERNAL_ERROR',
+    message: process.env.NODE_ENV === 'development' 
+      ? err.message 
+      : 'An unexpected error occurred'
+  });
+}; 

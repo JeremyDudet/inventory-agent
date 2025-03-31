@@ -13,6 +13,7 @@ import TranscriptionBuffer from './services/transcriptionBuffer';
 import sessionLogsRoutes from './routes/sessionLogs';
 import inventoryRoutes from './routes/inventory';
 import authRoutes from './routes/auth';
+import { errorHandler } from './middleware/errorHandler';
 
 dotenv.config();
 
@@ -429,9 +430,12 @@ app.use(cors({
 app.use(express.json());
 
 // Routes
-app.use('/api/logs', sessionLogsRoutes);
+app.use('/api/session-logs', sessionLogsRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/auth', authRoutes); // Register auth routes
+
+// Error handling middleware should be last
+app.use(errorHandler);
 
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html');

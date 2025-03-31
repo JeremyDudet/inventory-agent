@@ -100,11 +100,10 @@ describe('Voice Command Processing', () => {
         unit: 'gallons'
       };
 
-      (inventoryService.updateInventory as jest.Mock).mockResolvedValue({ success: true });
+      (inventoryService.updateInventory as jest.Mock).mockResolvedValue(undefined);
       
-      const result = await inventoryService.updateInventory(command);
+      await inventoryService.updateInventory(command);
       
-      expect(result.success).toBe(true);
       expect(inventoryService.updateInventory).toHaveBeenCalledWith(command);
     });
 
