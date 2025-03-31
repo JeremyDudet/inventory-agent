@@ -1,9 +1,16 @@
+import { NlpService } from './nlpService';
+
 /**
  * Service to buffer transcriptions until a complete command is detected
  */
 class TranscriptionBuffer {
   private buffer: string = '';
   private lastAddedTime: number = 0;
+  private nlpService: NlpService;
+
+  constructor(nlpService: NlpService) {
+    this.nlpService = nlpService;
+  }
 
   /**
    * Add a transcription to the buffer

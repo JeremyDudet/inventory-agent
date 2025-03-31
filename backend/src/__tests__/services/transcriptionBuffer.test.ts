@@ -1,11 +1,16 @@
-import { describe, it, expect, beforeEach } from '@jest/globals';
+import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import TranscriptionBuffer from '../../services/transcriptionBuffer';
+import { NlpService } from '../../services/nlpService';
 
-describe('TranscriptionBuffer', () => {
+jest.mock('../../services/nlpService');
+
+describe('TranscriptionBuffer Tests', () => {
   let transcriptionBuffer: TranscriptionBuffer;
+  let nlpService: NlpService;
   
   beforeEach(() => {
-    transcriptionBuffer = new TranscriptionBuffer();
+    nlpService = new NlpService();
+    transcriptionBuffer = new TranscriptionBuffer(nlpService);
   });
 
   describe('buffer functionality', () => {

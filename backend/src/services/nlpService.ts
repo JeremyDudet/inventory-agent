@@ -1,6 +1,7 @@
 // backend/src/services/nlpService.ts
 import dotenv from 'dotenv';
 import axios from 'axios';
+import { NlpResult } from '../types/nlp';
 
 // Load environment variables
 dotenv.config();
@@ -12,7 +13,7 @@ const useOpenAI = openaiApiKey !== '';
 /**
  * NLP service for processing transcriptions and extracting inventory commands
  */
-class NlpService {
+export class NlpService {
   // Cache to store previous command context
   private previousCommand: {
     action: string;
@@ -26,85 +27,128 @@ class NlpService {
   private contextWindowMs = 5000;
 
   /**
-   * Process a transcription and extract inventory command
+   * Process a transcription and extract inventory commands
    * @param transcription - The transcription to process
-   * @returns Extracted inventory command
+   * @returns Array of NLP results
    */
-  async processTranscription(transcription: string): Promise<{
-    action: string;
-    item: string;
-    quantity: number | undefined;
-    unit: string;
-    confidence: number;
-    isComplete: boolean;
-  }> {
+  async processTranscription(transcription: string): Promise<NlpResult[]> {
     const startTime = Date.now();
     console.log(`🧠 [NLP] Processing transcription: "${transcription}"`);
     
     try {
-      let result;
+      // Split transcription into individual commands
+      const commands = this.splitIntoCommands(transcription);
+      console.log(`🧠 [NLP] Split into ${commands.length} commands`);
       
-      // If OpenAI API key is available, use it for more advanced processing
-      if (useOpenAI) {
-        console.log('🧠 [NLP] Using OpenAI API for NLP processing');
-        result = await this.processWithOpenAI(transcription);
-      } else {
-        // Otherwise, use the rule-based approach
-        console.log('🧠 [NLP] Using rule-based processing (OpenAI API not configured)');
-        result = await this.processWithRules(transcription);
-      }
+      // Process each command
+      const results = await Promise.all(commands.map(async (command) => {
+        let commandResults: NlpResult[];
+        
+        // If OpenAI API key is available, use it for more advanced processing
+        if (useOpenAI) {
+          console.log('🧠 [NLP] Using OpenAI API for NLP processing');
+          commandResults = await this.processWithOpenAI(command);
+        } else {
+          // Otherwise, use the rule-based approach
+          console.log('🧠 [NLP] Using rule-based processing (OpenAI API not configured)');
+          commandResults = this.processWithRules(command);
+        }
+        
+        return commandResults;
+      }));
       
-      // Merge with previous command context if applicable
-      result = this.mergeWithPreviousContext(result);
+      // Flatten results array
+      const flattenedResults = results.flat();
+      
+      // Merge with previous context, skipping undo commands
+      const mergedCommands = flattenedResults.map(cmd =>
+        cmd.type === 'undo' ? cmd : this.mergeWithPreviousContext(cmd)
+      );
+      
+      // Update context only for incomplete commands
+      mergedCommands.forEach(cmd => {
+        if (!cmd.isComplete && !cmd.type) {
+          this.updateCommandContext(cmd);
+        } else if (cmd.isComplete && !cmd.type) {
+          this.previousCommand = null;
+        }
+      });
       
       // Calculate processing time
       const processTime = Date.now() - startTime;
       
       // Log detailed results
       console.log(`🧠 [NLP] Processing complete in ${processTime}ms`);
-      console.log(`🧠 [NLP] Extracted action: "${result.action}"`);
-      console.log(`🧠 [NLP] Extracted item: "${result.item}"`);
-      console.log(`🧠 [NLP] Extracted quantity: ${result.quantity}`);
-      console.log(`🧠 [NLP] Extracted unit: "${result.unit}"`);
-      console.log(`🧠 [NLP] Confidence: ${(result.confidence * 100).toFixed(1)}%`);
-      console.log(`🧠 [NLP] Command complete: ${result.isComplete}`);
+      mergedCommands.forEach((result: NlpResult) => {
+        console.log(`🧠 [NLP] Extracted action: "${result.action}"`);
+        console.log(`🧠 [NLP] Extracted item: "${result.item}"`);
+        console.log(`🧠 [NLP] Extracted quantity: ${result.quantity}`);
+        console.log(`🧠 [NLP] Extracted unit: "${result.unit}"`);
+        console.log(`🧠 [NLP] Confidence: ${(result.confidence * 100).toFixed(1)}%`);
+        console.log(`🧠 [NLP] Command complete: ${result.isComplete}`);
+      });
       
-      // Update context if command is not complete
-      if (!result.isComplete) {
-        this.updateCommandContext(result);
-      } else {
-        // Clear context if command is complete
-        this.previousCommand = null;
-      }
-      
-      return result;
+      return mergedCommands;
     } catch (error) {
       console.error('🧠 [NLP] ❌ Error processing transcription:', error);
       console.trace('🧠 [NLP] Error stack trace:');
       
       // Return basic unknown result instead of crashing
-      return {
+      return [{
         action: 'unknown',
         item: 'unknown',
         quantity: undefined,
         unit: 'units',
         confidence: 0.3,
         isComplete: false
-      };
+      }];
     }
+  }
+
+  /**
+   * Split a transcription into individual commands
+   * @param transcription - The transcription to split
+   * @returns Array of individual commands
+   */
+  private splitIntoCommands(transcription: string): string[] {
+    // Handle undo commands first
+    if (transcription.toLowerCase().includes('undo')) {
+      return [transcription];
+    }
+
+    // Split by common delimiters
+    const commands = transcription
+      .split(/[,;]|\s+and\s+/i)
+      .map(cmd => cmd.trim())
+      .filter(cmd => cmd.length > 0);
+
+    // If no delimiters found, try to detect multiple commands by pattern
+    if (commands.length === 1) {
+      const command = commands[0];
+      
+      // Pattern for "X units of Y, Z units of W"
+      const quantityUnitPattern = /(\d+)\s+(gallons?|pounds?|cups?|boxes?|sleeves?|units?)\s+of\s+([^,]+?)(?:\s*,\s*(\d+)\s+(gallons?|pounds?|cups?|boxes?|sleeves?|units?)\s+of\s+([^,]+?))*/gi;
+      
+      const matches = [...command.matchAll(quantityUnitPattern)];
+      if (matches.length > 1) {
+        return matches.map(match => match[0].trim());
+      }
+      
+      // Pattern for "add X, remove Y, set Z"
+      const actionPattern = /(add|remove|set)\s+([^,]+?)(?:\s*,\s*(add|remove|set)\s+([^,]+?))*/gi;
+      const actionMatches = [...command.matchAll(actionPattern)];
+      if (actionMatches.length > 1) {
+        return actionMatches.map(match => match[0].trim());
+      }
+    }
+    
+    return commands;
   }
 
   /**
    * Update the command context with the current result
    */
-  private updateCommandContext(result: {
-    action: string;
-    item: string;
-    quantity: number | undefined;
-    unit: string;
-    confidence: number;
-    isComplete: boolean;
-  }): void {
+  private updateCommandContext(result: NlpResult): void {
     // Only store meaningful parts of the command
     this.previousCommand = {
       action: result.action !== 'unknown' ? result.action : '',
@@ -120,21 +164,7 @@ class NlpService {
   /**
    * Merge current result with previous context if applicable
    */
-  private mergeWithPreviousContext(result: {
-    action: string;
-    item: string;
-    quantity: number | undefined;
-    unit: string;
-    confidence: number;
-    isComplete: boolean;
-  }): {
-    action: string;
-    item: string;
-    quantity: number | undefined;
-    unit: string;
-    confidence: number;
-    isComplete: boolean;
-  } {
+  private mergeWithPreviousContext(result: NlpResult): NlpResult {
     // If no previous context or previous context is too old, just return current result
     if (!this.previousCommand || 
         Date.now() - this.previousCommand.timestamp > this.contextWindowMs) {
@@ -251,16 +281,9 @@ class NlpService {
   /**
    * Process transcription using OpenAI API
    * @param transcription - The transcription to process
-   * @returns Extracted inventory command
+   * @returns Array of extracted inventory commands
    */
-  private async processWithOpenAI(transcription: string): Promise<{
-    action: string;
-    item: string;
-    quantity: number | undefined;
-    unit: string;
-    confidence: number;
-    isComplete: boolean;
-  }> {
+  private async processWithOpenAI(transcription: string): Promise<NlpResult[]> {
     try {
       const response = await axios.post(
         'https://api.openai.com/v1/chat/completions',
@@ -269,56 +292,33 @@ class NlpService {
           messages: [
             {
               role: 'system',
-              content: `You are a natural language processor for an inventory management system. Your task is to extract inventory commands from user input.
+              content: `You are a natural language processor for an inventory management system. Your task is to extract one or more inventory commands from the user's input. Each command should have:
 
-Key requirements:
-1. Extract these fields from the command:
-   - action: must be one of "add", "remove", or "set" (empty string if not found)
-   - item: the inventory item name (empty string if not found)
-   - quantity: a number if explicitly specified, undefined if not found
-   - unit: standard unit (e.g., "gallons", "pounds", "boxes", "units" if not specified)
+action: 'add', 'remove', or 'set' (empty string if not found)
+item: the inventory item name (empty string if not found)
+quantity: a positive number if specified, undefined if not found
+unit: standard unit (e.g., 'gallons', 'pounds', default to 'units')
+confidence: 0 to 1 (0.95 for complete, 0.8 for action+item, 0.6 for partial)
 
-2. Handle common patterns:
-   - "add X units of Y" (e.g., "add 2 gallons of milk")
-   - "remove X from Y" (e.g., "remove 5 pounds from coffee")
-   - "set X to Y" (e.g., "set milk to 10 gallons")
-   - "X units Y" (e.g., "20 gallons whole milk")
+Additionally, if the input contains 'undo' or 'revert last', return a single command with {type: 'undo'}.
 
-3. Return a JSON object that matches this Zod schema:
-   {
-     action: z.enum(["add", "remove", "set"]).optional(),
-     item: z.string().min(1),
-     quantity: z.number().positive().optional(),
-     unit: z.string().min(1),
-     confidence: z.number().min(0).max(1)
-   }
+IMPORTANT RULES:
+1. If the input contains 'undo' or 'revert last', return a single command with {type: 'undo'}
+2. For statements about CURRENT inventory levels, ALWAYS use action: 'set'. Examples:
+   - "We have 30 gallons of whole milk" → action: 'set'
+   - "There is 5 pounds of coffee" → action: 'set'
+   - "We have 20 boxes of tea" → action: 'set'
+3. Only use 'add' when explicitly adding to inventory
+4. Only use 'remove' when explicitly removing from inventory
 
-4. Confidence scoring:
-   - 0.95: Complete command with all fields
-   - 0.8: Command with action and item
-   - 0.6: Partial command with some fields
-   - 0.4: Unclear or incomplete command
+Examples:
+Input: "We have 30 gallons of whole milk"
+Output: [{"action": "set", "item": "whole milk", "quantity": 30, "unit": "gallons", "confidence": 0.95}]
 
-5. Normalize units to standard forms:
-   - "gal" → "gallons"
-   - "lb" → "pounds"
-   - "box" → "boxes"
-   - "unit" → "units"
+Input: "Add 5 gallons of milk"
+Output: [{"action": "add", "item": "milk", "quantity": 5, "unit": "gallons", "confidence": 0.95}]
 
-6. Clean up item names by:
-   - Removing filler words (the, a, an, some, etc.)
-   - Removing action words
-   - Removing punctuation
-   - Trimming whitespace
-
-7. Validation rules:
-   - action must be one of: "add", "remove", "set" (or empty string if not found)
-   - item must be a non-empty string
-   - quantity must be a positive number (or undefined if not found)
-   - unit must be a non-empty string
-   - confidence must be between 0 and 1
-
-Return only valid JSON that matches the Zod schema.`
+Return a JSON array of commands.`
             },
             {
               role: 'user',
@@ -336,29 +336,18 @@ Return only valid JSON that matches the Zod schema.`
         }
       );
 
-      const result = JSON.parse(response.data.choices[0].message.content);
-      
-      // Convert unknown values to empty strings
-      const action = result.action?.toLowerCase() === 'unknown' ? '' : (result.action?.toLowerCase() || '');
-      const item = result.item?.toLowerCase() === 'unknown' ? '' : (result.item?.toLowerCase() || '');
-      const unit = result.unit?.toLowerCase() === 'unknown' ? 'units' : (result.unit?.toLowerCase() || 'units');
-      // Only set quantity if explicitly provided
-      const quantity = result.quantity === 'unknown' || result.quantity === '' ? undefined : 
-        (typeof result.quantity === 'number' ? result.quantity : undefined);
-      
-      // Base confidence on presence of fields
-      const baseConfidence = result.confidence || 0.8;
-      const hasAllFields = Boolean(action && item && quantity && unit);
-      const confidence = hasAllFields ? baseConfidence : baseConfidence * 0.75;
+      const results = JSON.parse(response.data.choices[0].message.content);
+      console.log('🧠 [NLP] OpenAI extracted commands:', results);
 
-      return {
-        action,
-        item,
-        quantity,
-        unit,
-        confidence,
-        isComplete: this.isCommandComplete(action, item, quantity, unit)
-      };
+      return results.map((result: any) => ({
+        action: result.action?.toLowerCase() || '',
+        item: result.item?.toLowerCase() || '',
+        quantity: typeof result.quantity === 'number' ? result.quantity : undefined,
+        unit: result.unit?.toLowerCase() || 'units',
+        confidence: result.confidence || 0.8,
+        isComplete: this.isCommandComplete(result.action || '', result.item || '', result.quantity, result.unit || 'units'),
+        type: result.type // Include if present (e.g., 'undo')
+      }));
     } catch (error) {
       console.error('Error with OpenAI API:', error);
       // Fall back to rule-based approach
@@ -369,117 +358,89 @@ Return only valid JSON that matches the Zod schema.`
   /**
    * Process transcription using enhanced rule-based approach
    * @param transcription - The transcription to process
-   * @returns Extracted inventory command
+   * @returns Array of extracted inventory commands
    */
-  private processWithRules(transcription: string): {
-    action: string;
-    item: string;
-    quantity: number | undefined;
-    unit: string;
-    confidence: number;
-    isComplete: boolean;
-  } {
-    const lowerTranscription = transcription.toLowerCase();
+  private processWithRules(transcription: string): NlpResult[] {
+    return this.extractMultipleCommands(transcription);
+  }
 
-    if (!lowerTranscription) {
-      return {
+  /**
+   * Extract multiple commands from a transcription using rule-based processing
+   */
+  private extractMultipleCommands(transcription: string): Array<NlpResult> {
+    const lowerTranscription = transcription.toLowerCase();
+    const commands = [];
+
+    // Check for undo command first
+    if (lowerTranscription.includes('undo') || lowerTranscription.includes('revert last')) {
+      console.log('🧠 [NLP] Detected undo command');
+      return [{
         action: '',
         item: '',
         quantity: undefined,
-        unit: '',
-        confidence: 0.1,
-        isComplete: false
-      };
+        unit: 'units',
+        confidence: 0.95,
+        isComplete: true,
+        type: 'undo'
+      }];
     }
 
-    // Default case - try to extract what we can
-    let action = '';
-    let item = '';
-    let quantity: number | undefined = undefined;
-    let unit = 'units';
-    let confidence = 0.95;
-    let isComplete = false;
-
-    // Extract action
-    if (lowerTranscription.includes('add')) {
-      action = 'add';
-    } else if (lowerTranscription.includes('remove')) {
-      action = 'remove';
-    } else if (lowerTranscription.includes('set')) {
-      action = 'set';
+    // Check for "We have X of Y" pattern first
+    const havePattern = /(?:we have|there is|there are)\s+(\d+)\s+(\w+)\s+(?:of\s+)?(.+)/i;
+    const haveMatch = lowerTranscription.match(havePattern);
+    if (haveMatch) {
+      console.log('🧠 [NLP] Detected "We have X of Y" pattern');
+      return [{
+        action: 'set',
+        item: haveMatch[3].trim(),
+        quantity: parseInt(haveMatch[1], 10),
+        unit: this.normalizeUnit(haveMatch[2]),
+        confidence: 0.95,
+        isComplete: true
+      }];
     }
 
-    // Pattern for "X units of Y" (e.g., "2 gal of milk")
-    const unitPattern = /(\d+)\s+(\w+)\s+(?:of\s+)?(.+)/i;
-    const unitMatch = lowerTranscription.match(unitPattern);
-    if (unitMatch) {
-      const [_, extractedQuantity, extractedUnit, extractedItem] = unitMatch;
-      quantity = parseInt(extractedQuantity, 10);
-      unit = this.normalizeUnit(extractedUnit);
-      item = extractedItem.trim();
+    // Split by commas or 'and' for multiple items
+    const segments = lowerTranscription.split(/,\s*|\s+and\s+/i);
+    for (const segment of segments) {
+      let action = '';
+      let item = '';
+      let quantity: number | undefined = undefined;
+      let unit = 'units';
+      let confidence = 0.95;
 
-      // If we have an item, try to determine a better unit if none was specified
-      if (item && unit === 'units') {
+      if (segment.includes('add')) action = 'add';
+      else if (segment.includes('remove')) action = 'remove';
+      else if (segment.includes('set')) action = 'set';
+
+      const unitPattern = /(\d+)\s+(\w+)\s+(?:of\s+)?(.+)/i;
+      const match = segment.match(unitPattern);
+      if (match) {
+        quantity = parseInt(match[1], 10);
+        unit = this.normalizeUnit(match[2]);
+        item = match[3].trim();
+      } else {
+        item = segment.replace(/\b(add|remove|set)\b/g, '').trim();
         unit = this.determineUnitForItem(item);
       }
-    } else {
-      // Pattern for "X to Y" (e.g., "20 gallons to whole milk")
-      const toPattern = /(\d+)\s+(\w+)\s+to\s+(.+)/i;
-      const toMatch = lowerTranscription.match(toPattern);
-      if (toMatch) {
-        const [_, extractedQuantity, extractedUnit, extractedItem] = toMatch;
-        quantity = parseInt(extractedQuantity, 10);
-        unit = this.normalizeUnit(extractedUnit);
-        item = extractedItem.trim();
-      } else {
-        // Pattern for "action X units Y" (e.g., "add 5 gallons whole milk")
-        const actionPattern = /(add|remove|set)\s+(\d+)\s+(\w+)\s+(.+)/i;
-        const actionMatch = lowerTranscription.match(actionPattern);
-        if (actionMatch) {
-          const [_, extractedAction, extractedQuantity, extractedUnit, extractedItem] = actionMatch;
-          action = extractedAction;
-          quantity = parseInt(extractedQuantity, 10);
-          unit = this.normalizeUnit(extractedUnit);
-          item = extractedItem.trim();
-        } else {
-          // Extract item (remove action words and filler words)
-          item = lowerTranscription
-            .replace(/\b(add|remove|set|to|some|more|of|the)\b/g, '')
-            .trim();
-          
-          // Try to determine appropriate unit for the item
-          if (item) {
-            unit = this.determineUnitForItem(item);
-          }
-        }
+
+      const isComplete = this.isCommandComplete(action, item, quantity, unit);
+      if (!isComplete) confidence = 0.6;
+      if (action && item) {
+        commands.push({ action, item, quantity, unit, confidence, isComplete });
       }
     }
-
-    // For set commands, we need all fields
-    if (action === 'set' && (!quantity || quantity <= 0)) {
-      confidence = 0.5;
-      isComplete = false;
-    }
-    // For add/remove commands, we need at least an item
-    else if ((action === 'add' || action === 'remove') && !item) {
-      confidence = 0.5;
-      isComplete = false;
-    }
-    // If we have all required fields, command is complete
-    else {
-      isComplete = this.isCommandComplete(action, item, quantity, unit);
-    }
-
-    return {
-      action,
-      item,
-      quantity,
-      unit,
-      confidence,
-      isComplete
-    };
+    console.log('🧠 [NLP] Rule-based extracted commands:', commands);
+    return commands.length > 0 ? commands : [{
+      action: '',
+      item: '',
+      quantity: undefined,
+      unit: 'units',
+      confidence: 0.3,
+      isComplete: false
+    }];
   }
-  
+
   /**
    * Convert word representation of numbers to actual numbers
    */
@@ -601,20 +562,16 @@ Return only valid JSON that matches the Zod schema.`
   private normalizeUnit(unit: string): string {
     const unitMap: { [key: string]: string } = {
       'gal': 'gallons',
+      'gals': 'gallons',
       'gallon': 'gallons',
-      'gallons': 'gallons',
       'lb': 'pounds',
       'lbs': 'pounds',
       'pound': 'pounds',
-      'pounds': 'pounds',
-      'unit': 'units',
-      'units': 'units',
-      'piece': 'units',
-      'pieces': 'units'
+      'cups': 'cups',
+      'box': 'boxes',
+      'sleeve': 'sleeves'
     };
-
-    const normalizedUnit = unitMap[unit.toLowerCase()];
-    return normalizedUnit || 'units';
+    return unitMap[unit.toLowerCase()] || unit.toLowerCase();
   }
   
   /**
@@ -803,6 +760,4 @@ Return only valid JSON that matches the Zod schema.`
     // If we get here, the command is incomplete
     return false;
   }
-}
-
-export default new NlpService(); 
+} 

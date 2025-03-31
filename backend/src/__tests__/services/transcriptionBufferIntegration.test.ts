@@ -1,48 +1,58 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import TranscriptionBuffer from '../../services/transcriptionBuffer';
-import nlpService from '../../services/nlpService';
+import { NlpService } from '../../services/nlpService';
+import { NlpResult } from '../../types/nlp';
 
-// Define the return type for processTranscription
-type NlpResultType = {
-  action: string;
-  item: string;
-  quantity: number;
-  unit: string;
-  confidence: number;
-  isComplete: boolean;
-};
+type ProcessTranscriptionFn = (transcription: string) => Promise<NlpResult[]>;
 
-
-// Mock the NLP service with a typed mock function
-jest.mock('../../services/nlpService', () => ({
-  processTranscription: jest.fn<(transcription: string) => Promise<NlpResultType>>()
-}));
+jest.mock('../../services/nlpService', () => {
+  return {
+    NlpService: jest.fn().mockImplementation(() => ({
+      processTranscription: jest.fn<ProcessTranscriptionFn>()
+    }))
+  };
+});
 
 describe('TranscriptionBuffer Integration Tests', () => {
+  let nlpService: NlpService;
   let transcriptionBuffer: TranscriptionBuffer;
-  let mockProcessTranscription: jest.Mock<(transcription: string) => Promise<NlpResultType>>;
+  let mockProcessTranscription: jest.Mock<ProcessTranscriptionFn>;
+
+  const mockResult: NlpResult = {
+    action: 'add',
+    item: 'test item',
+    quantity: 1,
+    unit: 'units',
+    confidence: 0.9,
+    isComplete: true,
+    type: undefined
+  };
 
   beforeEach(() => {
-    transcriptionBuffer = new TranscriptionBuffer();
-    mockProcessTranscription = nlpService.processTranscription as jest.Mock<(transcription: string) => Promise<NlpResultType>>;
-    jest.clearAllMocks(); // Reset mock state between tests
+    nlpService = new NlpService();
+    mockProcessTranscription = nlpService.processTranscription as jest.Mock<ProcessTranscriptionFn>;
+    mockProcessTranscription.mockImplementation(async () => [mockResult]);
+    transcriptionBuffer = new TranscriptionBuffer(nlpService);
+    jest.clearAllMocks();
   });
 
   it('should process command through NLP and clear buffer when complete', async () => {
-    mockProcessTranscription.mockResolvedValueOnce({
+    const result: NlpResult = {
       action: 'add',
       item: 'coffee',
       quantity: 5,
       unit: 'pounds',
       confidence: 0.9,
-      isComplete: true
-    });
+      isComplete: true,
+      type: undefined
+    };
+    mockProcessTranscription.mockResolvedValueOnce([result]);
 
     transcriptionBuffer.addTranscription('add 5 pounds of coffee');
     const buffer = transcriptionBuffer.getCurrentBuffer();
-    const nlpResult = await nlpService.processTranscription(buffer);
+    const nlpResults = await nlpService.processTranscription(buffer);
 
-    if (nlpResult.isComplete) {
+    if (nlpResults[0].isComplete) {
       transcriptionBuffer.clearBuffer();
     }
 
@@ -51,20 +61,22 @@ describe('TranscriptionBuffer Integration Tests', () => {
   });
 
   it('should retain buffer content when command is incomplete', async () => {
-    mockProcessTranscription.mockResolvedValueOnce({
+    const result: NlpResult = {
       action: 'add',
       item: '',
       quantity: 5,
       unit: 'pounds',
       confidence: 0.8,
-      isComplete: false
-    });
+      isComplete: false,
+      type: undefined
+    };
+    mockProcessTranscription.mockResolvedValueOnce([result]);
 
     transcriptionBuffer.addTranscription('add 5 pounds of');
     const buffer = transcriptionBuffer.getCurrentBuffer();
-    const nlpResult = await nlpService.processTranscription(buffer);
+    const nlpResults = await nlpService.processTranscription(buffer);
 
-    if (nlpResult.isComplete) {
+    if (nlpResults[0].isComplete) {
       transcriptionBuffer.clearBuffer();
     }
 
@@ -73,29 +85,33 @@ describe('TranscriptionBuffer Integration Tests', () => {
   });
 
   it('should combine multiple transcriptions into a complete command', async () => {
+    const incompleteResult: NlpResult = {
+      action: 'add',
+      item: '',
+      quantity: 5,
+      unit: 'pounds',
+      confidence: 0.8,
+      isComplete: false,
+      type: undefined
+    };
+    const completeResult: NlpResult = {
+      action: 'add',
+      item: 'coffee',
+      quantity: 5,
+      unit: 'pounds',
+      confidence: 0.9,
+      isComplete: true,
+      type: undefined
+    };
     mockProcessTranscription
-      .mockResolvedValueOnce({
-        action: 'add',
-        item: '',
-        quantity: 5,
-        unit: 'pounds',
-        confidence: 0.8,
-        isComplete: false
-      })
-      .mockResolvedValueOnce({
-        action: 'add',
-        item: 'coffee',
-        quantity: 5,
-        unit: 'pounds',
-        confidence: 0.9,
-        isComplete: true
-      });
+      .mockResolvedValueOnce([incompleteResult])
+      .mockResolvedValueOnce([completeResult]);
 
     transcriptionBuffer.addTranscription('add 5 pounds of');
     let buffer = transcriptionBuffer.getCurrentBuffer();
-    let nlpResult = await nlpService.processTranscription(buffer);
+    let nlpResults = await nlpService.processTranscription(buffer);
 
-    if (nlpResult.isComplete) {
+    if (nlpResults[0].isComplete) {
       transcriptionBuffer.clearBuffer();
     }
 
@@ -104,9 +120,9 @@ describe('TranscriptionBuffer Integration Tests', () => {
 
     transcriptionBuffer.addTranscription('coffee');
     buffer = transcriptionBuffer.getCurrentBuffer();
-    nlpResult = await nlpService.processTranscription(buffer);
+    nlpResults = await nlpService.processTranscription(buffer);
 
-    if (nlpResult.isComplete) {
+    if (nlpResults[0].isComplete) {
       transcriptionBuffer.clearBuffer();
     }
 
@@ -115,29 +131,33 @@ describe('TranscriptionBuffer Integration Tests', () => {
   });
 
   it('should handle split set commands correctly', async () => {
+    const incompleteResult: NlpResult = {
+      action: 'set',
+      item: '16 ounce paper cups',
+      quantity: 0,
+      unit: '',
+      confidence: 0.7,
+      isComplete: false,
+      type: undefined
+    };
+    const completeResult: NlpResult = {
+      action: 'set',
+      item: 'paper cups',
+      quantity: 30,
+      unit: 'sleeves',
+      confidence: 0.9,
+      isComplete: true,
+      type: undefined
+    };
     mockProcessTranscription
-      .mockResolvedValueOnce({
-        action: 'set',
-        item: '16 ounce paper cups',
-        quantity: 0,
-        unit: '',
-        confidence: 0.7,
-        isComplete: false
-      })
-      .mockResolvedValueOnce({
-        action: 'set',
-        item: 'paper cups',
-        quantity: 30,
-        unit: 'sleeves',
-        confidence: 0.9,
-        isComplete: true
-      });
+      .mockResolvedValueOnce([incompleteResult])
+      .mockResolvedValueOnce([completeResult]);
 
     transcriptionBuffer.addTranscription('Set the 16 ounce paper cups');
     let buffer = transcriptionBuffer.getCurrentBuffer();
-    let nlpResult = await nlpService.processTranscription(buffer);
+    let nlpResults = await nlpService.processTranscription(buffer);
 
-    if (nlpResult.isComplete) {
+    if (nlpResults[0].isComplete) {
       transcriptionBuffer.clearBuffer();
     }
 
@@ -146,9 +166,9 @@ describe('TranscriptionBuffer Integration Tests', () => {
 
     transcriptionBuffer.addTranscription('to 30 sleeves');
     buffer = transcriptionBuffer.getCurrentBuffer();
-    nlpResult = await nlpService.processTranscription(buffer);
+    nlpResults = await nlpService.processTranscription(buffer);
 
-    if (nlpResult.isComplete) {
+    if (nlpResults[0].isComplete) {
       transcriptionBuffer.clearBuffer();
     }
 

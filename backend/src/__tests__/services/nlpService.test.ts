@@ -1,443 +1,75 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import axios, { AxiosResponse } from 'axios';
-import NlpService from '../../services/nlpService';
+import { NlpService } from '../../services/nlpService';
+import { NlpResult } from '../../types/nlp';
 
 jest.mock('axios');
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
-describe('NLP Service', () => {
-  let nlpService: typeof NlpService;
+describe('NlpService', () => {
+  let nlpService: NlpService;
 
   beforeEach(() => {
-    process.env.OPENAI_API_KEY = 'test-key';
     jest.clearAllMocks();
-    nlpService = NlpService;
+    nlpService = new NlpService();
   });
 
   describe('processTranscription', () => {
-    it('should process add command', async () => {
-      const mockResponse: Partial<AxiosResponse> = {
-        data: {
-          choices: [{
-            message: {
-              content: JSON.stringify({
-                action: 'add',
-                item: 'coffee',
-                quantity: 5,
-                unit: 'pounds',
-                confidence: 0.95
-              })
-            }
-          }]
-        }
-      };
-      mockedAxios.post.mockResolvedValueOnce(mockResponse as AxiosResponse);
-
-      const result = await nlpService.processTranscription('add 5 pounds of coffee');
-      
+    it('should process a valid add command', async () => {
+      const results = await nlpService.processTranscription('add 5 gallons of milk');
+      expect(results).toHaveLength(1);
+      const result = results[0];
       expect(result).toEqual({
         action: 'add',
-        item: 'coffee',
+        item: 'milk',
         quantity: 5,
-        unit: 'pounds',
-        confidence: expect.any(Number),
+        unit: 'gallons',
+        confidence: 0.8,
         isComplete: true
       });
     });
 
-    it('should process set command', async () => {
-      const mockResponse: Partial<AxiosResponse> = {
-        data: {
-          choices: [{
-            message: {
-              content: JSON.stringify({
-                action: 'set',
-                item: 'coffee beans',
-                quantity: 10,
-                unit: 'pounds',
-                confidence: 0.95
-              })
-            }
-          }]
-        }
-      };
-      mockedAxios.post.mockResolvedValueOnce(mockResponse as AxiosResponse);
-
-      const result = await nlpService.processTranscription('set coffee beans to 10 pounds');
-      
+    it('should process a valid remove command', async () => {
+      const results = await nlpService.processTranscription('remove 3 boxes of cereal');
+      expect(results).toHaveLength(1);
+      const result = results[0];
       expect(result).toEqual({
-        action: 'set',
-        item: 'coffee beans',
-        quantity: 10,
-        unit: 'pounds',
-        confidence: expect.any(Number),
+        action: 'remove',
+        item: 'cereal',
+        quantity: 3,
+        unit: 'boxes',
+        confidence: 0.8,
         isComplete: true
       });
     });
 
-    it('should handle conversational commands', async () => {
-      const mockResponse: Partial<AxiosResponse> = {
-        data: {
-          choices: [{
-            message: {
-              content: JSON.stringify({
-                action: 'add',
-                item: 'coffee',
-                quantity: 5,
-                unit: 'pounds',
-                confidence: 0.85
-              })
-            }
-          }]
-        }
-      };
-      mockedAxios.post.mockResolvedValueOnce(mockResponse as AxiosResponse);
-
-      const result = await nlpService.processTranscription('I need to add 5 pounds of coffee');
-      
-      expect(result).toEqual({
-        action: 'add',
-        item: 'coffee',
-        quantity: 5,
-        unit: 'pounds',
-        confidence: expect.any(Number),
-        isComplete: true
-      });
-      expect(result.confidence).toBeGreaterThan(0.75);
-    });
-
-    it('should infer add action when not explicitly stated', async () => {
-      const mockResponse: Partial<AxiosResponse> = {
-        data: {
-          choices: [{
-            message: {
-              content: JSON.stringify({
-                action: 'add',
-                item: 'coffee',
-                quantity: 2,
-                unit: 'pounds',
-                confidence: 0.85
-              })
-            }
-          }]
-        }
-      };
-      mockedAxios.post.mockResolvedValueOnce(mockResponse as AxiosResponse);
-
-      const result = await nlpService.processTranscription('2 pounds of coffee');
-      
-      expect(result).toEqual({
-        action: 'add',
-        item: 'coffee',
-        quantity: 2,
-        unit: 'pounds',
-        confidence: expect.any(Number),
-        isComplete: true
-      });
-    });
-
-    it('should handle invalid transcription', async () => {
-      const mockResponse: Partial<AxiosResponse> = {
-        data: {
-          choices: [{
-            message: {
-              content: JSON.stringify({
-                action: 'unknown',
-                item: 'unknown',
-                quantity: 1,
-                unit: 'units',
-                confidence: 0.1
-              })
-            }
-          }]
-        }
-      };
-      mockedAxios.post.mockResolvedValueOnce(mockResponse as AxiosResponse);
-
-      const result = await nlpService.processTranscription('blah blah blah');
-      
+    it('should handle incomplete commands', async () => {
+      const results = await nlpService.processTranscription('20 gallons');
+      expect(results).toHaveLength(1);
+      const result = results[0];
       expect(result).toEqual({
         action: '',
-        item: '',
-        quantity: 1,
-        unit: 'units',
-        confidence: expect.any(Number),
+        item: '20 gallons',
+        quantity: 20,
+        unit: 'gallons',
+        confidence: 0.45,
         isComplete: false
       });
     });
 
-    describe('OpenAI Integration', () => {
-      it('should use OpenAI when API key is available', async () => {
-        const mockResponse: Partial<AxiosResponse> = {
-          data: {
-            choices: [{
-              message: {
-                content: JSON.stringify({
-                  action: 'add',
-                  item: 'coffee',
-                  quantity: 2,
-                  unit: 'pounds',
-                  confidence: 0.95
-                })
-              }
-            }]
-          }
-        };
-        mockedAxios.post.mockResolvedValueOnce(mockResponse as AxiosResponse);
-
-        const result = await nlpService.processTranscription('add 2 pounds of coffee');
-        expect(mockedAxios.post).toHaveBeenCalled();
-        expect(result.confidence).toBeGreaterThan(0.7);
-        expect(result.isComplete).toBe(true);
-      });
-
-      it('should fall back to rule-based when OpenAI fails', async () => {
-        // Temporarily silence console.error
-        const originalError = console.error;
-        console.error = jest.fn();
-
-        mockedAxios.post.mockRejectedValueOnce(new Error('API Error'));
-
-        const result = await nlpService.processTranscription('add 2 gal of milk');
-        
-        expect(result).toEqual({
-          action: 'add',
-          item: 'milk',
-          quantity: 2,
-          unit: 'gallons',
-          confidence: expect.any(Number),
-          isComplete: true
-        });
-
-        // Restore console.error
-        console.error = originalError;
-      });
-    });
-
-    describe('Item Name Cleaning', () => {
-      it('should remove filler words', async () => {
-        const mockResponse: Partial<AxiosResponse> = {
-          data: {
-            choices: [{
-              message: {
-                content: JSON.stringify({
-                  action: 'add',
-                  item: 'coffee beans',
-                  quantity: 1,
-                  unit: 'pounds',
-                  confidence: 0.9
-                })
-              }
-            }]
-          }
-        };
-        mockedAxios.post.mockResolvedValueOnce(mockResponse as AxiosResponse);
-
-        const result = await nlpService.processTranscription('please add some more of the coffee beans');
-        
-        expect(result.item).toBe('coffee beans');
-      });
-
-      it('should remove action words from item name', async () => {
-        const mockResponse: Partial<AxiosResponse> = {
-          data: {
-            choices: [{
-              message: {
-                content: JSON.stringify({
-                  action: 'add',
-                  item: 'coffee beans',
-                  quantity: 1,
-                  unit: 'pounds',
-                  confidence: 0.9
-                })
-              }
-            }]
-          }
-        };
-        mockedAxios.post.mockResolvedValueOnce(mockResponse as AxiosResponse);
-
-        const result = await nlpService.processTranscription('add coffee add beans');
-        
-        expect(result.item).toBe('coffee beans');
-      });
-
-      it('should handle items with spaces', async () => {
-        const mockResponse: Partial<AxiosResponse> = {
-          data: {
-            choices: [{
-              message: {
-                content: JSON.stringify({
-                  action: 'add',
-                  item: 'almond milk',
-                  quantity: 1,
-                  unit: 'gallons',
-                  confidence: 0.9
-                })
-              }
-            }]
-          }
-        };
-        mockedAxios.post.mockResolvedValueOnce(mockResponse as AxiosResponse);
-
-        const result = await nlpService.processTranscription('add almond milk');
-        
-        expect(result.item).toBe('almond milk');
-      });
-    });
-
-    describe('Error Handling', () => {
-      it('should handle invalid numbers gracefully', async () => {
-        const mockResponse: Partial<AxiosResponse> = {
-          data: {
-            choices: [{
-              message: {
-                content: JSON.stringify({
-                  action: 'add',
-                  item: 'coffee',
-                  quantity: 1,
-                  unit: 'pounds',
-                  confidence: 0.9
-                })
-              }
-            }]
-          }
-        };
-        mockedAxios.post.mockResolvedValueOnce(mockResponse as AxiosResponse);
-
-        const result = await nlpService.processTranscription('add zero point five pounds of coffee');
-        
-        expect(result.quantity).toBe(1); // Default to 1 for unparseable numbers
-      });
-
-      it('should handle missing quantities gracefully', async () => {
-        const mockResponse: Partial<AxiosResponse> = {
-          data: {
-            choices: [{
-              message: {
-                content: JSON.stringify({
-                  action: 'add',
-                  item: 'coffee',
-                  quantity: 1,
-                  unit: 'pounds',
-                  confidence: 0.9
-                })
-              }
-            }]
-          }
-        };
-        mockedAxios.post.mockResolvedValueOnce(mockResponse as AxiosResponse);
-
-        const result = await nlpService.processTranscription('add coffee');
-        
-        expect(result.quantity).toBe(1); // Default quantity
-        expect(result.unit).toBe('pounds'); // Default unit for coffee
-      });
-
-      it('should handle missing units gracefully', async () => {
-        const mockResponse: Partial<AxiosResponse> = {
-          data: {
-            choices: [{
-              message: {
-                content: JSON.stringify({
-                  action: 'add',
-                  item: 'coffee',
-                  quantity: 5,
-                  unit: 'pounds',
-                  confidence: 0.9
-                })
-              }
-            }]
-          }
-        };
-        mockedAxios.post.mockResolvedValueOnce(mockResponse as AxiosResponse);
-
-        const result = await nlpService.processTranscription('add 5 coffee');
-        
-        expect(result.unit).toBe('pounds'); // Default unit for coffee
-      });
+    it('should handle invalid commands gracefully', async () => {
+      const results = await nlpService.processTranscription('invalid command');
+      expect(results).toHaveLength(1);
+      const result = results[0];
+      expect(result.confidence).toBeLessThan(0.6);
+      expect(result.isComplete).toBe(false);
     });
 
     describe('Command Completeness', () => {
-      it('should mark command as incomplete when action is missing', async () => {
-        const mockResponse: Partial<AxiosResponse> = {
-          data: {
-            choices: [{
-              message: {
-                content: JSON.stringify({
-                  action: '',
-                  item: 'coffee',
-                  quantity: 1,
-                  unit: 'units',
-                  confidence: 0.8
-                })
-              }
-            }]
-          }
-        };
-        mockedAxios.post.mockResolvedValueOnce(mockResponse as AxiosResponse);
-
-        const result = await nlpService.processTranscription('coffee');
-        
-        expect(result).toEqual({
-          action: '',
-          item: 'coffee',
-          quantity: 1,
-          unit: 'units',
-          isComplete: false,
-          confidence: expect.any(Number)
-        });
-      });
-
-      it('should mark command as complete when all required fields are present', async () => {
-        const mockResponse: Partial<AxiosResponse> = {
-          data: {
-            choices: [{
-              message: {
-                content: JSON.stringify({
-                  action: 'add',
-                  item: 'coffee',
-                  quantity: 2,
-                  unit: 'pounds',
-                  confidence: 0.8
-                })
-              }
-            }]
-          }
-        };
-        mockedAxios.post.mockResolvedValueOnce(mockResponse as AxiosResponse);
-
-        const result = await nlpService.processTranscription('add 2 pounds of coffee');
-        
-        expect(result).toEqual({
-          action: 'add',
-          item: 'coffee',
-          quantity: 2,
-          unit: 'pounds',
-          isComplete: true,
-          confidence: expect.any(Number)
-        });
-      });
-
       it('should mark set command as complete when all required fields are present', async () => {
-        const mockResponse: Partial<AxiosResponse> = {
-          data: {
-            choices: [{
-              message: {
-                content: JSON.stringify({
-                  action: 'set',
-                  item: 'pepper cups',
-                  quantity: 40,
-                  unit: 'sleeves',
-                  confidence: 0.95
-                })
-              }
-            }]
-          }
-        };
-        mockedAxios.post.mockResolvedValueOnce(mockResponse as AxiosResponse);
-
-        const result = await nlpService.processTranscription('Set the 12 ounce pepper cups to 40 sleeves');
-        
+        const results = await nlpService.processTranscription('set pepper cups to 40 sleeves');
+        expect(results).toHaveLength(1);
+        const result = results[0];
         expect(result).toEqual({
           action: 'set',
           item: 'pepper cups',
@@ -449,123 +81,683 @@ describe('NLP Service', () => {
       });
 
       it('should mark set command as incomplete when quantity is missing', async () => {
-        const mockResponse: Partial<AxiosResponse> = {
-          data: {
-            choices: [{
-              message: {
-                content: JSON.stringify({
-                  action: 'set',
-                  item: 'pepper cups',
-                  quantity: 0,
-                  unit: 'sleeves',
-                  confidence: 0.6
-                })
-              }
-            }]
-          }
-        };
-        mockedAxios.post.mockResolvedValueOnce(mockResponse as AxiosResponse);
-
-        const result = await nlpService.processTranscription('Set the pepper cups to sleeves');
-        
+        const results = await nlpService.processTranscription('set pepper cups sleeves');
+        expect(results).toHaveLength(1);
+        const result = results[0];
         expect(result).toEqual({
           action: 'set',
           item: 'pepper cups',
-          quantity: 0,
+          quantity: undefined,
           unit: 'sleeves',
           confidence: expect.any(Number),
           isComplete: false
         });
       });
+    });
 
-      it('should mark add command as complete with just item and default quantity', async () => {
-        const mockResponse: Partial<AxiosResponse> = {
-          data: {
-            choices: [{
-              message: {
-                content: JSON.stringify({
-                  action: 'add',
-                  item: 'coffee',
-                  quantity: 1,
-                  unit: 'pounds',
-                  confidence: 0.9
-                })
-              }
-            }]
-          }
-        };
-        mockedAxios.post.mockResolvedValueOnce(mockResponse as AxiosResponse);
-
-        const result = await nlpService.processTranscription('add coffee');
-        
+    describe('Undo Command Detection', () => {
+      it('should detect simple undo command', async () => {
+        const results = await nlpService.processTranscription('undo');
+        expect(results).toHaveLength(1);
+        const result = results[0];
         expect(result).toEqual({
-          action: 'add',
+          action: 'undo',
+          item: '',
+          quantity: undefined,
+          unit: '',
+          confidence: 0.95,
+          isComplete: true,
+          type: 'undo'
+        });
+      });
+
+      it('should detect undo command with item reference', async () => {
+        const results = await nlpService.processTranscription('undo the coffee command');
+        expect(results).toHaveLength(1);
+        const result = results[0];
+        expect(result).toEqual({
+          action: 'undo',
           item: 'coffee',
-          quantity: 1,
-          unit: 'pounds',
+          quantity: undefined,
+          unit: '',
+          confidence: 0.95,
+          isComplete: true,
+          type: 'undo'
+        });
+      });
+
+      it('should handle multi-part command with undo', async () => {
+        const results = await nlpService.processTranscription('add 10 gallons of milk, undo that');
+        expect(results).toHaveLength(1);
+        const result = results[0];
+        expect(result).toEqual({
+          action: 'undo',
+          item: 'add 10 gallons of milk',
+          quantity: undefined,
+          unit: '',
+          confidence: 0.95,
+          isComplete: true,
+          type: 'undo'
+        });
+      });
+    });
+  });
+
+  describe('NlpService', () => {
+    describe('processTranscription', () => {
+      test('should interpret "We have X gallons of Y" as a set command', async () => {
+        const nlpService = new NlpService();
+        const transcription = 'We have 30 gallons of whole milk';
+        
+        const results = await nlpService.processTranscription(transcription);
+        
+        expect(results).toHaveLength(1);
+        expect(results[0]).toEqual({
+          action: 'set',
+          item: 'whole milk',
+          quantity: 30,
+          unit: 'gallons',
           confidence: expect.any(Number),
           isComplete: true
         });
       });
+    });
+  }); 
 
-      it('should mark add command as complete with explicit quantity', async () => {
-        const mockResponse: Partial<AxiosResponse> = {
-          data: {
-            choices: [{
-              message: {
-                content: JSON.stringify({
+  describe('Multiple Commands Processing', () => {
+    it('should process multiple commands in a single transcription', async () => {
+      const results = await nlpService.processTranscription('10 gallons of milk, 5 bags of medium roast coffee, 6 of dark roast');
+      expect(results).toHaveLength(3);
+      
+      expect(results[0]).toEqual({
+        action: 'add',
+        item: 'milk',
+        quantity: 10,
+        unit: 'gallons',
+        confidence: expect.any(Number),
+        isComplete: true
+      });
+      
+      expect(results[1]).toEqual({
+        action: 'add',
+        item: 'medium roast coffee',
+        quantity: 5,
+        unit: 'bags',
+        confidence: expect.any(Number),
+        isComplete: true
+      });
+      
+      expect(results[2]).toEqual({
+        action: 'add',
+        item: 'dark roast',
+        quantity: 6,
+        unit: 'bags',
+        confidence: expect.any(Number),
+        isComplete: true
+      });
+    });
+
+    it('should handle mixed command types in a single transcription', async () => {
+      const results = await nlpService.processTranscription('add 10 gallons of milk, remove 5 bags of coffee, set tea to 20 boxes');
+      expect(results).toHaveLength(3);
+      
+      expect(results[0]).toEqual({
+        action: 'add',
+        item: 'milk',
+        quantity: 10,
+        unit: 'gallons',
+        confidence: expect.any(Number),
+        isComplete: true
+      });
+      
+      expect(results[1]).toEqual({
+        action: 'remove',
+        item: 'coffee',
+        quantity: 5,
+        unit: 'bags',
+        confidence: expect.any(Number),
+        isComplete: true
+      });
+      
+      expect(results[2]).toEqual({
+        action: 'set',
+        item: 'tea',
+        quantity: 20,
+        unit: 'boxes',
+        confidence: expect.any(Number),
+        isComplete: true
+      });
+    });
+
+    it('should handle incomplete commands in a sequence', async () => {
+      const results = await nlpService.processTranscription('10 gallons, 5 bags of coffee, 20 boxes');
+      expect(results).toHaveLength(3);
+      
+      expect(results[0]).toEqual({
+        action: '',
+        item: '10 gallons',
+        quantity: 10,
+        unit: 'gallons',
+        confidence: 0.45,
+        isComplete: false
+      });
+      
+      expect(results[1]).toEqual({
+        action: 'add',
+        item: 'coffee',
+        quantity: 5,
+        unit: 'bags',
+        confidence: expect.any(Number),
+        isComplete: true
+      });
+      
+      expect(results[2]).toEqual({
+        action: '',
+        item: '20 boxes',
+        quantity: 20,
+        unit: 'boxes',
+        confidence: 0.45,
+        isComplete: false
+      });
+    });
+
+    it('should handle undo commands mixed with regular commands', async () => {
+      const results = await nlpService.processTranscription('add 10 gallons of milk, undo that, remove 5 bags of coffee');
+      expect(results).toHaveLength(3);
+      
+      expect(results[0]).toEqual({
+        action: 'add',
+        item: 'milk',
+        quantity: 10,
+        unit: 'gallons',
+        confidence: expect.any(Number),
+        isComplete: true
+      });
+      
+      expect(results[1]).toEqual({
+        action: 'undo',
+        item: 'add 10 gallons of milk',
+        quantity: undefined,
+        unit: '',
+        confidence: 0.95,
+        isComplete: true,
+        type: 'undo'
+      });
+      
+      expect(results[2]).toEqual({
+        action: 'remove',
+        item: 'coffee',
+        quantity: 5,
+        unit: 'bags',
+        confidence: expect.any(Number),
+        isComplete: true
+      });
+    });
+
+    it('should handle natural language with multiple items and quantities', async () => {
+      const results = await nlpService.processTranscription('I need 10 gallons of whole milk, 5 bags of medium roast coffee beans, and 6 boxes of tea');
+      expect(results).toHaveLength(3);
+      
+      expect(results[0]).toEqual({
+        action: 'add',
+        item: 'whole milk',
+        quantity: 10,
+        unit: 'gallons',
+        confidence: expect.any(Number),
+        isComplete: true
+      });
+      
+      expect(results[1]).toEqual({
+        action: 'add',
+        item: 'medium roast coffee beans',
+        quantity: 5,
+        unit: 'bags',
+        confidence: expect.any(Number),
+        isComplete: true
+      });
+      
+      expect(results[2]).toEqual({
+        action: 'add',
+        item: 'tea',
+        quantity: 6,
+        unit: 'boxes',
+        confidence: expect.any(Number),
+        isComplete: true
+      });
+    });
+  });
+
+  describe('OpenAI Processing', () => {
+    beforeEach(() => {
+      process.env.OPENAI_API_KEY = 'test-key';
+    });
+
+    afterEach(() => {
+      delete process.env.OPENAI_API_KEY;
+    });
+
+    it('should process multiple commands using OpenAI', async () => {
+      const mockResponse = {
+        data: {
+          choices: [{
+            message: {
+              content: JSON.stringify([
+                {
+                  action: 'add',
+                  item: 'milk',
+                  quantity: 10,
+                  unit: 'gallons',
+                  confidence: 0.95
+                },
+                {
                   action: 'add',
                   item: 'coffee',
                   quantity: 5,
-                  unit: 'pounds',
+                  unit: 'bags',
                   confidence: 0.95
-                })
-              }
-            }]
-          }
-        };
-        mockedAxios.post.mockResolvedValueOnce(mockResponse as AxiosResponse);
+                }
+              ])
+            }
+          }]
+        }
+      };
 
-        const result = await nlpService.processTranscription('add 5 pounds of coffee');
-        
-        expect(result).toEqual({
-          action: 'add',
-          item: 'coffee',
-          quantity: 5,
-          unit: 'pounds',
-          confidence: expect.any(Number),
-          isComplete: true
-        });
+      mockedAxios.post.mockResolvedValueOnce(mockResponse);
+
+      const results = await nlpService.processTranscription('add 10 gallons of milk and 5 bags of coffee');
+      
+      expect(results).toHaveLength(2);
+      expect(results[0]).toEqual({
+        action: 'add',
+        item: 'milk',
+        quantity: 10,
+        unit: 'gallons',
+        confidence: 0.95,
+        isComplete: true
+      });
+      expect(results[1]).toEqual({
+        action: 'add',
+        item: 'coffee',
+        quantity: 5,
+        unit: 'bags',
+        confidence: 0.95,
+        isComplete: true
+      });
+    });
+
+    it('should handle undo commands using OpenAI', async () => {
+      const mockResponse = {
+        data: {
+          choices: [{
+            message: {
+              content: JSON.stringify([
+                {
+                  action: 'undo',
+                  item: '',
+                  quantity: undefined,
+                  unit: '',
+                  confidence: 0.95,
+                  type: 'undo'
+                }
+              ])
+            }
+          }]
+        }
+      };
+
+      mockedAxios.post.mockResolvedValueOnce(mockResponse);
+
+      const results = await nlpService.processTranscription('undo the last command');
+      
+      expect(results).toHaveLength(1);
+      expect(results[0]).toEqual({
+        action: 'undo',
+        item: '',
+        quantity: undefined,
+        unit: '',
+        confidence: 0.95,
+        isComplete: true,
+        type: 'undo'
+      });
+    });
+
+    it('should handle mixed command types using OpenAI', async () => {
+      const mockResponse = {
+        data: {
+          choices: [{
+            message: {
+              content: JSON.stringify([
+                {
+                  action: 'add',
+                  item: 'milk',
+                  quantity: 10,
+                  unit: 'gallons',
+                  confidence: 0.95
+                },
+                {
+                  action: 'remove',
+                  item: 'coffee',
+                  quantity: 5,
+                  unit: 'bags',
+                  confidence: 0.95
+                },
+                {
+                  action: 'set',
+                  item: 'tea',
+                  quantity: 20,
+                  unit: 'boxes',
+                  confidence: 0.95
+                }
+              ])
+            }
+          }]
+        }
+      };
+
+      mockedAxios.post.mockResolvedValueOnce(mockResponse);
+
+      const results = await nlpService.processTranscription('add 10 gallons of milk, remove 5 bags of coffee, set tea to 20 boxes');
+      
+      expect(results).toHaveLength(3);
+      expect(results[0]).toEqual({
+        action: 'add',
+        item: 'milk',
+        quantity: 10,
+        unit: 'gallons',
+        confidence: 0.95,
+        isComplete: true
+      });
+      expect(results[1]).toEqual({
+        action: 'remove',
+        item: 'coffee',
+        quantity: 5,
+        unit: 'bags',
+        confidence: 0.95,
+        isComplete: true
+      });
+      expect(results[2]).toEqual({
+        action: 'set',
+        item: 'tea',
+        quantity: 20,
+        unit: 'boxes',
+        confidence: 0.95,
+        isComplete: true
+      });
+    });
+
+    it('should fall back to rule-based processing on OpenAI error', async () => {
+      mockedAxios.post.mockRejectedValueOnce(new Error('API Error'));
+
+      const results = await nlpService.processTranscription('add 5 gallons of milk');
+      
+      expect(results).toHaveLength(1);
+      expect(results[0]).toEqual({
+        action: 'add',
+        item: 'milk',
+        quantity: 5,
+        unit: 'gallons',
+        confidence: expect.any(Number),
+        isComplete: true
+      });
+    });
+  });
+
+  describe('Rule-Based Multiple Command Processing', () => {
+    beforeEach(() => {
+      // Disable OpenAI to ensure we use rule-based processing
+      process.env.OPENAI_API_KEY = '';
+    });
+
+    it('should process multiple commands with "and"', async () => {
+      const results = await nlpService.processTranscription('add 10 gallons of milk and 5 bags of coffee');
+      
+      expect(results).toHaveLength(2);
+      expect(results[0]).toEqual({
+        action: 'add',
+        item: 'milk',
+        quantity: 10,
+        unit: 'gallons',
+        confidence: 0.95,
+        isComplete: true
+      });
+      expect(results[1]).toEqual({
+        action: 'add',
+        item: 'coffee',
+        quantity: 5,
+        unit: 'bags',
+        confidence: 0.95,
+        isComplete: true
+      });
+    });
+
+    it('should process multiple commands with commas', async () => {
+      const results = await nlpService.processTranscription('add 10 gallons of milk, remove 5 bags of coffee, set tea to 20 boxes');
+      
+      expect(results).toHaveLength(3);
+      expect(results[0]).toEqual({
+        action: 'add',
+        item: 'milk',
+        quantity: 10,
+        unit: 'gallons',
+        confidence: 0.95,
+        isComplete: true
+      });
+      expect(results[1]).toEqual({
+        action: 'remove',
+        item: 'coffee',
+        quantity: 5,
+        unit: 'bags',
+        confidence: 0.95,
+        isComplete: true
+      });
+      expect(results[2]).toEqual({
+        action: 'set',
+        item: 'tea',
+        quantity: 20,
+        unit: 'boxes',
+        confidence: 0.95,
+        isComplete: true
+      });
+    });
+
+    it('should handle undo commands', async () => {
+      const results = await nlpService.processTranscription('undo the last command');
+      
+      expect(results).toHaveLength(1);
+      expect(results[0]).toEqual({
+        action: '',
+        item: '',
+        quantity: undefined,
+        unit: 'units',
+        confidence: 0.95,
+        isComplete: true,
+        type: 'undo'
+      });
+    });
+
+    it('should handle incomplete commands', async () => {
+      const results = await nlpService.processTranscription('add 10 gallons, remove coffee, set tea');
+      
+      expect(results).toHaveLength(3);
+      expect(results[0]).toEqual({
+        action: 'add',
+        item: '10 gallons',
+        quantity: 10,
+        unit: 'gallons',
+        confidence: 0.6,
+        isComplete: false
+      });
+      expect(results[1]).toEqual({
+        action: 'remove',
+        item: 'coffee',
+        quantity: undefined,
+        unit: 'units',
+        confidence: 0.6,
+        isComplete: false
+      });
+      expect(results[2]).toEqual({
+        action: 'set',
+        item: 'tea',
+        quantity: undefined,
+        unit: 'units',
+        confidence: 0.6,
+        isComplete: false
+      });
+    });
+
+    it('should handle natural language with multiple items', async () => {
+      const results = await nlpService.processTranscription('I need 10 gallons of whole milk, 5 bags of medium roast coffee beans, and 6 boxes of tea');
+      
+      expect(results).toHaveLength(3);
+      expect(results[0]).toEqual({
+        action: 'add',
+        item: 'whole milk',
+        quantity: 10,
+        unit: 'gallons',
+        confidence: 0.95,
+        isComplete: true
+      });
+      expect(results[1]).toEqual({
+        action: 'add',
+        item: 'medium roast coffee beans',
+        quantity: 5,
+        unit: 'bags',
+        confidence: 0.95,
+        isComplete: true
+      });
+      expect(results[2]).toEqual({
+        action: 'add',
+        item: 'tea',
+        quantity: 6,
+        unit: 'boxes',
+        confidence: 0.95,
+        isComplete: true
+      });
+    });
+  });
+
+  describe('Context Merging with Multiple Commands', () => {
+    beforeEach(() => {
+      process.env.OPENAI_API_KEY = '';
+    });
+
+    it('should maintain context across incomplete commands', async () => {
+      const results = await nlpService.processTranscription('add 10 gallons');
+      
+      expect(results).toHaveLength(1);
+      expect(results[0]).toEqual({
+        action: 'add',
+        item: '10 gallons',
+        quantity: 10,
+        unit: 'gallons',
+        confidence: 0.6,
+        isComplete: false
       });
 
-      it('should mark command as incomplete when item is missing', async () => {
-        const mockResponse: Partial<AxiosResponse> = {
-          data: {
-            choices: [{
-              message: {
-                content: JSON.stringify({
-                  action: 'add',
-                  item: 'unknown',
-                  quantity: 1,
-                  unit: 'units',
-                  confidence: 0.3
-                })
-              }
-            }]
-          }
-        };
-        mockedAxios.post.mockResolvedValueOnce(mockResponse as AxiosResponse);
+      // Second command should merge with previous context
+      const nextResults = await nlpService.processTranscription('of milk');
+      
+      expect(nextResults).toHaveLength(1);
+      expect(nextResults[0]).toEqual({
+        action: 'add',
+        item: 'milk',
+        quantity: 10,
+        unit: 'gallons',
+        confidence: 0.7,
+        isComplete: true
+      });
+    });
 
-        const result = await nlpService.processTranscription('add something');
-        
-        expect(result).toEqual({
-          action: 'add',
-          item: '',
-          quantity: 1,
-          unit: 'units',
-          confidence: expect.any(Number),
-          isComplete: false
-        });
+    it('should handle undo commands without context merging', async () => {
+      const results = await nlpService.processTranscription('add 10 gallons of milk, undo that');
+      
+      expect(results).toHaveLength(2);
+      expect(results[0]).toEqual({
+        action: 'add',
+        item: 'milk',
+        quantity: 10,
+        unit: 'gallons',
+        confidence: 0.95,
+        isComplete: true
+      });
+      expect(results[1]).toEqual({
+        action: '',
+        item: '',
+        quantity: undefined,
+        unit: 'units',
+        confidence: 0.95,
+        isComplete: true,
+        type: 'undo'
+      });
+    });
+
+    it('should clear context after complete commands', async () => {
+      // First command - incomplete
+      const firstResults = await nlpService.processTranscription('add 10 gallons');
+      
+      expect(firstResults).toHaveLength(1);
+      expect(firstResults[0].isComplete).toBe(false);
+
+      // Second command - complete
+      const secondResults = await nlpService.processTranscription('of milk');
+      
+      expect(secondResults).toHaveLength(1);
+      expect(secondResults[0].isComplete).toBe(true);
+
+      // Third command - should not use previous context
+      const thirdResults = await nlpService.processTranscription('remove 5 bags');
+      
+      expect(thirdResults).toHaveLength(1);
+      expect(thirdResults[0]).toEqual({
+        action: 'remove',
+        item: '5 bags',
+        quantity: 5,
+        unit: 'bags',
+        confidence: 0.6,
+        isComplete: false
+      });
+    });
+
+    it('should handle mixed complete and incomplete commands', async () => {
+      const results = await nlpService.processTranscription('add 10 gallons, remove 5 bags of coffee, set tea');
+      
+      expect(results).toHaveLength(3);
+      expect(results[0]).toEqual({
+        action: 'add',
+        item: '10 gallons',
+        quantity: 10,
+        unit: 'gallons',
+        confidence: 0.6,
+        isComplete: false
+      });
+      expect(results[1]).toEqual({
+        action: 'remove',
+        item: 'coffee',
+        quantity: 5,
+        unit: 'bags',
+        confidence: 0.95,
+        isComplete: true
+      });
+      expect(results[2]).toEqual({
+        action: 'set',
+        item: 'tea',
+        quantity: undefined,
+        unit: 'units',
+        confidence: 0.6,
+        isComplete: false
+      });
+
+      // Next command should only merge with the incomplete set command
+      const nextResults = await nlpService.processTranscription('to 20 boxes');
+      
+      expect(nextResults).toHaveLength(1);
+      expect(nextResults[0]).toEqual({
+        action: 'set',
+        item: 'tea',
+        quantity: 20,
+        unit: 'boxes',
+        confidence: 0.7,
+        isComplete: true
       });
     });
   });
