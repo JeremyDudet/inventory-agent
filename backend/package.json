@@ -17,6 +17,7 @@
   "dependencies": {
     "@deepgram/sdk": "^3.11.1",
     "@supabase/supabase-js": "^2.49.1",
+    "@types/socket.io-client": "^1.4.36",
     "@types/ws": "^8.5.14",
     "axios": "^1.8.1",
     "cors": "^2.8.5",

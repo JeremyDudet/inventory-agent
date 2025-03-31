@@ -15,6 +15,7 @@ import inventoryRoutes from './routes/inventory';
 import authRoutes from './routes/auth';
 import { errorHandler } from './middleware/errorHandler';
 import { ActionLog } from './types/actionLog';
+import { SessionStateService } from './services/sessionStateService';
 
 dotenv.config();
 
@@ -51,9 +52,8 @@ voiceNamespace.on('connection', (socket: Socket) => {
     sessionItems: [] as string[] // Track items processed in this session
   };
   
-  // Store voice processing status
-  let isProcessingVoiceCommand = false;
-  let pendingConfirmation: any = null;
+  // Initialize session state service for this socket
+  const sessionState = new SessionStateService();
   
   const nlpService = new NlpService();
   
@@ -83,206 +83,30 @@ voiceNamespace.on('connection', (socket: Socket) => {
       const timeSinceLastTranscription = currentTime - lastTranscriptionTime;
       
       // If this is a final transcription, process it through NLP and confirmation
-      if (isFinal && transcript.trim() && !isProcessingVoiceCommand) {
+      if (isFinal && transcript.trim() && !sessionState.getProcessingVoiceCommand()) {
         // Update last transcription time
         lastTranscriptionTime = currentTime;
         
         try {
-          // Check if this is a response to a pending confirmation
-          if (pendingConfirmation) {
-            // Skip numeric-only segments or "to X" phrases as confirmation responses
-            // These are likely parts of multi-segment commands
-            if ((/^\d+\s+\w+$/i.test(transcript.toLowerCase())) || 
-                (/^to\s+.+/i.test(transcript.toLowerCase()))) {
-              console.log(`🔊 Detected likely multi-segment command part, not treating as confirmation response`);
-              // Continue processing as a new command by adding to buffer
-            } 
-            // For text that looks like confirmation responses, process them
-            else if (!(/^\d+$/.test(transcript.trim()))) { // Not just a single number
-              // Process as a confirmation response
-              console.log(`🔊 Processing as confirmation response: "${transcript}"`);
-              const correctedCommand = confirmationService.processVoiceCorrection(
-                pendingConfirmation.command,
-                transcript
-              );
-              
-              if (correctedCommand) {
-                // User confirmed or corrected the command
-                console.log(`🔊 Voice confirmation received: ${JSON.stringify(correctedCommand)}`);
-                
-                // Record the confirmation result
-                const wasConfirmation = correctedCommand.mistakeType === 'multiple';
-                confirmationService.recordConfirmationResult(
-                  socket.id, 
-                  wasConfirmation,
-                  {
-                    originalCommand: pendingConfirmation.command,
-                    correctedCommand: wasConfirmation ? undefined : correctedCommand,
-                    mistakeType: wasConfirmation ? undefined : correctedCommand.mistakeType
-                  }
-                );
-                
-                // Process the confirmed/corrected command
-                if (wasConfirmation) {
-                  // Proceed with the original command
-                  socket.emit('command-confirmed', pendingConfirmation.command);
-                } else {
-                  // Update with the corrected command
-                  socket.emit('command-corrected', correctedCommand);
-                }
-                
-                // Reset pending confirmation
-                pendingConfirmation = null;
-                return;
-              } else if (/^(no|nope|incorrect|wrong|that's wrong|not right)$/i.test(transcript.toLowerCase().trim())) {
-                // User rejected without correction
-                console.log(`🔊 Voice rejection received`);
-                socket.emit('command-rejected');
-                pendingConfirmation = null;
-                return;
-              }
-              // If we can't process it as a confirmation response, continue to process as a new command
-            }
-            // If we get here, we'll continue to process as a new command
-          }
+          // Update state to processing
+          sessionState.setProcessingVoiceCommand(true);
           
-          // Mark as processing to prevent duplicate processing
-          isProcessingVoiceCommand = true;
+          // Process the transcription
+          const nlpResults = await nlpService.processTranscription(transcript);
           
-          // Add current transcript to the buffer
-          transcriptionBuffer.addTranscription(transcript);
-          const bufferContent = transcriptionBuffer.getCurrentBuffer();
-          
-          console.log(`🔊 Processing transcription buffer: "${bufferContent}"`);
-          
-          // Process the transcription through NLP
-          const nlpResults = await nlpService.processTranscription(bufferContent);
-          console.log(`🔊 NLP results:`, nlpResults);
-          
-          // Process each result
+          // Process all complete commands
           for (const nlpResult of nlpResults) {
-            // Only clear buffer if:
-            // 1. The command is complete, OR
-            // 2. It's been more than the timeout since the last transcription AND
-            //    we don't detect a pattern suggesting this is the first part of a split command
             if (nlpResult.isComplete) {
-              transcriptionBuffer.clearBuffer();
-              console.log(`🔊 Command is complete. Buffer cleared.`);
-            } else if (timeSinceLastTranscription > COMMAND_CONTINUATION_TIMEOUT && 
-                      !transcript.toLowerCase().match(/^set\s+.+/i) && 
-                      !transcript.toLowerCase().match(/^update\s+.+/i) &&
-                      !transcript.toLowerCase().match(/^remove\s*$/i) &&  // Don't timeout on just "remove"
-                      !transcript.toLowerCase().match(/^add\s*$/i) &&     // Don't timeout on just "add"
-                      !(/^\d+\s+\w+$/i.test(transcript.toLowerCase()))) {  // Don't timeout on numeric segments
-              // If it's been too long since the last transcription, and this isn't
-              // a command that might be split across transcriptions
-              console.log(`🔊 Timeout exceeded. Clearing buffer despite incomplete command.`);
-              transcriptionBuffer.clearBuffer();
-            } else {
-              console.log(`🔊 Command is incomplete. Keeping buffer: "${bufferContent}"`);
-              // Special case hints for different command types
-              if (transcript.toLowerCase().match(/^set\s+.+/i) && 
-                  !transcript.toLowerCase().includes(" to ")) {
-                socket.emit('transcription-hint', { 
-                  message: "Waiting for quantity...", 
-                  expectedContinuation: true 
-                });
-              } else if (transcript.toLowerCase().match(/^remove\s*$/i)) {
-                socket.emit('transcription-hint', { 
-                  message: "Waiting for item and quantity...", 
-                  expectedContinuation: true 
-                });
-              } else if (/^\d+\s+\w+$/i.test(transcript.toLowerCase())) {
-                socket.emit('transcription-hint', { 
-                  message: "Waiting for item name...", 
-                  expectedContinuation: true 
-                });
-              }
-            }
-            
-            // If we have an unknown action, try to use context from previous interactions
-            // before immediately returning the result
-            if (nlpResult.action === 'unknown') {
-              // If it's a numeric-only segment or a "to X" segment, don't return yet -
-              // this is likely part of a multi-segment command
-              if ((/^\d+\s+\w+$/i.test(transcript.toLowerCase())) || 
-                  (/^to\s+.+/i.test(transcript.toLowerCase()))) {
-                console.log(`🔊 Detected potential multi-segment command part, waiting for more input`);
-                isProcessingVoiceCommand = false;
-                return;
-              }
+              // Update state to normal
+              sessionState.setStateType('normal');
               
-              // Otherwise, return the unknown action result
-              socket.emit('nlp-response', {
-                ...nlpResult,
-                confirmationType: 'explicit',
-                feedbackMode: 'detailed',
-                riskLevel: 'high'
-              });
-              isProcessingVoiceCommand = false;
-              return;
-            }
-            
-            // If we have a valid command, determine confirmation type
-            try {
-              // Get current item details if possible
-              let currentQuantity: number | undefined;
-              let threshold: number | undefined;
-              let similarItems: string[] | undefined;
-              
-              // In a real implementation, these would come from the database
-              // For now, we'll use mock/placeholder values
-              // currentQuantity = await inventoryService.getItemQuantity(nlpResult.item);
-              // threshold = await inventoryService.getItemThreshold(nlpResult.item);
-              // similarItems = await inventoryService.getSimilarItems(nlpResult.item);
-              
-              // Determine confirmation type
-              const confirmationResult = confirmationService.determineConfirmationType({
-                confidence: nlpResult.confidence,
-                action: nlpResult.action as any,
-                item: nlpResult.item,
-                quantity: nlpResult.quantity,
-                unit: nlpResult.unit,
-                currentQuantity,
-                threshold,
-                similarItems,
-                userRole: userInfo.role,
-                previousConfirmations: userInfo.previousConfirmations,
-                sessionItems: userInfo.sessionItems
-              });
-              
-              console.log(`🔊 Confirmation result:`, confirmationResult);
-              
-              // Generate speech feedback if applicable
-              const speechFeedback = speechFeedbackService.generateCommandFeedback(
-                nlpResult.action,
-                nlpResult.quantity,
-                nlpResult.unit,
-                nlpResult.item,
-                confirmationResult.feedbackMode
-              );
-              
-              // If this requires voice confirmation, store the pending command
-              if (confirmationResult.type === 'voice') {
-                pendingConfirmation = {
-                  command: {
-                    action: nlpResult.action,
-                    item: nlpResult.item,
-                    quantity: nlpResult.quantity,
-                    unit: nlpResult.unit
-                  },
-                  confirmationResult,
-                  speechFeedback
-                };
-              }
-              
-              // Process the command and log the action
+              // Process the command
               if (nlpResult.action !== 'unknown') {
                 const actionLog: ActionLog = {
                   type: nlpResult.action as 'add' | 'remove' | 'set',
                   itemId: nlpResult.item,
                   quantity: nlpResult.quantity || 0,
-                  previousQuantity: currentQuantity // Add previous quantity for 'set' actions
+                  previousQuantity: undefined // Add previous quantity for 'set' actions
                 };
 
                 // Add to action log
@@ -294,44 +118,113 @@ voiceNamespace.on('connection', (socket: Socket) => {
                   actionLog
                 });
               }
-              
-              // Send the NLP response with confirmation details to the client
-              socket.emit('nlp-response', {
-                ...nlpResult,
-                confirmationType: confirmationResult.type,
-                feedbackMode: confirmationResult.feedbackMode,
-                timeoutSeconds: confirmationResult.timeoutSeconds,
-                suggestedCorrection: confirmationResult.suggestedCorrection,
-                riskLevel: confirmationResult.riskLevel,
-                speechFeedback: speechFeedback?.text
-              });
-              
-              // If this was an implicit confirmation, track the item for session context
-              if (confirmationResult.type === 'implicit') {
-                userInfo.sessionItems.push(nlpResult.item);
-                // Keep the session items list manageable
-                if (userInfo.sessionItems.length > 10) {
-                  userInfo.sessionItems.shift(); // Remove oldest item
-                }
-              }
-            } catch (error) {
-              console.error('Error processing command:', error);
-              isProcessingVoiceCommand = false;
             }
           }
           
-          // Reset processing flag
-          isProcessingVoiceCommand = false;
+          // If we have an unknown action, try to use context from previous interactions
+          if (nlpResults[0].action === 'unknown') {
+            // If it's a numeric-only segment or a "to X" segment, don't return yet -
+            // this is likely part of a multi-segment command
+            if ((/^\d+\s+\w+$/i.test(transcript.toLowerCase())) || 
+                (/^to\s+.+/i.test(transcript.toLowerCase()))) {
+              console.log(`🔊 Detected potential multi-segment command part, waiting for more input`);
+              sessionState.setProcessingVoiceCommand(false);
+              return;
+            }
+            
+            // Otherwise, return the unknown action result
+            socket.emit('nlp-response', {
+              ...nlpResults[0],
+              confirmationType: 'explicit',
+              feedbackMode: 'detailed',
+              riskLevel: 'high'
+            });
+            sessionState.setProcessingVoiceCommand(false);
+            return;
+          }
+          
+          // If we have a valid command, determine confirmation type
+          try {
+            // Get current item details if possible
+            let currentQuantity: number | undefined;
+            let threshold: number | undefined;
+            let similarItems: string[] | undefined;
+            
+            // Determine confirmation type
+            const confirmationResult = confirmationService.determineConfirmationType({
+              confidence: nlpResults[0].confidence,
+              action: nlpResults[0].action as any,
+              item: nlpResults[0].item,
+              quantity: nlpResults[0].quantity,
+              unit: nlpResults[0].unit,
+              currentQuantity,
+              threshold,
+              similarItems,
+              userRole: userInfo.role,
+              previousConfirmations: userInfo.previousConfirmations,
+              sessionItems: userInfo.sessionItems
+            });
+            
+            console.log(`🔊 Confirmation result:`, confirmationResult);
+            
+            // Generate speech feedback if applicable
+            const speechFeedback = speechFeedbackService.generateCommandFeedback(
+              nlpResults[0].action,
+              nlpResults[0].quantity,
+              nlpResults[0].unit,
+              nlpResults[0].item,
+              confirmationResult.feedbackMode
+            );
+            
+            // If this requires voice confirmation, store the pending command
+            if (confirmationResult.type === 'voice') {
+              sessionState.setPendingConfirmation({
+                command: {
+                  action: nlpResults[0].action as 'add' | 'remove' | 'set' | 'unknown',
+                  item: nlpResults[0].item,
+                  quantity: nlpResults[0].quantity,
+                  unit: nlpResults[0].unit
+                },
+                confirmationResult,
+                speechFeedback: speechFeedback?.text
+              });
+            }
+            
+            // Send the NLP response with confirmation details to the client
+            socket.emit('nlp-response', {
+              ...nlpResults[0],
+              confirmationType: confirmationResult.type,
+              feedbackMode: confirmationResult.feedbackMode,
+              timeoutSeconds: confirmationResult.timeoutSeconds,
+              suggestedCorrection: confirmationResult.suggestedCorrection,
+              riskLevel: confirmationResult.riskLevel,
+              speechFeedback: speechFeedback?.text
+            });
+            
+            // If this was an implicit confirmation, track the item for session context
+            if (confirmationResult.type === 'implicit') {
+              userInfo.sessionItems.push(nlpResults[0].item);
+              // Keep the session items list manageable
+              if (userInfo.sessionItems.length > 10) {
+                userInfo.sessionItems.shift(); // Remove oldest item
+              }
+            }
+          } catch (error) {
+            console.error('Error processing command:', error);
+          } finally {
+            // Always reset the processing state after we're done
+            sessionState.setProcessingVoiceCommand(false);
+          }
         } catch (error) {
           console.error('Error in transcription processing:', error);
-          isProcessingVoiceCommand = false;
+          sessionState.setProcessingVoiceCommand(false);
         }
       }
     },
     onError: (error: any) => {
       console.error('🔊 Transcription error:', error);
       socket.emit('error', { message: 'Speech recognition error' });
-      isProcessingVoiceCommand = false;
+      sessionState.setProcessingVoiceCommand(false);
     },
   };
 
@@ -389,8 +282,8 @@ voiceNamespace.on('connection', (socket: Socket) => {
       console.error('Error logging command confirmation:', error);
     }
     
-    // Clear any pending confirmation
-    pendingConfirmation = null;
+    // Clear pending confirmation
+    sessionState.setPendingConfirmation(null);
   });
   
   // Handle user rejection via button click
@@ -416,7 +309,7 @@ voiceNamespace.on('connection', (socket: Socket) => {
     }
     
     // Clear pending confirmation
-    pendingConfirmation = null;
+    sessionState.setPendingConfirmation(null);
   });
   
   // Handle command correction
@@ -441,7 +334,7 @@ voiceNamespace.on('connection', (socket: Socket) => {
     }
     
     // Clear pending confirmation
-    pendingConfirmation = null;
+    sessionState.setPendingConfirmation(null);
   });
   
   // Handle undo command

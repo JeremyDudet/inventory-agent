@@ -28,6 +28,35 @@ export const resetSessionId = () => {
 };
 
 /**
+ * Validates if a string is a valid UUID
+ */
+const isValidUUID = (uuid: string): boolean => {
+  try {
+    // Split string into sections
+    const sections = uuid.split('-');
+    
+    // Check if we have 5 sections
+    if (sections.length !== 5) return false;
+    
+    // Check lengths of each section
+    const [s1, s2, s3, s4, s5] = sections;
+    if (s1.length !== 8 || s2.length !== 4 || s3.length !== 4 || s4.length !== 4 || s5.length !== 12) {
+      return false;
+    }
+    
+    // Check if all characters are valid hex
+    const validHex = /^[0-9a-f]+$/i;
+    if (!sections.every(section => validHex.test(section))) {
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    return false;
+  }
+};
+
+/**
  * Log a transcript entry to the database
  */
 export const logTranscript = async (
@@ -47,24 +76,21 @@ export const logTranscript = async (
   console.log(`Logging transcript to database: sessionId=${sessionId}, userId=${userId || 'anonymous'}, text="${text.substring(0, 30)}${text.length > 30 ? '...' : ''}"`);
   
   try {
-    await createTranscriptLog({
+    // Only include userId if it's a valid UUID
+    const logData = {
       text,
       isFinal,
       confidence,
       timestamp: Date.now(),
       sessionId,
-      userId
-    });
-    
-    console.log(`Successfully logged transcript to database`);
-    return { success: true, sessionId };
+      ...(userId && isValidUUID(userId) ? { userId } : {})
+    };
+
+    await createTranscriptLog(logData);
+    console.log(`📝 Logged transcript to database: "${text}"`);
+    return { success: true };
   } catch (error) {
     console.error('Error logging transcript:', error);
-    // Log more detailed error information
-    if (error instanceof Error) {
-      console.error(`Error details: ${error.message}`);
-      console.error(`Error stack: ${error.stack}`);
-    }
     return { success: false, error };
   }
 };

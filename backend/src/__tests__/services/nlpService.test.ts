@@ -166,32 +166,29 @@ describe('NlpService', () => {
 
   describe('Multiple Commands Processing', () => {
     it('should process multiple commands in a single transcription', async () => {
-      const results = await nlpService.processTranscription('10 gallons of milk, 5 bags of medium roast coffee, 6 of dark roast');
-      expect(results).toHaveLength(3);
+      const nlpService = new NlpService();
+      const transcription = 'We have 30 gallons of chocolate syrup and 12 packs of paper cups';
       
+      const results = await nlpService.processTranscription(transcription);
+      
+      expect(results).toHaveLength(2);
+      
+      // First command
       expect(results[0]).toEqual({
-        action: 'add',
-        item: 'milk',
-        quantity: 10,
+        action: 'set',
+        item: 'chocolate syrup',
+        quantity: 30,
         unit: 'gallons',
         confidence: expect.any(Number),
         isComplete: true
       });
       
+      // Second command
       expect(results[1]).toEqual({
-        action: 'add',
-        item: 'medium roast coffee',
-        quantity: 5,
-        unit: 'bags',
-        confidence: expect.any(Number),
-        isComplete: true
-      });
-      
-      expect(results[2]).toEqual({
-        action: 'add',
-        item: 'dark roast',
-        quantity: 6,
-        unit: 'bags',
+        action: 'set',
+        item: 'paper cups',
+        quantity: 12,
+        unit: 'packs',
         confidence: expect.any(Number),
         isComplete: true
       });

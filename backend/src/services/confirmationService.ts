@@ -21,7 +21,7 @@ export enum FeedbackMode {
 export interface ConfirmationResult {
   type: ConfirmationType;
   confidence: number;
-  reason?: string;
+  reason: string;
   riskLevel: 'low' | 'medium' | 'high';
   feedbackMode: FeedbackMode;
   timeoutSeconds?: number; // Optional timeout for auto-confirmation

@@ -34,6 +34,7 @@ export class NlpService {
   async processTranscription(transcription: string): Promise<NlpResult[]> {
     const startTime = Date.now();
     console.log(`🧠 [NLP] Processing transcription: "${transcription}"`);
+    console.log(`🧠 [NLP] OpenAI API key available: ${!!openaiApiKey}`);
     
     try {
       // Split transcription into individual commands
@@ -48,10 +49,12 @@ export class NlpService {
         if (useOpenAI) {
           console.log('🧠 [NLP] Using OpenAI API for NLP processing');
           commandResults = await this.processWithOpenAI(command);
+          console.log('🧠 [NLP] OpenAI processing results:', JSON.stringify(commandResults, null, 2));
         } else {
           // Otherwise, use the rule-based approach
           console.log('🧠 [NLP] Using rule-based processing (OpenAI API not configured)');
           commandResults = this.processWithRules(command);
+          console.log('🧠 [NLP] Rule-based processing results:', JSON.stringify(commandResults, null, 2));
         }
         
         return commandResults;
@@ -364,20 +367,52 @@ Return a JSON array of commands.`
         }
       );
 
-      const results = JSON.parse(response.data.choices[0].message.content);
-      console.log('🧠 [NLP] OpenAI extracted commands:', results);
+      // Validate response structure
+      if (!response.data?.choices?.[0]?.message?.content) {
+        console.error('🧠 [NLP] Invalid OpenAI API response structure');
+        return this.processWithRules(transcription);
+      }
 
-      return results.map((result: any) => ({
-        action: result.action?.toLowerCase() || '',
-        item: result.item?.toLowerCase() || '',
-        quantity: typeof result.quantity === 'number' ? result.quantity : undefined,
-        unit: result.unit?.toLowerCase(),
-        confidence: result.confidence,
-        isComplete: this.isCommandComplete(result.action || '', result.item || '', result.quantity || undefined, result.unit || ''),
-        type: result.type // Include if present (e.g., 'undo')
-      }));
+      let results;
+      try {
+        results = JSON.parse(response.data.choices[0].message.content);
+      } catch (parseError) {
+        console.error('🧠 [NLP] Failed to parse OpenAI API response:', parseError);
+        return this.processWithRules(transcription);
+      }
+
+      // Validate results is an array
+      if (!Array.isArray(results)) {
+        console.error('🧠 [NLP] OpenAI API response is not an array');
+        return this.processWithRules(transcription);
+      }
+
+      // Process and validate each result
+      const processedResults = results.map((result: any) => {
+        // Ensure all required fields are present and properly formatted
+        const processedResult = {
+          action: (result.action || '').toLowerCase(),
+          item: (result.item || '').toLowerCase(),
+          quantity: typeof result.quantity === 'number' ? result.quantity : undefined,
+          unit: (result.unit || '').toLowerCase(),
+          confidence: typeof result.confidence === 'number' ? result.confidence : 0.6,
+          isComplete: this.isCommandComplete(
+            result.action || '',
+            result.item || '',
+            result.quantity,
+            result.unit || ''
+          ),
+          type: result.type // Include if present (e.g., 'undo')
+        };
+
+        return processedResult;
+      });
+
+      console.log('🧠 [NLP] OpenAI extracted commands:', processedResults);
+      return processedResults;
+
     } catch (error) {
-      console.error('Error with OpenAI API:', error);
+      console.error('🧠 [NLP] Error with OpenAI API:', error);
       // Fall back to rule-based approach
       return this.processWithRules(transcription);
     }
@@ -807,6 +842,36 @@ Return a JSON array of commands.`
   }
 
   private extractSingleCommand(segment: string): NlpResult {
+    // Check for inventory status statements first
+    const statusPattern = /(?:we have|there is|there are|we got|we've got|we got)\s+(\d+)\s+(gallons?|pounds?|cups?|boxes?|sleeves?|units?)\s+of\s+([^,]+)/i;
+    const statusMatch = segment.match(statusPattern);
+    if (statusMatch) {
+      console.log('🧠 [NLP] Detected inventory status statement');
+      return {
+        action: 'set',
+        item: statusMatch[3].trim(),
+        quantity: parseInt(statusMatch[1], 10),
+        unit: statusMatch[2].toLowerCase(),
+        confidence: 0.95,
+        isComplete: true
+      };
+    }
+
+    // Check for "X units of Y" pattern
+    const quantityUnitPattern = /(\d+)\s+(gallons?|pounds?|cups?|boxes?|sleeves?|units?)\s+of\s+([^,]+)/i;
+    const quantityMatch = segment.match(quantityUnitPattern);
+    if (quantityMatch) {
+      console.log('🧠 [NLP] Detected quantity-unit-item pattern');
+      return {
+        action: 'set', // Default to set for inventory status
+        item: quantityMatch[3].trim(),
+        quantity: parseInt(quantityMatch[1], 10),
+        unit: quantityMatch[2].toLowerCase(),
+        confidence: 0.95,
+        isComplete: true
+      };
+    }
+
     const lowerSegment = segment.toLowerCase();
     let action = '';
     let item = '';

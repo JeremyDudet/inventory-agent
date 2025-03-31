@@ -1,15 +1,33 @@
 // frontend/src/components/VoiceControl.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import io from 'socket.io-client';
+import { Socket } from 'socket.io-client';
 import { useNotification } from '../context/NotificationContext';
 import AudioVisualizer from './AudioVisualizer';
 import SessionLogs from './SessionLogs';
+import { sessionStateService } from '../services/sessionStateService';
+import { SessionState, Command } from '../types/session';
 
 interface VoiceControlProps {
-  onUpdate: (update: { item: string; action: string; quantity: number; unit: string }) => void;
-  onFailure: () => void;
-  onListeningChange?: (isListening: boolean, stream: MediaStream | null) => void;
-  onConnectionChange?: (isConnected: boolean) => void;
+  onUpdate: (data: { action: string; item: string; quantity: number; unit: string }) => void;
+  onFailure: (error: string) => void;
+  onListeningChange: (isListening: boolean) => void;
+  onConnectionChange: (isConnected: boolean) => void;
+}
+
+interface NlpResponse {
+  action: string;
+  item: string;
+  quantity: number;
+  unit: string;
+  confirmationType: 'voice' | 'text';
+  confidence: number;
+  reason: string;
+  riskLevel: 'low' | 'medium' | 'high';
+  feedbackMode: 'immediate' | 'delayed';
+  timeoutSeconds: number;
+  suggestedCorrection?: Command;
+  speechFeedback: string;
 }
 
 const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onListeningChange, onConnectionChange }) => {
@@ -32,7 +50,7 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
   const [confidence, setConfidence] = useState(0);
   const [processingCommand, setProcessingCommand] = useState(false);
   const [feedback, setFeedback] = useState('');
-  const [socket, setSocket] = useState<ReturnType<typeof io> | null>(null);
+  const [socket, setSocket] = useState<typeof Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [pendingConfirmation, setPendingConfirmation] = useState<{
@@ -40,14 +58,14 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
     item: string;
     quantity: number;
     unit: string;
-    confidence: number;
-    confirmationType?: string;
-    feedbackMode?: string;
+    confirmationType: 'voice' | 'visual' | 'explicit';
     timeoutSeconds?: number;
+    confidence: number;
+    feedbackMode?: string;
     suggestedCorrection?: string;
-    riskLevel?: string;
-    confirmationTimer?: NodeJS.Timeout;
+    riskLevel?: 'low' | 'medium' | 'high';
   } | null>(null);
+  const [sessionState, setSessionState] = useState<SessionState>(sessionStateService.getState());
   
   const { addNotification } = useNotification();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -103,7 +121,7 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
       setFeedback(`Connection error: ${error.message}`);
       addNotification('error', 'Failed to connect');
       if (onConnectionChange) onConnectionChange(false);
-      onFailure();
+      onFailure(error.message);
       
       // Log system action
       setSystemActions(prev => [...prev, {
@@ -252,12 +270,22 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
           setFeedback(message);
         }
       } else if (confirmationType === 'voice') {
-        setPendingConfirmation({ ...data, confirmationType: 'voice', timeoutSeconds });
+        setPendingConfirmation({ 
+          ...data, 
+          confirmationType: 'voice', 
+          timeoutSeconds,
+          riskLevel: data.riskLevel as 'low' | 'medium' | 'high' | undefined
+        });
         const promptMessage = suggestedCorrection || `Did you mean to ${data.action} ${data.quantity} ${data.unit} of ${data.item}? Say yes or no.`;
         setFeedback(promptMessage);
         addNotification('info', 'Please confirm with your voice or click a button');
       } else if (confirmationType === 'visual' || confirmationType === 'explicit') {
-        setPendingConfirmation({ ...data, confirmationType, timeoutSeconds });
+        setPendingConfirmation({ 
+          ...data, 
+          confirmationType, 
+          timeoutSeconds,
+          riskLevel: data.riskLevel as 'low' | 'medium' | 'high' | undefined
+        });
         const message = data.action === 'unknown'
           ? `Unrecognized command: "${data.item}". Please retry or confirm manually.`
           : suggestedCorrection || `Confirm: ${data.action} ${data.quantity} ${data.unit} of ${data.item}?`;
@@ -284,15 +312,96 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
     };
   }, []);
 
+  useEffect(() => {
+    const unsubscribe = sessionStateService.subscribe((newState) => {
+      setSessionState(newState);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNlpResponse = (response: NlpResponse) => {
+      setFeedback(response.speechFeedback || '');
+      setConfidence(response.confidence);
+      
+      sessionStateService.setState({
+        currentState: response.confirmationType === 'voice' ? 'waiting_for_clarification' : 'normal',
+        pendingConfirmation: response.confirmationType === 'voice' ? {
+          command: {
+            action: response.action,
+            item: response.item,
+            quantity: response.quantity,
+            unit: response.unit
+          },
+          confirmationResult: {
+            type: response.confirmationType,
+            confidence: response.confidence,
+            reason: response.reason,
+            riskLevel: response.riskLevel,
+            feedbackMode: response.feedbackMode,
+            timeoutSeconds: response.timeoutSeconds,
+            suggestedCorrection: response.suggestedCorrection
+          },
+          speechFeedback: response.speechFeedback
+        } : null,
+        isProcessingVoiceCommand: false
+      });
+    };
+
+    const handleCommandConfirmed = (command: Command) => {
+      sessionStateService.setState({
+        currentState: 'normal',
+        pendingConfirmation: null
+      });
+    };
+
+    const handleCommandCorrected = (command: Command) => {
+      sessionStateService.setState({
+        currentState: 'normal',
+        pendingConfirmation: null
+      });
+    };
+
+    const handleCommandRejected = () => {
+      sessionStateService.setState({
+        currentState: 'normal',
+        pendingConfirmation: null
+      });
+    };
+
+    socket.on('nlp-response', handleNlpResponse);
+    socket.on('command-confirmed', handleCommandConfirmed);
+    socket.on('command-corrected', handleCommandCorrected);
+    socket.on('command-rejected', handleCommandRejected);
+
+    return () => {
+      socket.off('nlp-response', handleNlpResponse);
+      socket.off('command-confirmed', handleCommandConfirmed);
+      socket.off('command-corrected', handleCommandCorrected);
+      socket.off('command-rejected', handleCommandRejected);
+    };
+  }, [socket]);
+
   const handleInventoryUpdate = (data: { action: string; item: string; quantity: number; unit: string }) => {
     if (data.action !== 'unknown') {
       // Pass item name to the parent component
       onUpdate(data);
-      setPendingConfirmation(null);
+      sessionStateService.setState({
+        currentState: 'normal',
+        pendingConfirmation: null
+      });
       setFeedback(`Updated: ${data.action}ed ${data.quantity} ${data.unit} of ${data.item}`);
     } else {
       setFeedback('Command not recognized. Please try again.');
-      setPendingConfirmation(null);
+      sessionStateService.setState({
+        currentState: 'normal',
+        pendingConfirmation: null
+      });
     }
   };
 
@@ -327,7 +436,7 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
       setIsListening(true);
       setFeedback('Listening...');
       setTranscript('');
-      if (onListeningChange) onListeningChange(true, mediaStream);
+      if (onListeningChange) onListeningChange(true);
       
       // Log system action
       setSystemActions(prev => [...prev, {
@@ -384,7 +493,7 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
       analyserRef.current = null;
     }
     setStream(null);
-    if (onListeningChange) onListeningChange(false, null);
+    if (onListeningChange) onListeningChange(false);
   };
 
   const toggleRecording = () => {
@@ -431,7 +540,10 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
         status: 'info'
       }]);
     }
-    setPendingConfirmation(null);
+    sessionStateService.setState({
+      currentState: 'normal',
+      pendingConfirmation: null
+    });
     setFeedback('Update cancelled');
   };
 
@@ -575,6 +687,25 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
             </ul>
           </div>
         </div>
+      </div>
+
+      {/* Update status indicators based on session state */}
+      <div className="flex items-center gap-2">
+        {sessionState.currentState === 'waiting_for_clarification' && (
+          <div className="text-yellow-500 animate-pulse">
+            Waiting for confirmation...
+          </div>
+        )}
+        {sessionState.currentState === 'processing_command' && (
+          <div className="text-blue-500 animate-pulse">
+            Processing command...
+          </div>
+        )}
+        {sessionState.currentState === 'error' && (
+          <div className="text-red-500">
+            Error occurred
+          </div>
+        )}
       </div>
     </div>
   );
