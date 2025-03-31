@@ -1,14 +1,17 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import axios, { AxiosResponse } from 'axios';
-import nlpService from '../../services/nlpService';
+import NlpService from '../../services/nlpService';
 
 jest.mock('axios');
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 describe('NLP Service', () => {
+  let nlpService: typeof NlpService;
+
   beforeEach(() => {
     process.env.OPENAI_API_KEY = 'test-key';
     jest.clearAllMocks();
+    nlpService = NlpService;
   });
 
   describe('processTranscription', () => {
@@ -154,8 +157,8 @@ describe('NLP Service', () => {
       const result = await nlpService.processTranscription('blah blah blah');
       
       expect(result).toEqual({
-        action: 'unknown',
-        item: 'unknown',
+        action: '',
+        item: '',
         quantity: 1,
         unit: 'units',
         confidence: expect.any(Number),
@@ -189,6 +192,10 @@ describe('NLP Service', () => {
       });
 
       it('should fall back to rule-based when OpenAI fails', async () => {
+        // Temporarily silence console.error
+        const originalError = console.error;
+        console.error = jest.fn();
+
         mockedAxios.post.mockRejectedValueOnce(new Error('API Error'));
 
         const result = await nlpService.processTranscription('add 2 gal of milk');
@@ -201,6 +208,9 @@ describe('NLP Service', () => {
           confidence: expect.any(Number),
           isComplete: true
         });
+
+        // Restore console.error
+        console.error = originalError;
       });
     });
 
@@ -348,6 +358,66 @@ describe('NLP Service', () => {
     });
 
     describe('Command Completeness', () => {
+      it('should mark command as incomplete when action is missing', async () => {
+        const mockResponse: Partial<AxiosResponse> = {
+          data: {
+            choices: [{
+              message: {
+                content: JSON.stringify({
+                  action: '',
+                  item: 'coffee',
+                  quantity: 1,
+                  unit: 'units',
+                  confidence: 0.8
+                })
+              }
+            }]
+          }
+        };
+        mockedAxios.post.mockResolvedValueOnce(mockResponse as AxiosResponse);
+
+        const result = await nlpService.processTranscription('coffee');
+        
+        expect(result).toEqual({
+          action: '',
+          item: 'coffee',
+          quantity: 1,
+          unit: 'units',
+          isComplete: false,
+          confidence: expect.any(Number)
+        });
+      });
+
+      it('should mark command as complete when all required fields are present', async () => {
+        const mockResponse: Partial<AxiosResponse> = {
+          data: {
+            choices: [{
+              message: {
+                content: JSON.stringify({
+                  action: 'add',
+                  item: 'coffee',
+                  quantity: 2,
+                  unit: 'pounds',
+                  confidence: 0.8
+                })
+              }
+            }]
+          }
+        };
+        mockedAxios.post.mockResolvedValueOnce(mockResponse as AxiosResponse);
+
+        const result = await nlpService.processTranscription('add 2 pounds of coffee');
+        
+        expect(result).toEqual({
+          action: 'add',
+          item: 'coffee',
+          quantity: 2,
+          unit: 'pounds',
+          isComplete: true,
+          confidence: expect.any(Number)
+        });
+      });
+
       it('should mark set command as complete when all required fields are present', async () => {
         const mockResponse: Partial<AxiosResponse> = {
           data: {
@@ -490,39 +560,9 @@ describe('NLP Service', () => {
         
         expect(result).toEqual({
           action: 'add',
-          item: 'unknown',
+          item: '',
           quantity: 1,
           unit: 'units',
-          confidence: expect.any(Number),
-          isComplete: false
-        });
-      });
-
-      it('should mark command as incomplete when action is missing', async () => {
-        const mockResponse: Partial<AxiosResponse> = {
-          data: {
-            choices: [{
-              message: {
-                content: JSON.stringify({
-                  action: 'unknown',
-                  item: 'coffee',
-                  quantity: 1,
-                  unit: 'pounds',
-                  confidence: 0.4
-                })
-              }
-            }]
-          }
-        };
-        mockedAxios.post.mockResolvedValueOnce(mockResponse as AxiosResponse);
-
-        const result = await nlpService.processTranscription('coffee');
-        
-        expect(result).toEqual({
-          action: 'unknown',
-          item: 'coffee',
-          quantity: 1,
-          unit: 'pounds',
           confidence: expect.any(Number),
           isComplete: false
         });

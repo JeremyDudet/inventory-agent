@@ -17,7 +17,7 @@ class NlpService {
   private previousCommand: {
     action: string;
     item: string;
-    quantity: number | string;
+    quantity: number | undefined;
     unit: string;
     timestamp: number;
   } | null = null;
@@ -33,7 +33,7 @@ class NlpService {
   async processTranscription(transcription: string): Promise<{
     action: string;
     item: string;
-    quantity: number | string;
+    quantity: number | undefined;
     unit: string;
     confidence: number;
     isComplete: boolean;
@@ -86,7 +86,7 @@ class NlpService {
       return {
         action: 'unknown',
         item: 'unknown',
-        quantity: 'unknown',
+        quantity: undefined,
         unit: 'units',
         confidence: 0.3,
         isComplete: false
@@ -100,7 +100,7 @@ class NlpService {
   private updateCommandContext(result: {
     action: string;
     item: string;
-    quantity: number | string;
+    quantity: number | undefined;
     unit: string;
     confidence: number;
     isComplete: boolean;
@@ -109,7 +109,7 @@ class NlpService {
     this.previousCommand = {
       action: result.action !== 'unknown' ? result.action : '',
       item: result.item !== 'unknown' ? result.item : '',
-      quantity: result.quantity !== 'unknown' ? result.quantity : '',
+      quantity: result.quantity !== undefined ? result.quantity : undefined,
       unit: result.unit !== 'unknown' ? result.unit : '',
       timestamp: Date.now()
     };
@@ -123,14 +123,14 @@ class NlpService {
   private mergeWithPreviousContext(result: {
     action: string;
     item: string;
-    quantity: number | string;
+    quantity: number | undefined;
     unit: string;
     confidence: number;
     isComplete: boolean;
   }): {
     action: string;
     item: string;
-    quantity: number | string;
+    quantity: number | undefined;
     unit: string;
     confidence: number;
     isComplete: boolean;
@@ -234,16 +234,16 @@ class NlpService {
     
     // Merge non-unknown values, prioritizing current result for conflicts
     return {
-      action: result.action !== 'unknown' ? result.action : this.previousCommand.action || 'unknown',
-      item: result.item !== 'unknown' ? result.item : this.previousCommand.item || 'unknown',
-      quantity: result.quantity !== 'unknown' ? result.quantity : this.previousCommand.quantity || 'unknown',
-      unit: result.unit !== 'unknown' ? result.unit : this.previousCommand.unit || 'unknown',
+      action: result.action !== '' ? result.action : this.previousCommand.action || '',
+      item: result.item !== '' ? result.item : this.previousCommand.item || '',
+      quantity: result.quantity !== undefined ? result.quantity : this.previousCommand.quantity || undefined,
+      unit: result.unit !== '' ? result.unit : this.previousCommand.unit || '',
       confidence: result.confidence,
       isComplete: result.isComplete || this.isCommandComplete(
-        result.action !== 'unknown' ? result.action : this.previousCommand.action || 'unknown',
-        result.item !== 'unknown' ? result.item : this.previousCommand.item || 'unknown',
-        result.quantity !== 'unknown' ? result.quantity : this.previousCommand.quantity || 'unknown',
-        result.unit !== 'unknown' ? result.unit : this.previousCommand.unit || 'unknown'
+        result.action !== '' ? result.action : this.previousCommand.action || '',
+        result.item !== '' ? result.item : this.previousCommand.item || '',
+        result.quantity !== undefined ? result.quantity : this.previousCommand.quantity || undefined,
+        result.unit !== '' ? result.unit : this.previousCommand.unit || ''
       )
     };
   }
@@ -256,7 +256,7 @@ class NlpService {
   private async processWithOpenAI(transcription: string): Promise<{
     action: string;
     item: string;
-    quantity: number | string;
+    quantity: number | undefined;
     unit: string;
     confidence: number;
     isComplete: boolean;
@@ -269,66 +269,95 @@ class NlpService {
           messages: [
             {
               role: 'system',
-              content: `You are an inventory management assistant. Extract the following information from the user's command:
-              1. Action (add, remove, or set, or unknown)
-              2. Item name (as a string or "unknown")
-              3. Quantity (as a number or a string "unknown")
-              4. Unit of measurement (as a string or "unknown")
-              
-              Respond with a JSON object with these fields: action, item, quantity, unit.
-              
-              IMPORTANT GUIDELINES:
-              - If any field is missing or unclear, set the field to "unknown".
-              - If no quantity is provided, set the quantity to a string "unknown".
-              - If no unit is provided, set the unit to a string "unknown".
-              - Be aware that commands may be partial or incomplete, especially if they contain phrases like "to X" without a preceding action.
-              - Pay special attention to phrase patterns like "set X to Y" which indicate a SET action.
-              - If you see phrases like "to 5 gallons" without an action, mark the action as "unknown" and include the quantity and unit.
-              - For multi-part commands, extract as much context as possible from what's available.
-              - For inputs that are purely numeric with units (e.g., "50 gallons"), extract the quantity and unit but set action and item to "unknown".
-              - When you see phrases like "remove" followed later by quantities and items, they are likely part of the same command.`
+              content: `You are a natural language processor for an inventory management system. Your task is to extract inventory commands from user input.
+
+Key requirements:
+1. Extract these fields from the command:
+   - action: must be one of "add", "remove", or "set" (empty string if not found)
+   - item: the inventory item name (empty string if not found)
+   - quantity: a number if explicitly specified, undefined if not found
+   - unit: standard unit (e.g., "gallons", "pounds", "boxes", "units" if not specified)
+
+2. Handle common patterns:
+   - "add X units of Y" (e.g., "add 2 gallons of milk")
+   - "remove X from Y" (e.g., "remove 5 pounds from coffee")
+   - "set X to Y" (e.g., "set milk to 10 gallons")
+   - "X units Y" (e.g., "20 gallons whole milk")
+
+3. Return a JSON object that matches this Zod schema:
+   {
+     action: z.enum(["add", "remove", "set"]).optional(),
+     item: z.string().min(1),
+     quantity: z.number().positive().optional(),
+     unit: z.string().min(1),
+     confidence: z.number().min(0).max(1)
+   }
+
+4. Confidence scoring:
+   - 0.95: Complete command with all fields
+   - 0.8: Command with action and item
+   - 0.6: Partial command with some fields
+   - 0.4: Unclear or incomplete command
+
+5. Normalize units to standard forms:
+   - "gal" → "gallons"
+   - "lb" → "pounds"
+   - "box" → "boxes"
+   - "unit" → "units"
+
+6. Clean up item names by:
+   - Removing filler words (the, a, an, some, etc.)
+   - Removing action words
+   - Removing punctuation
+   - Trimming whitespace
+
+7. Validation rules:
+   - action must be one of: "add", "remove", "set" (or empty string if not found)
+   - item must be a non-empty string
+   - quantity must be a positive number (or undefined if not found)
+   - unit must be a non-empty string
+   - confidence must be between 0 and 1
+
+Return only valid JSON that matches the Zod schema.`
             },
             {
               role: 'user',
               content: transcription
             }
           ],
-          temperature: 0.2,
-          max_tokens: 150,
-          response_format: { type: 'json_object' }
+          temperature: 0.3,
+          max_tokens: 100
         },
         {
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${openaiApiKey}`
+            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+            'Content-Type': 'application/json'
           }
         }
       );
 
       const result = JSON.parse(response.data.choices[0].message.content);
       
-      // Validate and normalize the result
-      const action = result.action?.toLowerCase() || 'unknown';
-      const item = result.item || 'unknown';
-      const quantity = result.quantity === 'unknown' ? 'unknown' : parseInt(result.quantity, 10);
-      const unit = result.unit || 'unknown';
+      // Convert unknown values to empty strings
+      const action = result.action?.toLowerCase() === 'unknown' ? '' : (result.action?.toLowerCase() || '');
+      const item = result.item?.toLowerCase() === 'unknown' ? '' : (result.item?.toLowerCase() || '');
+      const unit = result.unit?.toLowerCase() === 'unknown' ? 'units' : (result.unit?.toLowerCase() || 'units');
+      // Only set quantity if explicitly provided
+      const quantity = result.quantity === 'unknown' || result.quantity === '' ? undefined : 
+        (typeof result.quantity === 'number' ? result.quantity : undefined);
       
-      // Calculate confidence based on completeness
-      let confidence = 0.8; // Base confidence
-      if (!action || !item || !quantity || !unit) {
-        confidence = 0.6; // Lower confidence if any field is missing
-      }
-      
-      // Determine if the command is complete based on action type
-      const isComplete = this.isCommandComplete(action, item, quantity, unit);
-      
+      // Base confidence on presence of fields
+      const baseConfidence = result.confidence || 0.8;
+      const hasAllFields = Boolean(action && item && quantity && unit);
+      const confidence = hasAllFields ? baseConfidence : baseConfidence * 0.75;
+
       return {
         action,
         item,
         quantity,
         unit,
         confidence,
-        isComplete
+        isComplete: this.isCommandComplete(action, item, quantity, unit)
       };
     } catch (error) {
       console.error('Error with OpenAI API:', error);
@@ -342,352 +371,112 @@ class NlpService {
    * @param transcription - The transcription to process
    * @returns Extracted inventory command
    */
-  private async processWithRules(transcription: string): Promise<{
+  private processWithRules(transcription: string): {
     action: string;
     item: string;
-    quantity: number;
+    quantity: number | undefined;
     unit: string;
     confidence: number;
     isComplete: boolean;
-  }> {
-    const lowerTranscription = transcription.toLowerCase().trim();
-    
+  } {
+    const lowerTranscription = transcription.toLowerCase();
+
     if (!lowerTranscription) {
       return {
-        action: 'unknown',
-        item: 'unknown',
-        quantity: 0,
-        unit: 'unknown',
-        confidence: 0.1, // Very low confidence for empty transcription
+        action: '',
+        item: '',
+        quantity: undefined,
+        unit: '',
+        confidence: 0.1,
         isComplete: false
       };
     }
-    
-    // Check for the "to X" pattern which indicates partial set command
-    const toPattern = /^\s*to\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(.+)/i;
-    const toMatch = lowerTranscription.match(toPattern);
-    
-    if (toMatch) {
-      console.log('🧠 [NLP] Detected "to X" pattern, likely part of a SET command');
-      const [, quantityStr, unitAndRemainder] = toMatch;
-      
-      // Convert word numbers to digits if needed
-      const quantity = /^\d+$/.test(quantityStr) ? 
-        parseInt(quantityStr, 10) : 
-        this.wordToNumber(quantityStr);
-      
-      // Extract unit from remainder
-      const { unit } = this.extractItemAndUnit(unitAndRemainder);
-      
-      return {
-        action: 'unknown', // Let the context merging handle this
-        item: `to ${quantity} ${unit}`, // Keep the original pattern for context merging
-        quantity,
-        unit,
-        confidence: 0.7,
-        isComplete: false // Mark as incomplete so it can be merged with previous context
-      };
-    }
-    
-    // Check for numeric-only patterns (e.g., "50 gallons")
-    const numericPattern = /^\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(.+)/i;
-    const numericMatch = lowerTranscription.match(numericPattern);
-    
-    if (numericMatch) {
-      console.log('🧠 [NLP] Detected numeric-only pattern, likely part of a multi-segment command');
-      const [, quantityStr, unitAndRemainder] = numericMatch;
-      
-      // Convert word numbers to digits if needed
-      const quantity = /^\d+$/.test(quantityStr) ? 
-        parseInt(quantityStr, 10) : 
-        this.wordToNumber(quantityStr);
-      
-      // Extract unit from remainder
-      const { unit } = this.extractItemAndUnit(unitAndRemainder);
-      
-      return {
-        action: 'unknown', // Let the context merging handle this
-        item: 'unknown',   // No item specified in this segment
-        quantity,
-        unit,
-        confidence: 0.7,
-        isComplete: false  // Mark as incomplete so it can be merged with previous context
-      };
-    }
-    
-    // Define variations of actions for more flexible matching
-    const actionVariants = {
-      add: ['add', 'adding', 'increase', 'put', 'added', 'more', 'need', 'want', 'get', 'bring', 'buy', 'purchase', 'order', 'include', 'insert', 'stock', 'supply', 'refill', 'restock'],
-      remove: ['remove', 'removing', 'decrease', 'take', 'taken', 'less', 'reduce', 'pull', 'delete', 'subtract', 'dispose', 'discard', 'trash', 'eliminate', 'drop', 'exclude', 'consume', 'use', 'used'],
-      set: ['set', 'update', 'change', 'make', 'adjust', 'have', 'got', 'contains', 'should be', 'is now', 'are now', 'equals', 'replace', 'reset', 'register', 'record', 'log', 'count', 'mark', 'total']
-    };
-    
-    // Determine action from variants
+
+    // Default case - try to extract what we can
     let action = '';
-    for (const [actionType, variants] of Object.entries(actionVariants)) {
-      if (variants.some(variant => {
-        // Look for whole word matches to avoid matching substrings
-        return new RegExp(`\\b${variant}\\b`, 'i').test(lowerTranscription);
-      })) {
-        action = actionType;
-        break;
-      }
+    let item = '';
+    let quantity: number | undefined = undefined;
+    let unit = 'units';
+    let confidence = 0.95;
+    let isComplete = false;
+
+    // Extract action
+    if (lowerTranscription.includes('add')) {
+      action = 'add';
+    } else if (lowerTranscription.includes('remove')) {
+      action = 'remove';
+    } else if (lowerTranscription.includes('set')) {
+      action = 'set';
     }
-    
-    // Handle complete "set X to Y" pattern in a single command
-    if (action === 'set' || lowerTranscription.includes(' to ')) {
-      const setToPattern = /\b(?:set|update|change)?\s+(.+?)\s+to\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(.+)/i;
-      const match = lowerTranscription.match(setToPattern);
-      
-      if (match) {
-        console.log('🧠 [NLP] Detected complete "set X to Y" pattern');
-        const [, item, quantityStr, unitAndRemainder] = match;
-        
-        // Convert word numbers to digits if needed
-        const quantity = /^\d+$/.test(quantityStr) ? 
-          parseInt(quantityStr, 10) : 
-          this.wordToNumber(quantityStr);
-        
-        // Extract unit from remainder
-        const { unit } = this.extractItemAndUnit(unitAndRemainder);
-        
-        return {
-          action: 'set',
-          item: this.cleanUpItemName(item),
-          quantity,
-          unit,
-          confidence: 0.9,
-          isComplete: true
-        };
+
+    // Pattern for "X units of Y" (e.g., "2 gal of milk")
+    const unitPattern = /(\d+)\s+(\w+)\s+(?:of\s+)?(.+)/i;
+    const unitMatch = lowerTranscription.match(unitPattern);
+    if (unitMatch) {
+      const [_, extractedQuantity, extractedUnit, extractedItem] = unitMatch;
+      quantity = parseInt(extractedQuantity, 10);
+      unit = this.normalizeUnit(extractedUnit);
+      item = extractedItem.trim();
+
+      // If we have an item, try to determine a better unit if none was specified
+      if (item && unit === 'units') {
+        unit = this.determineUnitForItem(item);
       }
-    }
-    
-    // Try to infer the action when it's not explicitly stated
-    if (!action) {
-      console.log('No explicit action detected, attempting to infer action...');
-      
-      // For querying type commands
-      if (/\b(check|do we have|is there|how much|how many)\b/i.test(lowerTranscription)) {
-        console.log('Detected query command');
-        return {
-          action: 'check',
-          item: this.extractItemFromQuery(lowerTranscription),
-          quantity: 0,
-          unit: 'units',
-          confidence: 0.7,
-          isComplete: false
-        };
-      }
-      
-      // Look for quantities - if present, default to 'add'
-      if (/\b\d+\b/i.test(lowerTranscription) || 
-          /\b(one|two|three|four|five|six|seven|eight|nine|ten)\b/i.test(lowerTranscription)) {
-        console.log('Quantity found in command, defaulting to "add"');
-        action = 'add';
-      } 
-      // Look for common inventory items
-      else if (this.containsCommonInventoryItem(lowerTranscription)) {
-        console.log('Inventory item found in command, defaulting to "add"');
-        action = 'add';
-      }
-      // Still no action
-      else {
-        console.log('Unable to determine action from: ' + lowerTranscription);
-        // Try one more heuristic - if the text is short (likely just an item name), default to add
-        if (lowerTranscription.split(' ').length <= 3) {
-          action = 'add';
-          console.log('Short command, defaulting to "add"');
+    } else {
+      // Pattern for "X to Y" (e.g., "20 gallons to whole milk")
+      const toPattern = /(\d+)\s+(\w+)\s+to\s+(.+)/i;
+      const toMatch = lowerTranscription.match(toPattern);
+      if (toMatch) {
+        const [_, extractedQuantity, extractedUnit, extractedItem] = toMatch;
+        quantity = parseInt(extractedQuantity, 10);
+        unit = this.normalizeUnit(extractedUnit);
+        item = extractedItem.trim();
+      } else {
+        // Pattern for "action X units Y" (e.g., "add 5 gallons whole milk")
+        const actionPattern = /(add|remove|set)\s+(\d+)\s+(\w+)\s+(.+)/i;
+        const actionMatch = lowerTranscription.match(actionPattern);
+        if (actionMatch) {
+          const [_, extractedAction, extractedQuantity, extractedUnit, extractedItem] = actionMatch;
+          action = extractedAction;
+          quantity = parseInt(extractedQuantity, 10);
+          unit = this.normalizeUnit(extractedUnit);
+          item = extractedItem.trim();
         } else {
-          // If no action can be determined after all attempts
-          return {
-            action: 'unknown',
-            item: this.extractItemName(lowerTranscription),
-            quantity: 0,
-            unit: 'units', // Default to units instead of unknown
-            confidence: 0.4,
-            isComplete: false
-          };
-        }
-      }
-    }
-    
-    // Define TypeScript interfaces for our extracted data
-    interface ExtractedDirectData {
-      quantityStr: string;
-      unit: string;
-      item: string;
-      itemWithUnit?: undefined;
-    }
-    
-    interface ExtractedItemWithUnitData {
-      quantityStr: string;
-      itemWithUnit: string;
-      unit?: undefined;
-      item?: undefined;
-    }
-    
-    type ExtractedData = ExtractedDirectData | ExtractedItemWithUnitData;
-    
-    // Define patterns from most specific to most general
-    const patterns = [
-      // "add/set/remove 5 pounds of coffee beans"
-      {
-        regex: /\b(add|remove|set|update|change)?\s+(\d+)\s+(\w+)\s+(?:of)\s+(.+)/i,
-        confidence: 0.95,
-        extract: (match: RegExpMatchArray): ExtractedDirectData => {
-          const [, , quantityStr, unit, item] = match;
-          return { quantityStr, unit, item };
-        }
-      },
-      
-      // "add/set/remove 5 coffee beans"
-      {
-        regex: /\b(add|remove|set|update|change)?\s+(\d+)\s+(.+)/i,
-        confidence: 0.85,
-        extract: (match: RegExpMatchArray): ExtractedItemWithUnitData => {
-          const [, , quantityStr, itemWithUnit] = match;
-          return { quantityStr, itemWithUnit };
-        }
-      },
-      
-      // More conversational: "we need to add 3 more boxes of napkins"
-      {
-        regex: /.*\b(add|remove|set|update|change)\b.*\b(\d+)\b.*\b(\w+)\b.*\b(?:of)\s+(.+)/i,
-        confidence: 0.85,
-        extract: (match: RegExpMatchArray): ExtractedDirectData => {
-          const [, , quantityStr, unit, item] = match;
-          return { quantityStr, unit, item };
-        }
-      },
-      
-      // More conversational without "of": "can you add 3 gallons almond milk"
-      {
-        regex: /.*\b(add|remove|set|update|change)\b.*\b(\d+)\b\s+(\w+)\s+([^.,]+)/i,
-        confidence: 0.80,
-        extract: (match: RegExpMatchArray): ExtractedDirectData => {
-          const [, , quantityStr, unit, item] = match;
-          return { quantityStr, unit, item: item.trim() };
-        }
-      },
-      
-      // Written numbers: "add five pounds of sugar"
-      {
-        regex: /\b(add|remove|set|update|change)?\s+(one|two|three|four|five|six|seven|eight|nine|ten)\s+(\w+)\s+(?:of)\s+(.+)/i,
-        confidence: 0.85,
-        extract: (match: RegExpMatchArray): ExtractedDirectData => {
-          const [, , wordQuantity, unit, item] = match;
-          return { 
-            quantityStr: this.wordToNumber(wordQuantity).toString(), 
-            unit, 
-            item 
-          };
-        }
-      },
-      
-      // Any numbers in the text (last resort)
-      {
-        regex: /.*?(\d+).*?/i,
-        confidence: 0.5,
-        extract: (match: RegExpMatchArray): ExtractedItemWithUnitData => {
-          const [, quantityStr] = match;
-          return { quantityStr, itemWithUnit: lowerTranscription };
-        }
-      }
-    ];
-    
-    // Try each pattern in sequence
-    for (const pattern of patterns) {
-      const match = lowerTranscription.match(pattern.regex);
-      
-      if (match) {
-        try {
-          const extracted = pattern.extract(match);
-          const quantity = parseInt(extracted.quantityStr, 10);
+          // Extract item (remove action words and filler words)
+          item = lowerTranscription
+            .replace(/\b(add|remove|set|to|some|more|of|the)\b/g, '')
+            .trim();
           
-          if (isNaN(quantity)) {
-            continue; // Skip if quantity is not a number
+          // Try to determine appropriate unit for the item
+          if (item) {
+            unit = this.determineUnitForItem(item);
           }
-          
-          // If we have a direct item and unit extraction (check for the discriminator properties)
-          if ('item' in extracted && 'unit' in extracted) {
-            const result = {
-              action,
-              item: this.cleanUpItemName(extracted.item || ''),
-              quantity,
-              unit: this.normalizeUnit(extracted.unit || ''),
-              confidence: pattern.confidence,
-              isComplete: this.isCommandComplete(action, extracted.item || '', quantity, extracted.unit || '')
-            };
-            return result;
-          }
-          
-          // If we need to extract unit from the item string
-          if ('itemWithUnit' in extracted) {
-            const { item, unit } = this.extractItemAndUnit(extracted.itemWithUnit);
-            const result = {
-              action,
-              item: this.cleanUpItemName(item),
-              quantity,
-              unit,
-              confidence: pattern.confidence * 0.9, // Slightly reduced confidence
-              isComplete: this.isCommandComplete(action, item, quantity, unit)
-            };
-            return result;
-          }
-        } catch (err) {
-          console.error('Error processing pattern match:', err);
-          continue;
         }
       }
     }
-    
-    // If we get here, we couldn't parse the command with any pattern
-    // Enhanced last-resort extraction
-    console.log('No pattern matched, trying last-resort extraction');
-    
-    // Extract quantity: first try numeric digits, then word numbers
-    let quantity = 1; // Default to 1 if no quantity found
-    
-    const numberWords = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
-    const hasNumberWord = numberWords.some(word => new RegExp(`\\b${word}\\b`, 'i').test(lowerTranscription));
-    
-    // Try to extract number from digits
-    const numberMatches = lowerTranscription.match(/\d+/g);
-    if (numberMatches && numberMatches.length > 0) {
-      quantity = parseInt(numberMatches[0], 10);
-      console.log(`Extracted quantity from digits: ${quantity}`);
-    } 
-    // Try to extract number from words
-    else if (hasNumberWord) {
-      for (let i = 0; i < numberWords.length; i++) {
-        if (new RegExp(`\\b${numberWords[i]}\\b`, 'i').test(lowerTranscription)) {
-          quantity = i + 1; // one=1, two=2, etc.
-          console.log(`Extracted quantity from word "${numberWords[i]}": ${quantity}`);
-          break;
-        }
-      }
+
+    // For set commands, we need all fields
+    if (action === 'set' && (!quantity || quantity <= 0)) {
+      confidence = 0.5;
+      isComplete = false;
     }
-    
-    // Extract item name
-    const item = this.extractItemName(lowerTranscription);
-    console.log(`Extracted item: "${item}"`);
-    
-    // Determine best unit
-    const unit = this.determineUnitForItem(item);
-    console.log(`Determined appropriate unit for ${item}: ${unit}`);
-    
-    // Calculate confidence based on how much we extracted
-    let confidence = 0.4; // Base confidence for fallback
-    if (item !== 'item' && item.length > 0) confidence += 0.1; // Boost if we extracted a real item
-    if (quantity > 0 && numberMatches) confidence += 0.1; // Boost if we found an explicit quantity
-    
+    // For add/remove commands, we need at least an item
+    else if ((action === 'add' || action === 'remove') && !item) {
+      confidence = 0.5;
+      isComplete = false;
+    }
+    // If we have all required fields, command is complete
+    else {
+      isComplete = this.isCommandComplete(action, item, quantity, unit);
+    }
+
     return {
       action,
       item,
       quantity,
       unit,
       confidence,
-      isComplete: this.isCommandComplete(action, item, quantity, unit)
+      isComplete
     };
   }
   
@@ -810,43 +599,22 @@ class NlpService {
    * Normalize unit names to standard forms
    */
   private normalizeUnit(unit: string): string {
-    unit = unit.toLowerCase();
-    
-    // Mapping of unit variations to standard names
-    const unitMap: Record<string, string> = {
-      // Weight units
-      'lb': 'pounds', 'lbs': 'pounds', 'pound': 'pounds',
-      'kg': 'kilograms', 'kilo': 'kilograms', 'kilos': 'kilograms', 'kilogram': 'kilograms',
-      'g': 'grams', 'gram': 'grams',
-      'oz': 'ounces', 'ounce': 'ounces',
-      
-      // Volume units
-      'gallon': 'gallons', 'gal': 'gallons',
-      'liter': 'liters', 'l': 'liters', 'litre': 'liters', 'litres': 'liters',
-      'cup': 'cups',
-      'ml': 'milliliters', 'milliliter': 'milliliters', 'millilitre': 'milliliters',
-      'fl oz': 'fluid ounces', 'fluid ounce': 'fluid ounces', 'floz': 'fluid ounces',
-      
-      // Container units
-      'box': 'boxes',
-      'bag': 'bags',
-      'bottle': 'bottles',
-      'case': 'cases',
-      'carton': 'cartons',
-      'piece': 'pieces', 'pcs': 'pieces', 'pc': 'pieces',
+    const unitMap: { [key: string]: string } = {
+      'gal': 'gallons',
+      'gallon': 'gallons',
+      'gallons': 'gallons',
+      'lb': 'pounds',
+      'lbs': 'pounds',
+      'pound': 'pounds',
+      'pounds': 'pounds',
       'unit': 'units',
-      'pack': 'packs', 'package': 'packs',
-      'container': 'containers',
-      'packet': 'packets',
-      'sachet': 'sachets',
-      'jar': 'jars',
-      'sleeve': 'sleeves', 
-      'stack': 'stacks',
-      'roll': 'rolls',
-      'sheet': 'sheets'
+      'units': 'units',
+      'piece': 'units',
+      'pieces': 'units'
     };
-    
-    return unitMap[unit] || unit;
+
+    const normalizedUnit = unitMap[unit.toLowerCase()];
+    return normalizedUnit || 'units';
   }
   
   /**
@@ -1008,65 +776,32 @@ class NlpService {
   /**
    * Determine if a command is complete based on its components
    */
-  private isCommandComplete(action: string, item: string, quantity: number | string, unit: string): boolean {
-    // Basic validation
-    if (!action || action === 'unknown') {
+  private isCommandComplete(action: string, item: string, quantity: number | undefined, unit: string): boolean {
+    // If action is empty, command is incomplete
+    if (!action) {
       return false;
     }
 
-    if (!item || item === 'unknown') {
-      return false;
-    }
-
-    // Action-specific validation
-    switch (action) {
-      case 'set':
-        // For set commands, we need both a valid item AND a valid quantity/unit
-        const hasValidQuantity = typeof quantity === 'number' && quantity > 0 && unit !== 'unknown' && unit !== '';
-        
-        // Special case for handling partial set commands
-        // If the item contains "to NUMBER UNIT" pattern, it might be complete
-        if (typeof item === 'string' && /\bto\s+\d+\s+\w+\b/i.test(item)) {
-          return hasValidQuantity;
-        }
-        
-        // If item doesn't contain "to" but has a valid quantity, it's likely missing the quantity part
-        if (!item.toLowerCase().includes(' to ') && !hasValidQuantity) {
-          console.log('🧠 [NLP] Set command appears incomplete - missing "to QUANTITY UNIT" part');
-          return false;
-        }
-        
-        // Check for incomplete set commands
-        if (item.toLowerCase().endsWith(' to')) {
-          console.log('🧠 [NLP] Set command appears incomplete - ends with "to"');
-          return false;
-        }
-        
-        return hasValidQuantity;
-      
-      case 'add':
-      case 'remove':
-        // Add/remove commands need at least an item to be complete
-        // but for multi-segment remove commands, we also want to ensure we have both quantity and item
-        if (item.toLowerCase().startsWith('to ')) {
-          // If the item starts with "to", it's likely part of a multi-segment command
-          // and we need to check if we have a valid quantity
-          return typeof quantity === 'number' && quantity > 0;
-        }
-        
-        // For normal add/remove commands, we're good if we have an item
-        // If quantity is specified, it should be valid
-        if (quantity === 'unknown' || quantity === '') {
-          // No quantity specified, that's fine for basic add/remove
-          return true;
-        }
-        
-        // Quantity was specified, so it should be a valid number
-        return typeof quantity === 'number' && quantity > 0;
-      
-      default:
+    // For set commands, we need all fields and quantity must be greater than 0
+    if (action === 'set') {
+      if (!item || !unit || quantity === undefined || quantity === null || quantity === 0) {
+        console.log('🧠 [NLP] Set command appears incomplete - missing required fields or zero quantity');
         return false;
+      }
+      return true;
     }
+
+    // For add/remove commands, we need at least an item
+    if (action === 'add' || action === 'remove') {
+      if (!item) {
+        console.log('🧠 [NLP] Add/remove command appears incomplete - missing item');
+        return false;
+      }
+      return true;
+    }
+
+    // If we get here, the command is incomplete
+    return false;
   }
 }
 

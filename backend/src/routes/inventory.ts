@@ -1,13 +1,13 @@
 import express from 'express';
-import supabase from '../config/db';
 import { 
   mockInventory, 
   InventoryItem, 
   InventoryItemInsert,
-  InventoryItemUpdate,
   INVENTORY_TABLE 
 } from '../models/InventoryItem';
 import { authMiddleware, authorize } from '../middleware/auth';
+import inventoryService from '../services/inventoryService';
+import { inventoryUpdateSchema, inventoryItemSchema } from '../validation/inventoryValidation';
 
 const router = express.Router();
 
@@ -32,39 +32,25 @@ router.get('/', async (req, res, next) => {
     const { category, search, limit = 100, page = 1 } = req.query;
     const offset = (Number(page) - 1) * Number(limit);
     
-    // Start building the query
-    let query = supabase
-      .from(INVENTORY_TABLE)
-      .select('*', { count: 'exact' });
+    // Get paginated results
+    const items = await inventoryService.fetchInventory();
     
     // Apply filters if provided
+    let filteredItems = items;
     if (category) {
-      query = query.eq('category', category);
+      filteredItems = filteredItems.filter(item => item.category === category);
     }
     
     if (search) {
-      query = query.ilike('name', `%${search}%`);
-    }
-    
-    // Get paginated results
-    const { data, error, count } = await query
-      .order('name', { ascending: true })
-      .range(offset, offset + Number(limit) - 1);
-    
-    if (error) {
-      console.error('Error fetching inventory:', error);
-      return res.status(500).json({
-        error: {
-          code: 'DATABASE_ERROR',
-          message: 'Failed to fetch inventory items',
-          details: error.message
-        }
-      });
+      const searchLower = search.toString().toLowerCase();
+      filteredItems = filteredItems.filter(item => 
+        item.name.toLowerCase().includes(searchLower)
+      );
     }
     
     res.status(200).json({
-      items: data as InventoryItem[],
-      count: count || 0,
+      items: filteredItems as InventoryItem[],
+      count: filteredItems.length,
       page: Number(page),
       limit: Number(limit),
       source: 'database'
@@ -99,34 +85,19 @@ router.get('/:id', async (req, res, next) => {
       });
     }
     
-    // Fetch from Supabase
-    const { data, error } = await supabase
-      .from(INVENTORY_TABLE)
-      .select('*')
-      .eq('id', id)
-      .single();
+    const item = await inventoryService.findById(id);
     
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return res.status(404).json({
-          error: {
-            code: 'ITEM_NOT_FOUND',
-            message: 'Inventory item not found',
-          },
-        });
-      }
-      
-      return res.status(500).json({
+    if (!item) {
+      return res.status(404).json({
         error: {
-          code: 'DATABASE_ERROR',
-          message: 'Failed to fetch inventory item',
-          details: error.message
-        }
+          code: 'ITEM_NOT_FOUND',
+          message: 'Inventory item not found',
+        },
       });
     }
     
     res.status(200).json({ 
-      item: data as InventoryItem,
+      item: item as InventoryItem,
       source: 'database' 
     });
   } catch (error) {
@@ -135,173 +106,43 @@ router.get('/:id', async (req, res, next) => {
   }
 });
 
-// Update inventory (add, remove, or set quantity)
+// Update inventory item
 router.post('/update', authMiddleware, authorize('inventory:write'), async (req, res, next) => {
   try {
-    // Accept either itemId or item name
-    const { itemId, item, action, quantity, unit } = req.body;
+    const validationResult = inventoryUpdateSchema.safeParse(req.body);
     
-    // Check for required fields - either itemId or item name must be provided
-    if ((!itemId && !item) || !action || quantity === undefined) {
+    if (!validationResult.success) {
       return res.status(400).json({
         error: {
-          code: 'MISSING_FIELDS',
-          message: 'Either Item ID or Item name, action, and quantity are required',
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid input data',
+          details: validationResult.error.errors
+        },
+      });
+    }
+
+    const { action, item, quantity, unit } = validationResult.data;
+    
+    const result = await inventoryService.updateInventory({
+      action,
+      item,
+      quantity,
+      unit
+    });
+    
+    if (!result.success) {
+      return res.status(400).json({
+        error: {
+          code: 'UPDATE_FAILED',
+          message: result.message || 'Failed to update inventory',
         },
       });
     }
     
-    // Validate action
-    if (!['add', 'remove', 'set'].includes(action)) {
-      return res.status(400).json({
-        error: {
-          code: 'INVALID_ACTION',
-          message: 'Action must be one of: add, remove, set',
-        },
-      });
-    }
-    
-    // Using Supabase if configured
-    if (isSupabaseConfigured()) {
-      // Query for item - either by ID or by name
-      let query = supabase.from(INVENTORY_TABLE).select('*');
-      
-      if (itemId) {
-        query = query.eq('id', itemId);
-      } else if (item) {
-        query = query.ilike('name', `%${item}%`);
-      }
-      
-      // Find the item
-      const { data: items, error: fetchError } = await query.limit(1);
-      
-      if (fetchError) {
-        return res.status(500).json({
-          error: {
-            code: 'DATABASE_ERROR',
-            message: 'Failed to fetch inventory item',
-            details: fetchError.message
-          }
-        });
-      }
-      
-      if (!items || items.length === 0) {
-        return res.status(404).json({
-          error: {
-            code: 'ITEM_NOT_FOUND',
-            message: 'Inventory item not found',
-          },
-        });
-      }
-      
-      const foundItem = items[0];
-      
-      // Calculate new quantity based on action
-      let newQuantity = foundItem.quantity;
-      switch (action) {
-        case 'add':
-          newQuantity += Number(quantity);
-          break;
-        case 'remove':
-          newQuantity = Math.max(0, foundItem.quantity - Number(quantity));
-          break;
-        case 'set':
-          newQuantity = Number(quantity);
-          break;
-      }
-      
-      // Prepare update data
-      const updateData: InventoryItemUpdate = {
-        quantity: newQuantity,
-        lastupdated: new Date().toISOString(),
-      };
-      
-      // Update unit if provided
-      if (unit) {
-        updateData.unit = unit;
-      }
-      
-      // Update in database
-      const { data: updatedItem, error: updateError } = await supabase
-        .from(INVENTORY_TABLE)
-        .update({
-          quantity: updateData.quantity,
-          unit: updateData.unit,
-          lastupdated: updateData.lastupdated
-        })
-        .eq('id', foundItem.id)
-        .select()
-        .single();
-      
-      if (updateError) {
-        return res.status(500).json({
-          error: {
-            code: 'DATABASE_ERROR',
-            message: 'Failed to update inventory item',
-            details: updateError.message
-          }
-        });
-      }
-      
-      return res.status(200).json({
-        item: updatedItem,
-        message: `Inventory updated successfully: ${action} ${quantity} ${updatedItem.unit} of ${updatedItem.name}`,
-        source: 'database'
-      });
-    } else {
-      console.warn('Supabase not configured, using mock data');
-      // Fall back to mock data
-      let itemIndex = -1;
-      
-      if (itemId) {
-        itemIndex = mockInventory.findIndex(inventoryItem => inventoryItem.id === itemId);
-      } else if (item) {
-        itemIndex = mockInventory.findIndex(inventoryItem => 
-          inventoryItem.name.toLowerCase().includes(item.toLowerCase())
-        );
-      }
-      
-      if (itemIndex === -1) {
-        return res.status(404).json({
-          error: {
-            code: 'ITEM_NOT_FOUND',
-            message: 'Inventory item not found',
-          },
-        });
-      }
-      
-      const foundItem = { ...mockInventory[itemIndex] };
-      
-      // Update quantity based on action
-      switch (action) {
-        case 'add':
-          foundItem.quantity += Number(quantity);
-          break;
-        case 'remove':
-          foundItem.quantity = Math.max(0, foundItem.quantity - Number(quantity));
-          break;
-        case 'set':
-          foundItem.quantity = Number(quantity);
-          break;
-      }
-      
-      // Update unit if provided
-      if (unit) {
-        foundItem.unit = unit;
-      }
-      
-      // Update lastUpdated timestamp
-      foundItem.lastupdated = new Date().toISOString();
-      
-      // Update mock inventory
-      mockInventory[itemIndex] = foundItem;
-      
-      return res.status(200).json({
-        item: foundItem,
-        message: `Inventory updated successfully: ${action} ${quantity} ${foundItem.unit} of ${foundItem.name}`,
-        source: 'mock'
-      });
-    }
+    res.status(200).json({
+      message: result.message || 'Inventory updated successfully',
+      source: 'database'
+    });
   } catch (error) {
     console.error('Unexpected error:', error);
     next(error);
@@ -311,114 +152,35 @@ router.post('/update', authMiddleware, authorize('inventory:write'), async (req,
 // Add a new inventory item
 router.post('/add-item', authMiddleware, authorize('inventory:write'), async (req, res, next) => {
   try {
-    const { name, quantity, unit, category, threshold } = req.body;
+    const validationResult = inventoryItemSchema.safeParse(req.body);
     
-    if (!name || quantity === undefined || !unit || !category) {
+    if (!validationResult.success) {
       return res.status(400).json({
         error: {
-          code: 'MISSING_FIELDS',
-          message: 'Name, quantity, unit, and category are required',
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid input data',
+          details: validationResult.error.errors
+        },
+      });
+    }
+
+    const newItem = validationResult.data;
+    const result = await inventoryService.addItem(newItem);
+    
+    if (!result.success) {
+      return res.status(400).json({
+        error: {
+          code: 'CREATE_FAILED',
+          message: result.message || 'Failed to add inventory item',
         },
       });
     }
     
-    // Using Supabase if configured
-    if (isSupabaseConfigured()) {
-      // Check if item with same name already exists
-      const { data: existingItems, error: checkError } = await supabase
-        .from(INVENTORY_TABLE)
-        .select('id')
-        .ilike('name', name)
-        .limit(1);
-      
-      if (checkError) {
-        return res.status(500).json({
-          error: {
-            code: 'DATABASE_ERROR',
-            message: 'Failed to check for existing items',
-            details: checkError.message
-          }
-        });
-      }
-      
-      if (existingItems && existingItems.length > 0) {
-        return res.status(409).json({
-          error: {
-            code: 'ITEM_EXISTS',
-            message: 'An item with this name already exists',
-            existingId: existingItems[0].id
-          }
-        });
-      }
-      
-      // Prepare the new item
-      const newItem: InventoryItemInsert = {
-        name,
-        quantity: Number(quantity),
-        unit,
-        category,
-        lastupdated: new Date().toISOString(),
-      };
-      
-      // Add threshold if provided
-      if (threshold !== undefined) {
-        newItem.threshold = Number(threshold);
-      }
-      
-      // Insert into database
-      const { data, error: insertError } = await supabase
-        .from(INVENTORY_TABLE)
-        .insert({
-          name: newItem.name,
-          quantity: newItem.quantity,
-          unit: newItem.unit,
-          category: newItem.category,
-          threshold: newItem.threshold,
-          lastupdated: newItem.lastupdated
-        })
-        .select()
-        .single();
-      
-      if (insertError) {
-        return res.status(500).json({
-          error: {
-            code: 'DATABASE_ERROR',
-            message: 'Failed to add inventory item',
-            details: insertError.message
-          }
-        });
-      }
-      
-      return res.status(201).json({
-        item: data,
-        message: `New item added: ${name}`,
-        source: 'database'
-      });
-    } else {
-      console.warn('Supabase not configured, using mock data');
-      // Fall back to mock data
-      const newItem: InventoryItem = {
-        id: (mockInventory.length + 1).toString(),
-        name,
-        quantity: Number(quantity),
-        unit,
-        category,
-        lastupdated: new Date().toISOString(),
-      };
-      
-      // Add threshold if provided
-      if (threshold !== undefined) {
-        newItem.threshold = Number(threshold);
-      }
-      
-      mockInventory.push(newItem);
-      
-      return res.status(201).json({
-        item: newItem,
-        message: `New item added: ${name}`,
-        source: 'mock'
-      });
-    }
+    res.status(201).json({
+      item: result.item,
+      message: result.message || 'New item added successfully',
+      source: 'database'
+    });
   } catch (error) {
     console.error('Unexpected error:', error);
     next(error);
@@ -438,25 +200,7 @@ router.get('/categories', async (req, res, next) => {
       });
     }
     
-    // Get distinct categories from database
-    const { data, error } = await supabase
-      .from(INVENTORY_TABLE)
-      .select('category')
-      .order('category')
-      .limit(100);
-    
-    if (error) {
-      return res.status(500).json({
-        error: {
-          code: 'DATABASE_ERROR',
-          message: 'Failed to fetch categories',
-          details: error.message
-        }
-      });
-    }
-    
-    // Extract unique categories
-    const categories = Array.from(new Set(data.map(item => item.category)));
+    const categories = await inventoryService.getCategories();
     
     res.status(200).json({
       categories,
@@ -496,96 +240,24 @@ router.delete('/:id', authMiddleware, authorize('inventory:delete'), async (req,
       });
     }
     
-    // First, check if the item exists
-    const { data: existingItem, error: fetchError } = await supabase
-      .from(INVENTORY_TABLE)
-      .select('name')
-      .eq('id', id)
-      .single();
+    const result = await inventoryService.deleteItem(id);
     
-    if (fetchError) {
-      if (fetchError.code === 'PGRST116') {
-        return res.status(404).json({
-          error: {
-            code: 'ITEM_NOT_FOUND',
-            message: 'Inventory item not found',
-          },
-        });
-      }
-      
-      return res.status(500).json({
+    if (!result.success) {
+      return res.status(400).json({
         error: {
-          code: 'DATABASE_ERROR',
-          message: 'Failed to check for item existence',
-          details: fetchError.message
-        }
-      });
-    }
-    
-    // Delete from database
-    const { error: deleteError } = await supabase
-      .from(INVENTORY_TABLE)
-      .delete()
-      .eq('id', id);
-    
-    if (deleteError) {
-      return res.status(500).json({
-        error: {
-          code: 'DATABASE_ERROR',
-          message: 'Failed to delete inventory item',
-          details: deleteError.message
-        }
+          code: 'DELETE_FAILED',
+          message: result.message || 'Failed to delete inventory item',
+        },
       });
     }
     
     res.status(200).json({
-      message: `Item deleted: ${existingItem.name}`,
+      message: result.message || 'Item deleted successfully',
       source: 'database'
     });
   } catch (error) {
     console.error('Unexpected error:', error);
     next(error);
-  }
-});
-
-// Endpoint to check user's permissions (for testing)
-router.get('/check-permissions', authMiddleware, (req, res) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({
-        error: {
-          code: 'UNAUTHORIZED',
-          message: 'Authentication required',
-        },
-      });
-    }
-
-    const userPermissions = req.user.permissions || {};
-    // Use type assertion to fix TypeScript error
-    const hasWritePermission = Boolean(userPermissions && (userPermissions as any)['inventory:write']);
-    const hasDeletePermission = Boolean(userPermissions && (userPermissions as any)['inventory:delete']);
-
-    res.status(200).json({
-      user: {
-        // Handle both User and AuthTokenPayload types
-        id: 'userId' in req.user ? req.user.userId : req.user.id,
-        email: req.user.email,
-        name: req.user.name,
-        role: req.user.role,
-      },
-      permissions: req.user.permissions,
-      canWrite: hasWritePermission,
-      canDelete: hasDeletePermission,
-      message: `User has ${hasWritePermission ? 'write' : 'no write'} and ${hasDeletePermission ? 'delete' : 'no delete'} permissions`
-    });
-  } catch (error) {
-    console.error('Error checking permissions:', error);
-    res.status(500).json({
-      error: {
-        code: 'SERVER_ERROR',
-        message: 'Error checking permissions',
-      },
-    });
   }
 });
 

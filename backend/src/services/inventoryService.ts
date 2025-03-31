@@ -1,6 +1,6 @@
 // backend/src/services/inventoryService.ts
-import supabase from '../config/db';
-import { INVENTORY_TABLE } from '../models/InventoryItem';
+import { InventoryRepository } from '../repositories/InventoryRepository';
+import { InventoryItem, InventoryItemInsert } from '../models/InventoryItem';
 
 interface InventoryUpdate {
   action: string;
@@ -10,18 +10,22 @@ interface InventoryUpdate {
 }
 
 class InventoryService {
+  private repository: InventoryRepository;
+
+  constructor() {
+    this.repository = new InventoryRepository();
+  }
+
+  async findById(id: string): Promise<InventoryItem | null> {
+    return this.repository.findById(id);
+  }
+
   async updateInventory(update: InventoryUpdate): Promise<{ success: boolean; message?: string }> {
     console.log(`📦 Updating inventory: ${update.action} ${update.quantity} ${update.unit} of ${update.item}`);
 
     try {
-      // Find the item (case-insensitive partial match)
-      const { data: items, error: fetchError } = await supabase
-        .from(INVENTORY_TABLE)
-        .select('*')
-        .ilike('name', `%${update.item}%`)
-        .limit(1);
-
-      if (fetchError) throw fetchError;
+      // Find the item by name
+      const items = await this.repository.findByName(update.item);
       if (!items || items.length === 0) {
         return { success: false, message: `Item "${update.item}" not found` };
       }
@@ -43,16 +47,10 @@ class InventoryService {
           return { success: false, message: `Unknown action: ${update.action}` };
       }
 
-      const { error: updateError } = await supabase
-        .from(INVENTORY_TABLE)
-        .update({
-          quantity: newQuantity,
-          unit: update.unit, // Update unit if changed
-          lastupdated: new Date().toISOString()
-        })
-        .eq('id', item.id);
-
-      if (updateError) throw updateError;
+      const success = await this.repository.updateQuantity(item.id, newQuantity);
+      if (!success) {
+        throw new Error('Failed to update inventory');
+      }
 
       console.log(`📦 Successfully updated ${item.name} to ${newQuantity} ${update.unit}`);
       return { success: true };
@@ -63,18 +61,48 @@ class InventoryService {
   }
 
   async fetchInventory(): Promise<any[]> {
-    const { data, error } = await supabase
-      .from(INVENTORY_TABLE)
-      .select('*')
-      .order('lastupdated', { ascending: false });
+    return this.repository.getAll();
+  }
 
-    if (error) {
-      console.error('📦 Error fetching inventory:', error);
-      return [];
+  async addItem(item: InventoryItemInsert): Promise<{ success: boolean; message?: string; item?: any }> {
+    try {
+      const newItem = await this.repository.create({
+        ...item,
+        lastupdated: new Date().toISOString()
+      });
+      if (!newItem) {
+        return { success: false, message: 'Failed to create inventory item' };
+      }
+
+      return { 
+        success: true, 
+        message: `Successfully added ${newItem.name}`,
+        item: newItem
+      };
+    } catch (error) {
+      console.error('Error adding inventory item:', error);
+      return { success: false, message: 'Failed to add inventory item' };
     }
+  }
 
-    return data || [];
+  async deleteItem(id: string): Promise<{ success: boolean; message?: string }> {
+    try {
+      const success = await this.repository.delete(id);
+      if (!success) {
+        return { success: false, message: 'Failed to delete inventory item' };
+      }
+
+      return { success: true, message: 'Successfully deleted inventory item' };
+    } catch (error) {
+      console.error('Error deleting inventory item:', error);
+      return { success: false, message: 'Failed to delete inventory item' };
+    }
+  }
+
+  async getCategories(): Promise<string[]> {
+    return this.repository.getCategories();
   }
 }
 
 export default new InventoryService();
+

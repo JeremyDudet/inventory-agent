@@ -12,7 +12,9 @@ export interface InventoryItem {
 }
 
 // Supabase database types for inventory items
-export type InventoryItemInsert = Omit<InventoryItem, 'id' | 'createdat' | 'updatedat'>;
+export type InventoryItemInsert = Omit<InventoryItem, 'id' | 'createdat' | 'updatedat' | 'lastupdated'> & {
+  lastupdated?: string;
+};
 export type InventoryItemUpdate = Partial<Omit<InventoryItem, 'id' | 'createdat' | 'updatedat'>>;
 
 // Database table name

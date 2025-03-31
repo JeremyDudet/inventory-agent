@@ -6,7 +6,6 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import speechService from './services/speechService';
 import nlpService from './services/nlpService';
-import inventoryService from './services/inventoryService';
 import confirmationService from './services/confirmationService';
 import speechFeedbackService from './services/speechFeedbackService';
 import { logTranscript, logSystemAction } from './services/sessionLogsService';

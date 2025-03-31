@@ -35,7 +35,7 @@ export interface ConfirmationRequest {
   // Command details
   action: 'add' | 'remove' | 'set' | 'unknown';
   item: string;
-  quantity: number | string;
+  quantity: number | undefined;
   unit: string;
   
   // Item context (if available)

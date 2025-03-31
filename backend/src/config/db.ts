@@ -33,7 +33,7 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 });
 
 // Test the connection
-(async () => {
+export async function initializeSupabase() {
   try {
     // Simple connection test
     const { data, error } = await supabase.from('session_logs').select('count(*)', { count: 'exact', head: true });
@@ -46,6 +46,11 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
   } catch (err) {
     console.error('⚠️ Supabase connection test error:', err);
   }
-})();
+}
+
+// Initialize connection in development/production, but not in test environment
+if (process.env.NODE_ENV !== 'test') {
+  initializeSupabase();
+}
 
 export default supabase; 

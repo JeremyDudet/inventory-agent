@@ -14,5 +14,5 @@ module.exports = {
     '/__tests__/',
     '/dist/',
   ],
-  setupFiles: ['<rootDir>/src/__tests__/setup.ts'],
+  setupFiles: ['<rootDir>/src/__tests__/setup.jest.ts'],
 }; 
