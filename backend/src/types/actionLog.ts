@@ -1,7 +1,7 @@
 export interface ActionLog {
   type: 'add' | 'remove' | 'set';
   itemId: string;
-  quantity: number;
+  quantity: number | undefined;
   previousQuantity?: number;
   timestamp?: Date;
 } 

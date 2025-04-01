@@ -4,18 +4,20 @@ import http from 'http';
 import { Server, Socket } from 'socket.io';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import authRoutes from './routes/auth';
+import inventoryRoutes from './routes/inventory';
+import sessionLogsRoutes from './routes/sessionLogs';
 import speechService from './services/speechService';
 import { NlpService } from './services/nlpService';
+import inventoryService from './services/inventoryService';
 import confirmationService from './services/confirmationService';
 import speechFeedbackService from './services/speechFeedbackService';
 import { logTranscript, logSystemAction } from './services/sessionLogsService';
 import TranscriptionBuffer from './services/transcriptionBuffer';
-import sessionLogsRoutes from './routes/sessionLogs';
-import inventoryRoutes from './routes/inventory';
-import authRoutes from './routes/auth';
 import { errorHandler } from './middleware/errorHandler';
-import { ActionLog } from './types/actionLog';
 import { SessionStateService } from './services/sessionStateService';
+import { ActionLog } from './types/actionLog';
+import type { NlpResult } from './types/nlp';
 
 dotenv.config();
 
@@ -66,14 +68,12 @@ voiceNamespace.on('connection', (socket: Socket) => {
   
   const callbacks = {
     onTranscript: async (transcript: string, isFinal: boolean, confidence: number) => {
-      console.log(`🔊 Emitting transcription to ${socket.id}: "${transcript}" (isFinal: ${isFinal}, confidence: ${confidence})`);
       socket.emit('transcription', { text: transcript, isFinal, confidence });
       
       // Log the transcript to the database
       if (isFinal) {
         try {
           await logTranscript(transcript, true, confidence, userInfo.userId);
-          console.log(`📝 Logged transcript to database: "${transcript}"`);
         } catch (error) {
           console.error('Error logging transcript:', error);
         }
@@ -82,66 +82,55 @@ voiceNamespace.on('connection', (socket: Socket) => {
       const currentTime = Date.now();
       const timeSinceLastTranscription = currentTime - lastTranscriptionTime;
       
-      // If this is a final transcription, process it through NLP and confirmation
+      // Process only final transcriptions
       if (isFinal && transcript.trim() && !sessionState.getProcessingVoiceCommand()) {
         // Update last transcription time
         lastTranscriptionTime = currentTime;
-        
+        sessionState.setProcessingVoiceCommand(true);
+
         try {
-          // Update state to processing
-          sessionState.setProcessingVoiceCommand(true);
+          const nlpResults: NlpResult[] = await nlpService.processTranscription(transcript);
           
-          // Process the transcription
-          const nlpResults = await nlpService.processTranscription(transcript);
-          
-          // Process all complete commands
           for (const nlpResult of nlpResults) {
-            if (nlpResult.isComplete) {
-              // Update state to normal
+            if (nlpResult.isComplete && nlpResult.action !== 'unknown') {
               sessionState.setStateType('normal');
               
-              // Process the command
-              if (nlpResult.action !== 'unknown') {
-                const actionLog: ActionLog = {
-                  type: nlpResult.action as 'add' | 'remove' | 'set',
-                  itemId: nlpResult.item,
-                  quantity: nlpResult.quantity || 0,
-                  previousQuantity: undefined // Add previous quantity for 'set' actions
-                };
+              // create action log
+              const actionLog: ActionLog = {
+                type: nlpResult.action as 'add' | 'remove' | 'set',
+                itemId: nlpResult.item,
+                quantity: nlpResult.quantity,
+                previousQuantity: undefined // Add previous quantity for 'set' actions
+              };
 
-                // Add to action log
-                sessionActionLogs.get(socket.id)?.push(actionLog);
+              // store action log
+              sessionActionLogs.get(socket.id)?.push(actionLog);
 
-                // Emit the command with action log
-                socket.emit('command-processed', {
-                  command: nlpResult,
-                  actionLog
-                });
+              // Emit to client
+              socket.emit('command-processed', {
+                command: nlpResult,
+                actionLog
+              });
+
+              if (nlpResult.action === 'undo') {
+                // TODO: undo last action
+              } else {
+                // update inventory
+                try {
+                  inventoryService.updateInventory({
+                    action: nlpResult.action,
+                    item: nlpResult.item,
+                    quantity: nlpResult.quantity || 0,
+                    unit: nlpResult.unit
+                  });
+                  console.log(`📝 Updated inventory: ${nlpResult.item} ${nlpResult.quantity} ${nlpResult.unit}`);
+                } catch (error) {
+                  console.error('Error updating inventory:', error);
+                  socket.emit('error', { message: 'Failed to update inventory' });
+                }
               }
             }
-          }
-          
-          // If we have an unknown action, try to use context from previous interactions
-          if (nlpResults[0].action === 'unknown') {
-            // If it's a numeric-only segment or a "to X" segment, don't return yet -
-            // this is likely part of a multi-segment command
-            if ((/^\d+\s+\w+$/i.test(transcript.toLowerCase())) || 
-                (/^to\s+.+/i.test(transcript.toLowerCase()))) {
-              console.log(`🔊 Detected potential multi-segment command part, waiting for more input`);
-              sessionState.setProcessingVoiceCommand(false);
-              return;
-            }
-            
-            // Otherwise, return the unknown action result
-            socket.emit('nlp-response', {
-              ...nlpResults[0],
-              confirmationType: 'explicit',
-              feedbackMode: 'detailed',
-              riskLevel: 'high'
-            });
-            sessionState.setProcessingVoiceCommand(false);
-            return;
-          }
+          };
           
           // If we have a valid command, determine confirmation type
           try {
