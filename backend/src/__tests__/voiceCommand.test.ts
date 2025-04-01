@@ -118,11 +118,11 @@ describe('Voice Command Processing', () => {
         unit: 'gallons'
       };
 
-      (inventoryService.updateInventory as jest.Mock).mockResolvedValue(undefined);
+      (inventoryService.updateInventoryCount as jest.Mock).mockResolvedValue(undefined);
       
-      await inventoryService.updateInventory(command);
+      await inventoryService.updateInventoryCount(command);
       
-      expect(inventoryService.updateInventory).toHaveBeenCalledWith(command);
+      expect(inventoryService.updateInventoryCount).toHaveBeenCalledWith(command);
     });
 
     test('should handle missing quantity gracefully', async () => {
@@ -133,9 +133,9 @@ describe('Voice Command Processing', () => {
         unit: 'gallons'
       };
 
-      (inventoryService.updateInventory as jest.Mock).mockRejectedValue(new Error('Invalid quantity'));
+      (inventoryService.updateInventoryCount as jest.Mock).mockRejectedValue(new Error('Invalid quantity'));
       
-      await expect(inventoryService.updateInventory(command)).rejects.toThrow('Invalid quantity');
+      await expect(inventoryService.updateInventoryCount(command)).rejects.toThrow('Invalid quantity');
     });
 
     test('should handle invalid quantities gracefully', async () => {
@@ -146,9 +146,9 @@ describe('Voice Command Processing', () => {
         unit: 'gallons'
       };
 
-      (inventoryService.updateInventory as jest.Mock).mockRejectedValue(new Error('Invalid quantity'));
+      (inventoryService.updateInventoryCount as jest.Mock).mockRejectedValue(new Error('Invalid quantity'));
       
-      await expect(inventoryService.updateInventory(command)).rejects.toThrow('Invalid quantity');
+      await expect(inventoryService.updateInventoryCount(command)).rejects.toThrow('Invalid quantity');
     });
   });
 }); 

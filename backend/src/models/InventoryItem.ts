@@ -9,11 +9,13 @@ export interface InventoryItem {
   lastupdated: string;
   createdat?: string;
   updatedat?: string;
+  embedding: number[];
 }
 
 // Supabase database types for inventory items
-export type InventoryItemInsert = Omit<InventoryItem, 'id' | 'createdat' | 'updatedat' | 'lastupdated'> & {
+export type InventoryItemInsert = Omit<InventoryItem, 'id' | 'createdat' | 'updatedat' | 'lastupdated' | 'embedding'> & {
   lastupdated?: string;
+  embedding?: number[];
 };
 export type InventoryItemUpdate = Partial<Omit<InventoryItem, 'id' | 'createdat' | 'updatedat'>>;
 
@@ -30,6 +32,7 @@ export const mockInventory: InventoryItem[] = [
     category: 'ingredients',
     threshold: 10,
     lastupdated: new Date().toISOString(),
+    embedding: [],
   },
   {
     id: '2',
@@ -39,6 +42,7 @@ export const mockInventory: InventoryItem[] = [
     category: 'dairy',
     threshold: 3,
     lastupdated: new Date().toISOString(),
+    embedding: [],
   },
   {
     id: '3',
@@ -48,6 +52,7 @@ export const mockInventory: InventoryItem[] = [
     category: 'ingredients',
     threshold: 5,
     lastupdated: new Date().toISOString(),
+    embedding: [],
   },
   {
     id: '4',
@@ -57,5 +62,6 @@ export const mockInventory: InventoryItem[] = [
     category: 'supplies',
     threshold: 100,
     lastupdated: new Date().toISOString(),
+    embedding: [],
   },
 ]; 

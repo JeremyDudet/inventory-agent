@@ -18,6 +18,7 @@ import { errorHandler } from './middleware/errorHandler';
 import { SessionStateService } from './services/sessionStateService';
 import { ActionLog } from './types/actionLog';
 import type { NlpResult } from './types/nlp';
+import { ValidationError } from './errors';
 
 dotenv.config();
 
@@ -115,18 +116,32 @@ voiceNamespace.on('connection', (socket: Socket) => {
               if (nlpResult.action === 'undo') {
                 // TODO: undo last action
               } else {
-                // update inventory
+                // update inventory count
                 try {
-                  inventoryService.updateInventory({
+                  await inventoryService.updateInventoryCount({
                     action: nlpResult.action,
                     item: nlpResult.item,
                     quantity: nlpResult.quantity || 0,
                     unit: nlpResult.unit
                   });
                   console.log(`📝 Updated inventory: ${nlpResult.item} ${nlpResult.quantity} ${nlpResult.unit}`);
-                } catch (error) {
-                  console.error('Error updating inventory:', error);
-                  socket.emit('error', { message: 'Failed to update inventory' });
+                } catch (error: unknown) {
+                  if (error instanceof ValidationError) {
+                    // Handle ambiguous matches by emitting a clarification event
+                    socket.emit('clarification-needed', {
+                      message: error.message,
+                      originalCommand: {
+                        action: nlpResult.action,
+                        item: nlpResult.item,
+                        quantity: nlpResult.quantity,
+                        unit: nlpResult.unit
+                      }
+                    });
+                    console.log(`🔍 Ambiguous match detected: ${error.message}`);
+                  } else {
+                    console.error('Error updating inventory:', error);
+                    socket.emit('error', { message: 'Failed to update inventory' });
+                  }
                 }
               }
             }

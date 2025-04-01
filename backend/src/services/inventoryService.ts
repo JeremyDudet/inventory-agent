@@ -2,6 +2,7 @@
 import { InventoryRepository } from '../repositories/InventoryRepository';
 import { InventoryItem, InventoryItemInsert } from '../models/InventoryItem';
 import { NotFoundError, ValidationError } from '../errors';
+import { generateEmbedding } from '../utils/createEmbedding';
 
 interface InventoryUpdate {
   action: string;
@@ -26,45 +27,38 @@ class InventoryService {
   }
 
   async findBestMatch(extractedItem: string): Promise<InventoryItem> {
-    const allItems = await this.repository.getAll();
     
-    // Extract base name and size from the input
-    const normalizedInput = extractedItem.toLowerCase();
-    const sizeMatch = normalizedInput.match(/(\d+)\s*(?:ounce|oz)/);
-    const size = sizeMatch ? sizeMatch[1] : null;
+    // Generate embedding for the query
+    const queryEmbedding = await generateEmbedding(extractedItem);
     
-    // Remove size information to get base name
-    const baseName = normalizedInput.replace(/\d+\s*(?:ounce|oz)\s*/, '').trim();
-
-    // Find matching items
-    const matches = allItems.filter(item => {
-      const itemName = item.name.toLowerCase();
-      const itemSizeMatch = itemName.match(/(\d+)\s*(?:ounce|oz)/);
-      const itemSize = itemSizeMatch ? itemSizeMatch[1] : null;
-      
-      // Remove size information to get base name
-      const itemBaseName = itemName.replace(/\d+\s*(?:ounce|oz)\s*/, '').trim();
-      
-      // Check if base names match and sizes match
-      return itemBaseName.includes(baseName) && 
-             (!size || !itemSize || size === itemSize);
-    });
-
-    if (matches.length === 0) {
+    // Find similar items
+    const similarItems = await this.repository.findSimilarItems(queryEmbedding, 5);
+    
+    if (similarItems.length === 0) {
       throw new NotFoundError(`No matching item found for "${extractedItem}"`);
     }
-
-    return matches[0];
+    
+    // Convert distance to similarity (cosine similarity approximation)
+    const bestMatch = similarItems[0];
+    const similarity = 1 / (1 + bestMatch.distance);
+    
+    // Set a threshold (e.g., 0.8) for a confident match
+    if (similarity > 0.8) {
+      return bestMatch.item;
+    } else {
+      const suggestions = similarItems.map((s) => s.item.name).join(', ');
+      throw new ValidationError(
+        `Ambiguous match for "${extractedItem}". Possible matches: ${suggestions}`
+      );
+    }
   }
 
-  async updateInventory(update: InventoryUpdate): Promise<void> {
+  async updateInventoryCount(update: InventoryUpdate): Promise<void> {
     console.log(`📦 Updating inventory: ${update.action} ${update.quantity} ${update.unit} of ${update.item}`);
-
     try {
-      // Find the item using smart matching
       const item = await this.findBestMatch(update.item);
       let newQuantity: number;
-
+  
       switch (update.action.toLowerCase()) {
         case 'add':
           newQuantity = item.quantity + update.quantity;
@@ -78,18 +72,36 @@ class InventoryService {
         default:
           throw new ValidationError(`Invalid action: ${update.action}`);
       }
-
+  
       const success = await this.repository.updateQuantity(item.id, newQuantity);
       if (!success) {
         throw new ValidationError('Failed to update inventory quantity');
       }
-
       console.log(`📦 Successfully updated ${item.name} to ${newQuantity} ${update.unit}`);
     } catch (error) {
       console.error('📦 Error updating inventory:', error);
-      throw error instanceof ValidationError || error instanceof NotFoundError
-        ? error
-        : new ValidationError('Failed to update inventory');
+      throw error;
+    }
+  }
+
+  async updateItem(id: string, updates: Partial<InventoryItem>): Promise<InventoryItem> {
+    try {
+      // If the name is being updated, regenerate the embedding
+      if (updates.name) {
+        updates.embedding = await generateEmbedding(updates.name);
+      }
+
+      // Add lastupdated timestamp
+      updates.lastupdated = new Date().toISOString();
+
+      const updatedItem = await this.repository.update(id, updates);
+      if (!updatedItem) {
+        throw new ValidationError('Failed to update inventory item');
+      }
+      return updatedItem;
+    } catch (error) {
+      console.error('Error updating inventory item:', error);
+      throw new ValidationError('Failed to update inventory item');
     }
   }
 
@@ -99,15 +111,15 @@ class InventoryService {
 
   async addItem(item: InventoryItemInsert): Promise<InventoryItem> {
     try {
+      const embedding = await generateEmbedding(item.name);
       const newItem = await this.repository.create({
         ...item,
-        lastupdated: new Date().toISOString()
+        embedding, // Store the embedding
+        lastupdated: new Date().toISOString(),
       });
-      
       if (!newItem) {
         throw new ValidationError('Failed to create inventory item');
       }
-
       return newItem;
     } catch (error) {
       console.error('Error adding inventory item:', error);

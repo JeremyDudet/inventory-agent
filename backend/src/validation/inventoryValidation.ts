@@ -14,7 +14,9 @@ export const inventoryItemSchema = z.object({
   quantity: z.number().min(0, 'Quantity must be non-negative'),
   unit: z.string().min(1, 'Unit is required'),
   category: z.string().min(1, 'Category is required'),
-  threshold: z.number().min(0, 'Threshold must be non-negative').optional()
+  threshold: z.number().min(0, 'Threshold must be non-negative').optional(),
+  lastupdated: z.string().optional(),
+  embedding: z.array(z.number()).optional()
 });
 
 // Type inference

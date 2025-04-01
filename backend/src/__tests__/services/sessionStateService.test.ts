@@ -1,4 +1,4 @@
-import { SessionStateService } from '../sessionStateService';
+import { SessionStateService } from '../../services/sessionStateService';
 import { SessionState } from '../../types/session';
 
 describe('SessionStateService', () => {

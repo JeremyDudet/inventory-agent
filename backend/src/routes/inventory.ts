@@ -102,7 +102,7 @@ router.post('/update', authMiddleware, authorize('inventory:write'), async (req,
 
     const { action, item, quantity, unit } = validationResult.data;
     
-    await inventoryService.updateInventory({
+    await inventoryService.updateInventoryCount({
       action,
       item,
       quantity,

@@ -1,4 +1,4 @@
-import { logTranscript } from '../sessionLogsService';
+import { logTranscript } from '../../services/sessionLogsService';
 import { createTranscriptLog } from '../../models/SessionLog';
 
 // Mock the SessionLog model

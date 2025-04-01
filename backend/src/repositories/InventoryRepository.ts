@@ -3,6 +3,22 @@ import supabase from '../config/db';
 import { INVENTORY_TABLE, InventoryItem, InventoryItemInsert } from '../models/InventoryItem';
 
 export class InventoryRepository {
+
+  async findSimilarItems(embedding: number[], limit: number = 5): Promise<{ item: InventoryItem; distance: number }[]> {
+    const { data, error } = await supabase
+      .rpc('match_items', {
+        query_embedding: embedding,
+        match_threshold: 0.7,
+        match_count: limit
+      });
+
+    if (error) {
+      throw new Error(`Error performing similarity search: ${error.message}`);
+    }
+
+    return data.map((row: any) => ({ item: row as InventoryItem, distance: row.distance }));
+  }
+
   async findById(id: string): Promise<InventoryItem | null> {
     const { data, error } = await supabase
       .from(INVENTORY_TABLE)
@@ -51,20 +67,24 @@ export class InventoryRepository {
   }
 
   async create(item: InventoryItemInsert): Promise<InventoryItem | null> {
+    if (!item.name || typeof item.name !== 'string' || item.name.trim() === '') {
+      throw new Error('Item name is required and must be a non-empty string');
+    }
+    if (typeof item.quantity !== 'number' || item.quantity < 0) {
+      throw new Error('Quantity must be a non-negative number');
+    }
+  
     const { data, error } = await supabase
       .from(INVENTORY_TABLE)
-      .insert({
-        ...item,
-        lastupdated: new Date().toISOString()
-      })
+      .insert({ ...item, lastupdated: new Date().toISOString() })
       .select()
       .single();
-
+  
     if (error) {
       console.error('Error creating inventory item:', error);
       return null;
     }
-
+  
     return data;
   }
 
@@ -103,13 +123,35 @@ export class InventoryRepository {
       .select('category')
       .order('category')
       .limit(100);
-
+  
     if (error) {
       console.error('Error fetching categories:', error);
       return [];
     }
+  
+    // Filter out null/undefined categories and ensure uniqueness
+    const uniqueCategories = Array.from(
+      new Set(
+        data?.map(item => item.category).filter(category => category != null) || []
+      )
+    );
+  
+    return uniqueCategories;
+  }
 
-    // Extract unique categories
-    return Array.from(new Set(data?.map(item => item.category) || []));
+  async update(id: string, updates: Partial<InventoryItem>): Promise<InventoryItem | null> {
+    const { data, error } = await supabase
+      .from(INVENTORY_TABLE)
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating inventory item:', error);
+      return null;
+    }
+
+    return data;
   }
 } 
