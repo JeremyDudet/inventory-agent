@@ -1,23 +1,28 @@
 // backend/src/services/transcriptionBuffer.ts
 import { NlpService } from './nlpService';
+import { EventEmitter } from 'events';
+import { NlpResult } from '../types/nlp';
 
 /**
  * Service to buffer transcriptions until a complete command is detected
  */
-class TranscriptionBuffer {
+class TranscriptionBuffer extends EventEmitter {
   private buffer: string = '';
   private lastAddedTime: number = 0;
   private nlpService: NlpService;
+  private timeoutId: NodeJS.Timeout | null = null;
+  private readonly COMMAND_TIMEOUT = 3000; // 3 seconds to wait for continuation
 
   constructor(nlpService: NlpService) {
+    super();
     this.nlpService = nlpService;
   }
 
   /**
-   * Add a transcription to the buffer
+   * Add a transcription to the buffer and process if complete
    * @param transcription - The transcription text to add
    */
-  addTranscription(transcription: string): void {
+  async addTranscription(transcription: string): Promise<void> {
     if (!transcription || !transcription.trim()) return;
     
     const trimmedTranscription = transcription.trim();
@@ -35,6 +40,75 @@ class TranscriptionBuffer {
     }
     
     this.lastAddedTime = currentTime;
+    
+    // Reset timeout
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId);
+    }
+    
+    // If the buffer looks like a complete command or has specific ending patterns, process it
+    if (this.isLikelyComplete()) {
+      await this.processBuffer();
+    } else {
+      // Set a timeout to process the buffer if no new transcriptions arrive
+      this.timeoutId = setTimeout(() => this.processBuffer(), this.COMMAND_TIMEOUT);
+    }
+  }
+
+  /**
+   * Process the current buffer through NLP and emit events
+   */
+  private async processBuffer(): Promise<void> {
+    if (!this.buffer) return;
+    
+    const completeTranscription = this.buffer;
+    console.log(`🔊 Processing complete transcription: "${completeTranscription}"`);
+    
+    // Clear buffer before processing to prevent double processing
+    this.buffer = '';
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId);
+      this.timeoutId = null;
+    }
+    
+    try {
+      const nlpResults = await this.nlpService.processTranscription(completeTranscription);
+      
+      // Emit results for handling in app.ts
+      this.emit('completeCommand', nlpResults, completeTranscription);
+      
+      // If no complete commands were found, log for debugging
+      if (!nlpResults.some(result => result.isComplete)) {
+        console.log(`🔊 No complete NLP results found for combined transcription: "${completeTranscription}"`);
+      }
+    } catch (error) {
+      console.error('Error processing complete transcription:', error);
+      this.emit('error', error);
+    }
+  }
+
+  /**
+   * Check if the current buffer is likely a complete command
+   * @returns Whether the buffer is likely complete
+   */
+  private isLikelyComplete(): boolean {
+    const lowerBuffer = this.buffer.toLowerCase();
+    
+    // Heuristics to detect complete commands
+    return (
+      // Ends with period or question mark
+      /[.?]$/.test(lowerBuffer) ||
+      
+      // Contains complete inventory action phrases
+      /\b(add|remove|set)\b.*\b(of|to)\b.*\d+/.test(lowerBuffer) ||
+      /\bwe\s+have\b.*\d+/.test(lowerBuffer) ||
+      
+      // Has a significant length (likely a full statement)
+      this.buffer.length > 30 ||
+      
+      // Contains "undo" command
+      /\bundo\b|\brevert\s+last\b/.test(lowerBuffer)
+    );
   }
 
   /**
@@ -50,6 +124,10 @@ class TranscriptionBuffer {
    */
   clearBuffer(): void {
     this.buffer = '';
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId);
+      this.timeoutId = null;
+    }
   }
   
   /**
@@ -61,7 +139,7 @@ class TranscriptionBuffer {
     const lowerText = transcription.toLowerCase().trim();
     // Detect phrases like "set the X" or "set X to" without a value
     return (
-      (lowerText.startsWith('set ') || lowerText.startsWith('update ')) &&
+      (lowerText.startsWith('set ') || lowerText.startsWith('update ') || lowerText.startsWith('we have ')) &&
       !lowerText.includes(' to ') && // No "to" phrase - incomplete
       !(/\bto\s+\d+\b/.test(lowerText)) // No "to X" with a number
     );
@@ -78,7 +156,8 @@ class TranscriptionBuffer {
     return (
       lowerText.startsWith('to ') ||
       /^\d+\s+\w+\.?$/.test(lowerText) || // e.g. "30 sleeves"
-      /^to\s+\d+\s+\w+\.?$/.test(lowerText) // e.g. "to 30 sleeves"
+      /^to\s+\d+\s+\w+\.?$/.test(lowerText) || // e.g. "to 30 sleeves"
+      /^of\s+\w+\.?$/.test(lowerText) // e.g. "of milk"
     );
   }
   
