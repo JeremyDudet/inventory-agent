@@ -4,6 +4,27 @@
 -- Create extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+-- Enable the pgvector extension for vector similarity search
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- Add an embedding column to inventory_items if it doesn’t exist
+ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS embedding vector(1536); -- 1536 dimensions for OpenAI embeddings
+
+-- Define the match_items function for similarity search
+CREATE OR REPLACE FUNCTION match_items(match_count integer, match_threshold float, query_embedding vector)
+RETURNS TABLE (id uuid, name text, similarity float) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT i.id, i.name, 1 - (i.embedding <=> query_embedding) AS similarity
+  FROM inventory_items i
+  WHERE 1 - (i.embedding <=> query_embedding) > match_threshold
+  ORDER BY similarity DESC
+  LIMIT match_count;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create an index for faster similarity searches (optional but recommended)
+CREATE INDEX IF NOT EXISTS inventory_items_embedding_idx ON inventory_items USING ivfflat (embedding vector_cosine_ops);
 
 -- Create session_logs table for tracking voice interactions and system events
 CREATE TABLE IF NOT EXISTS session_logs (

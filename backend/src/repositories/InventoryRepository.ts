@@ -154,4 +154,13 @@ export class InventoryRepository {
 
     return data;
   }
+
+  async getItemsWithoutEmbeddings(): Promise<InventoryItem[]> {
+    const { data, error } = await supabase
+      .from(INVENTORY_TABLE)
+      .select('*')
+      .or('embedding.is.null');
+    if (error) throw error;
+    return data.map(item => item as InventoryItem);
+  }
 } 

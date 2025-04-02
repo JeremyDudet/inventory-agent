@@ -3,6 +3,7 @@ import { InventoryRepository } from '../repositories/InventoryRepository';
 import { InventoryItem, InventoryItemInsert } from '../models/InventoryItem';
 import { NotFoundError, ValidationError } from '../errors';
 import { generateEmbedding } from '../utils/createEmbedding';
+import { getUnitType, convertQuantity } from '../utils/unitConversions';
 
 interface InventoryUpdate {
   action: string;
@@ -27,29 +28,21 @@ class InventoryService {
   }
 
   async findBestMatch(extractedItem: string): Promise<InventoryItem> {
-    
-    // Generate embedding for the query
     const queryEmbedding = await generateEmbedding(extractedItem);
-    
-    // Find similar items
     const similarItems = await this.repository.findSimilarItems(queryEmbedding, 5);
-    
+  
     if (similarItems.length === 0) {
       throw new NotFoundError(`No matching item found for "${extractedItem}"`);
     }
-    
-    // Convert distance to similarity (cosine similarity approximation)
+  
     const bestMatch = similarItems[0];
     const similarity = 1 / (1 + bestMatch.distance);
-    
-    // Set a threshold (e.g., 0.8) for a confident match
-    if (similarity > 0.8) {
+  
+    if (similarity >= 0.6) { // Lowered from 0.8 to 0.6
       return bestMatch.item;
     } else {
       const suggestions = similarItems.map((s) => s.item.name).join(', ');
-      throw new ValidationError(
-        `Ambiguous match for "${extractedItem}". Possible matches: ${suggestions}`
-      );
+      throw new ValidationError(`Ambiguous match for "${extractedItem}". Possible matches: ${suggestions}`);
     }
   }
 
@@ -57,27 +50,48 @@ class InventoryService {
     console.log(`📦 Updating inventory: ${update.action} ${update.quantity} ${update.unit} of ${update.item}`);
     try {
       const item = await this.findBestMatch(update.item);
+
+      // If unit is not specified, assume it's the item's stored unit
+      if (!update.unit) {
+        update.unit = item.unit;
+      }
+
+      const itemUnitType = getUnitType(item.unit);
+      const updateUnitType = getUnitType(update.unit);
+
+      if (itemUnitType === 'unknown' || updateUnitType === 'unknown') {
+        throw new ValidationError(`Unknown unit: ${item.unit} or ${update.unit}`);
+      }
+
+      if (itemUnitType !== updateUnitType) {
+        throw new ValidationError(`Incompatible units: item is in ${item.unit} (${itemUnitType}), update is in ${update.unit} (${updateUnitType})`);
+      }
+
+      let quantityToUpdate = update.quantity;
+      if (update.unit !== item.unit) {
+        quantityToUpdate = convertQuantity(update.quantity, update.unit, item.unit);
+      }
+
       let newQuantity: number;
-  
       switch (update.action.toLowerCase()) {
         case 'add':
-          newQuantity = item.quantity + update.quantity;
+          newQuantity = item.quantity + quantityToUpdate;
           break;
         case 'remove':
-          newQuantity = Math.max(0, item.quantity - update.quantity);
+          newQuantity = Math.max(0, item.quantity - quantityToUpdate);
           break;
         case 'set':
-          newQuantity = update.quantity;
+          newQuantity = quantityToUpdate;
           break;
         default:
           throw new ValidationError(`Invalid action: ${update.action}`);
       }
-  
+
       const success = await this.repository.updateQuantity(item.id, newQuantity);
       if (!success) {
         throw new ValidationError('Failed to update inventory quantity');
       }
-      console.log(`📦 Successfully updated ${item.name} to ${newQuantity} ${update.unit}`);
+      console.log(`📦 Successfully updated ${item.name} to ${newQuantity} ${item.unit}`);
     } catch (error) {
       console.error('📦 Error updating inventory:', error);
       throw error;
@@ -141,6 +155,33 @@ class InventoryService {
 
   async getCategories(): Promise<string[]> {
     return this.repository.getCategories();
+  }
+
+  async getItemQuantity(itemName: string, requestedUnit?: string): Promise<{ quantity: number; unit: string }> {
+    try {
+      const item = await this.findBestMatch(itemName);
+  
+      if (!requestedUnit || requestedUnit === item.unit) {
+        return { quantity: item.quantity, unit: item.unit };
+      }
+  
+      const itemUnitType = getUnitType(item.unit);
+      const requestedUnitType = getUnitType(requestedUnit);
+  
+      if (itemUnitType === 'unknown' || requestedUnitType === 'unknown') {
+        throw new ValidationError(`Unknown unit: ${item.unit} or ${requestedUnit}`);
+      }
+  
+      if (itemUnitType !== requestedUnitType) {
+        throw new ValidationError(`Incompatible units: item is in ${item.unit} (${itemUnitType}), requested is ${requestedUnit} (${requestedUnitType})`);
+      }
+  
+      const convertedQuantity = convertQuantity(item.quantity, item.unit, requestedUnit);
+      return { quantity: convertedQuantity, unit: requestedUnit };
+    } catch (error) {
+      console.error('📦 Error retrieving item quantity:', error);
+      throw error;
+    }
   }
 }
 

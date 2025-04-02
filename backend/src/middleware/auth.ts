@@ -1,3 +1,4 @@
+// backend/src/middleware/auth.ts
 import { Request, Response, NextFunction } from 'express';
 import authService, { AuthTokenPayload, UserPermissions, User } from '../services/authService';
 import { asyncMiddleware } from './utils';

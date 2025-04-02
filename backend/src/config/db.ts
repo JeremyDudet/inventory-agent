@@ -1,3 +1,4 @@
+// backend/src/config/db.ts
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 

@@ -1,3 +1,5 @@
+// backend/src/models/InventoryItem.ts
+
 // Inventory item model
 export interface InventoryItem {
   id: string;

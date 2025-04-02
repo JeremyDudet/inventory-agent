@@ -1,3 +1,4 @@
+// backend/src/models/SessionLog.ts
 import supabase from '../config/db';
 
 export interface TranscriptLog {

@@ -1,3 +1,4 @@
+// backend/src/validation/inventoryValidation.ts
 import { z } from 'zod';
 
 // Schema for inventory updates (add/remove/set quantity)

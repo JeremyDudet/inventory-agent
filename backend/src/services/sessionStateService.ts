@@ -1,3 +1,4 @@
+// backend/src/services/sessionStateService.ts
 import { SessionState, SessionStateType } from '../types/session';
 
 export class SessionStateService {

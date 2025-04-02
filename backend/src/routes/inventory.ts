@@ -1,3 +1,4 @@
+// backend/src/routes/inventory.ts
 import express from 'express';
 import { 
   mockInventory, 

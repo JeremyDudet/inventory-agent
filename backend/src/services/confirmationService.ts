@@ -1,3 +1,4 @@
+// backend/src/services/confirmationService.ts
 /**
  * Confirmation Service
  * Implements the adaptive confirmation strategy for inventory updates

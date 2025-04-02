@@ -1,3 +1,4 @@
+// backend/src/routes/auth.ts
 import express, { Request, Response, NextFunction } from 'express';
 import authService, { UserRole, User, AuthTokenPayload } from '../services/authService';
 import supabase from '../config/db';
