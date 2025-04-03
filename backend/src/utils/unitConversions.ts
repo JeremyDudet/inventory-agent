@@ -1,24 +1,37 @@
-// src/utils/unitConversions.ts
-
+// backend/src/utils/unitConversions.ts
 export const unitToType: Record<string, string> = {
+    'gallon': 'volume',
     'gallons': 'volume',
     'liters': 'volume',
+    'liter': 'volume',
     'oz': 'volume',
     'ounces': 'volume',
+    'ounce': 'volume',
     'ml': 'volume',
     'milliliters': 'volume',
+    'milliliter': 'volume',
     'lbs': 'weight',
+    'lb': 'weight',
     'pounds': 'weight',
+    'pound': 'weight',
     'kg': 'weight',
     'g': 'weight',
+    'piece': 'count',
     'pieces': 'count',
+    'box': 'count',
     'boxes': 'count',
+    'bag': 'count',
     'bags': 'count',
+    'cup': 'volume',
     'cups': 'volume',
+    'tablespoon': 'volume',
     'tablespoons': 'volume',
+    'teaspoon': 'volume',
     'teaspoons': 'volume',
     'quarts': 'volume',
     'pints': 'volume',
+    'quart': 'volume',
+    'pint': 'volume',
   };
   
   export const volumeConversions: Record<string, number> = {
@@ -35,7 +48,8 @@ export const unitToType: Record<string, string> = {
   };
   
   export function getUnitType(unit: string): string {
-    return unitToType[unit] || 'unknown';
+    const normalizedUnit = unit.trim().toLowerCase();
+    return unitToType[normalizedUnit] || 'unknown';
   }
   
   export function convertQuantity(quantity: number, fromUnit: string, toUnit: string): number {

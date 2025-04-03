@@ -1,7 +1,7 @@
 // backend/src/utils/createEmbedding.ts
 import dotenv from 'dotenv';
 import axios from 'axios';
-
+import { preprocessText } from './preprocessText';
 dotenv.config();
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -11,14 +11,12 @@ if (!OPENAI_API_KEY) {
 }
 
 export async function generateEmbedding(text: string): Promise<number[]> {
-  const response = await axios.post('https://api.openai.com/v1/embeddings', {
-    model: 'text-embedding-3-small',
-    input: text,
-  }, {
-    headers: {
-      'Authorization': `Bearer ${OPENAI_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-  });
-  return response.data.data[0].embedding;
-}
+    const preprocessedText = preprocessText(text);
+    const response = await axios.post('https://api.openai.com/v1/embeddings', {
+      input: preprocessedText,
+      model: 'text-embedding-ada-002'
+    }, {
+      headers: { 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}` }
+    });
+    return response.data.data[0].embedding;
+  }

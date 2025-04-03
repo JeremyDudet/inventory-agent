@@ -1,8 +1,10 @@
 // backend/src/services/inventoryService.ts
+import stringSimilarity from 'string-similarity';
 import { InventoryRepository } from '../repositories/InventoryRepository';
 import { InventoryItem, InventoryItemInsert } from '../models/InventoryItem';
 import { NotFoundError, ValidationError } from '../errors';
 import { generateEmbedding } from '../utils/createEmbedding';
+import { preprocessText } from '../utils/preprocessText';
 import { getUnitType, convertQuantity } from '../utils/unitConversions';
 
 interface InventoryUpdate {
@@ -28,36 +30,77 @@ class InventoryService {
   }
 
   async findBestMatch(extractedItem: string): Promise<InventoryItem> {
+    console.log(`🔍 Finding best match for: "${extractedItem}"`);
     const queryEmbedding = await generateEmbedding(extractedItem);
     const similarItems = await this.repository.findSimilarItems(queryEmbedding, 5);
   
     if (similarItems.length === 0) {
+      console.log('🔍 No similar items found in database');
       throw new NotFoundError(`No matching item found for "${extractedItem}"`);
     }
   
-    const bestMatch = similarItems[0];
-    const similarity = 1 / (1 + bestMatch.distance);
+    const preprocessedExtracted = preprocessText(extractedItem);
+    console.log(`🔍 Preprocessed transcribed item: "${preprocessedExtracted}"`);
   
-    if (similarity >= 0.6) { // Lowered from 0.8 to 0.6
-      return bestMatch.item;
+    let bestMatch: { item: InventoryItem; combinedSimilarity: number } | null = null;
+    let maxCombinedSimilarity = 0;
+  
+    for (const simItem of similarItems) {
+      const embeddingSimilarity = simItem.similarity; // Use similarity directly (0 to 1)
+      const preprocessedDbItem = preprocessText(simItem.item.name);
+      console.log(`🔍 Comparing to: "${simItem.item.name}" (preprocessed: "${preprocessedDbItem}")`);
+  
+      const extractedTokens = preprocessedExtracted.split(' ');
+      const dbTokens = preprocessedDbItem.split(' ');
+      const commonTokens = extractedTokens.filter(token => dbTokens.includes(token));
+      const tokenSimilarity = commonTokens.length / Math.max(extractedTokens.length, dbTokens.length);
+  
+      const combinedSimilarity = 0.7 * embeddingSimilarity + 0.3 * tokenSimilarity;
+      console.log(`🔍 Embedding similarity: ${embeddingSimilarity}, Token similarity: ${tokenSimilarity}, Combined: ${combinedSimilarity}`);
+  
+      if (combinedSimilarity > maxCombinedSimilarity) {
+        maxCombinedSimilarity = combinedSimilarity;
+        bestMatch = { item: simItem.item, combinedSimilarity };
+      }
+    }
+  
+    if (bestMatch && bestMatch.combinedSimilarity >= 0.6) {
+      // Fetch the full item details using the id
+      const fullItem = await this.repository.findById(bestMatch.item.id);
+      if (!fullItem) {
+        throw new NotFoundError(`Item with id ${bestMatch.item.id} not found`);
+      }
+      console.log(`🔍 Best match found: "${fullItem.name}" with similarity ${bestMatch.combinedSimilarity}`);
+      return fullItem;
     } else {
-      const suggestions = similarItems.map((s) => s.item.name).join(', ');
+      const suggestions = similarItems.map(s => s.item.name).join(', ');
+      console.log(`🔍 Ambiguous match, suggestions: ${suggestions}`);
       throw new ValidationError(`Ambiguous match for "${extractedItem}". Possible matches: ${suggestions}`);
     }
   }
 
   async updateInventoryCount(update: InventoryUpdate): Promise<void> {
-    console.log(`📦 Updating inventory: ${update.action} ${update.quantity} ${update.unit} of ${update.item}`);
+    console.log(`📦 Updating inventory: ${update.action} ${update.quantity} ${update.unit || 'unspecified unit'} of ${update.item}`);
     try {
       const item = await this.findBestMatch(update.item);
+      
+      console.log(`📦 Found item in database: ${item.name} (current: ${item.quantity} ${item.unit || 'no unit'})`);
 
       // If unit is not specified, assume it's the item's stored unit
       if (!update.unit) {
         update.unit = item.unit;
+        console.log(`📦 No unit specified in update, using item's unit: ${item.unit}`);
       }
 
+      // Handle case where both units are undefined
+      if (!update.unit && !item.unit) {
+        throw new ValidationError(`Unit missing: item.unit=${item.unit}, update.unit=${update.unit}`);
+      }
+
+      console.log(`📦 Item unit: "${item.unit}", Update unit: "${update.unit}"`);
       const itemUnitType = getUnitType(item.unit);
       const updateUnitType = getUnitType(update.unit);
+      console.log(`📦 Item unit type: "${itemUnitType}", Update unit type: "${updateUnitType}"`);
 
       if (itemUnitType === 'unknown' || updateUnitType === 'unknown') {
         throw new ValidationError(`Unknown unit: ${item.unit} or ${update.unit}`);
@@ -70,6 +113,7 @@ class InventoryService {
       let quantityToUpdate = update.quantity;
       if (update.unit !== item.unit) {
         quantityToUpdate = convertQuantity(update.quantity, update.unit, item.unit);
+        console.log(`📦 Converting quantity: ${update.quantity} ${update.unit} → ${quantityToUpdate} ${item.unit}`);
       }
 
       let newQuantity: number;
@@ -120,7 +164,7 @@ class InventoryService {
   }
 
   async fetchInventory(): Promise<InventoryItem[]> {
-    return this.repository.getAll();
+    return this.repository.getAllItems();
   }
 
   async addItem(item: InventoryItemInsert): Promise<InventoryItem> {

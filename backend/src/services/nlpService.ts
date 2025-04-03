@@ -240,6 +240,7 @@ Return a JSON array of commands.`,
           ],
           temperature: 0.3,
           max_tokens: 100,
+          response_format: { type: 'json_object' },
         },
         {
           headers: {
@@ -249,20 +250,43 @@ Return a JSON array of commands.`,
         }
       );
 
-      const results = JSON.parse(response.data.choices[0].message.content);
+      // Log the raw content for debugging
+      const content = response.data.choices[0].message.content;
+      console.log('🧠 [NLP] OpenAI response content:', content);
+
+      let results = [];
+      try {
+        results = JSON.parse(content);
+        // Handle single object responses (wrap in array)
+        if (!Array.isArray(results) && typeof results === 'object') {
+          results = [results];
+        } else if (!Array.isArray(results)) {
+          console.error('🧠 [NLP] Error: OpenAI response is not a valid format');
+          return [];
+        }
+      } catch (parseError) {
+        console.error('🧠 [NLP] Error parsing OpenAI response:', parseError);
+        console.error('🧠 [NLP] Raw response:', response.data);
+        return [];
+      }
+      
+      // Map the results to the NlpResult type
       return results.map((result: any) => {
         console.log('🧠 [NLP] Result:', result);
         if (result.action === 'undo') {
           return {
             action: 'undo',
             confidence: result.confidence,
-            isComplete: true
+            isComplete: true,
+            item: '',
+            quantity: undefined,
+            unit: ''
           };
         }
         return {
           action: result.action || '',
           item: result.item || '',
-          quantity: result.quantity,
+          quantity: result.quantity !== undefined ? result.quantity : undefined,
           unit: result.unit || '',
           confidence: result.confidence || 0.6,
           isComplete: this.isCommandComplete(result),

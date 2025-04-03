@@ -1,9 +1,10 @@
+// backend/src/scripts/updateEmbeddings.ts
 import { InventoryRepository } from '../repositories/InventoryRepository';
 import { generateEmbedding } from '../utils/createEmbedding';
 
 async function updateEmbeddings() {
   const repository = new InventoryRepository();
-  const items = await repository.getItemsWithoutEmbeddings();
+  const items = await repository.getAllItems();
   const batchSize = 10; // Adjust based on your API rate limits
   console.log(`Found ${items.length} items without embeddings.`);
 

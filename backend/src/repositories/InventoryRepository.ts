@@ -4,7 +4,7 @@ import { INVENTORY_TABLE, InventoryItem, InventoryItemInsert } from '../models/I
 
 export class InventoryRepository {
 
-  async findSimilarItems(embedding: number[], limit: number = 5): Promise<{ item: InventoryItem; distance: number }[]> {
+  async findSimilarItems(embedding: number[], limit: number = 5): Promise<{ item: InventoryItem; similarity: number }[]> {
     const { data, error } = await supabase
       .rpc('match_items', {
         query_embedding: embedding,
@@ -16,7 +16,7 @@ export class InventoryRepository {
       throw new Error(`Error performing similarity search: ${error.message}`);
     }
 
-    return data.map((row: any) => ({ item: row as InventoryItem, distance: row.distance }));
+    return data.map((row: any) => ({ item: row as InventoryItem, similarity: row.similarity }));
   }
 
   async findById(id: string): Promise<InventoryItem | null> {
@@ -102,7 +102,7 @@ export class InventoryRepository {
     return true;
   }
 
-  async getAll(offset: number = 0, limit: number = 100): Promise<InventoryItem[]> {
+  async getAllItems(offset: number = 0, limit: number = 100): Promise<InventoryItem[]> {
     const { data, error } = await supabase
       .from(INVENTORY_TABLE)
       .select('*')
