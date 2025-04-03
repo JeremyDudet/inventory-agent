@@ -11,6 +11,7 @@ import inventoryService from '../services/inventoryService';
 import { inventoryUpdateSchema, inventoryItemSchema } from '../validation/inventoryValidation';
 import { NotFoundError } from '../errors/NotFoundError';
 import { ValidationError } from '../errors/ValidationError';
+import websocketService from '../services/websocketService';
 
 const router = express.Router();
 
@@ -109,6 +110,31 @@ router.post('/update', authMiddleware, authorize('inventory:write'), async (req,
       quantity,
       unit
     });
+    
+    // Find the updated item to get its current state
+    let updatedItem;
+    try {
+      updatedItem = await inventoryService.findBestMatch(item);
+    } catch (error) {
+      console.log('Could not find updated item for WebSocket message', error);
+    }
+    
+    // Send success message via WebSocket if the item was found
+    if (updatedItem) {
+      const successMessage = {
+        type: 'inventoryUpdate',
+        status: 'success',
+        data: { 
+          item: updatedItem.name, 
+          quantity: updatedItem.quantity, 
+          unit: updatedItem.unit,
+          action,
+          id: updatedItem.id
+        },
+        timestamp: Date.now()
+      };
+      websocketService.broadcastToVoiceClients('inventory-updated', successMessage);
+    }
     
     res.status(200).json({
       message: 'Inventory updated successfully',

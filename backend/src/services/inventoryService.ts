@@ -6,6 +6,7 @@ import { NotFoundError, ValidationError } from '../errors';
 import { generateEmbedding } from '../utils/createEmbedding';
 import { preprocessText } from '../utils/preprocessText';
 import { getUnitType, convertQuantity } from '../utils/unitConversions';
+import websocketService from './websocketService';
 
 interface InventoryUpdate {
   action: string;
@@ -136,6 +137,22 @@ class InventoryService {
         throw new ValidationError('Failed to update inventory quantity');
       }
       console.log(`📦 Successfully updated ${item.name} to ${newQuantity} ${item.unit}`);
+      
+      // Send WebSocket success message
+      const successMessage = {
+        type: 'inventoryUpdate',
+        status: 'success',
+        data: { 
+          item: item.name, 
+          quantity: newQuantity, 
+          unit: item.unit,
+          action: update.action,
+          id: item.id
+        },
+        timestamp: Date.now()
+      };
+      websocketService.broadcastToVoiceClients('inventory-updated', successMessage);
+      
     } catch (error) {
       console.error('📦 Error updating inventory:', error);
       throw error;

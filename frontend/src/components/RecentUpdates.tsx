@@ -1,5 +1,5 @@
 // frontend/src/components/RecentUpdates.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useWebSocket } from '../hooks/useWebSocket';
 
@@ -18,6 +18,7 @@ interface RecentUpdatesProps {
   updates: InventoryUpdate[];
   maxItems?: number;
   websocketUrl?: string;
+  onWebSocketUpdate?: (update: InventoryUpdate) => void;
 }
 
 /**
@@ -27,25 +28,51 @@ interface RecentUpdatesProps {
 const RecentUpdates: React.FC<RecentUpdatesProps> = ({
   updates,
   maxItems = 5,
-  websocketUrl = 'ws://localhost:3001'
+  websocketUrl = 'ws://localhost:3001',
+  onWebSocketUpdate
 }) => {
   const [transcription, setTranscription] = useState('');
   const [feedbackUpdates, setFeedbackUpdates] = useState<string[]>([]);
+  const [liveUpdates, setLiveUpdates] = useState<InventoryUpdate[]>([]);
 
   // Set up WebSocket connection
   useWebSocket(websocketUrl, {
     onMessage: (event) => {
       const data = JSON.parse(event.data);
+      
       if (data.type === 'transcript') {
         setTranscription(data.text);
       } else if (data.type === 'feedback') {
         setFeedbackUpdates(prev => [...prev, data.data.text]);
+      } else if (data.type === 'inventoryUpdate' && data.status === 'success') {
+        // Create an update from WebSocket data
+        const newUpdate: InventoryUpdate = {
+          id: data.data.id || `ws-${Date.now()}`,
+          itemName: data.data.item,
+          action: data.data.action as 'add' | 'remove' | 'set',
+          quantity: data.data.quantity,
+          unit: data.data.unit,
+          timestamp: new Date().toISOString(),
+          userId: 'system',
+          userName: 'WebSocket Update'
+        };
+        
+        // Add to local state
+        setLiveUpdates(prev => [newUpdate, ...prev].slice(0, maxItems));
+        
+        // Notify parent if callback exists
+        if (onWebSocketUpdate) {
+          onWebSocketUpdate(newUpdate);
+        }
       }
     }
   });
 
+  // Combine parent-provided updates with live WebSocket updates
+  const combinedUpdates = [...liveUpdates, ...updates];
+
   // Sort updates by timestamp (newest first) and limit to maxItems
-  const sortedUpdates = [...updates]
+  const sortedUpdates = combinedUpdates
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     .slice(0, maxItems);
 

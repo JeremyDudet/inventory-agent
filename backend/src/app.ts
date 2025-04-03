@@ -19,6 +19,7 @@ import { SessionStateService } from './services/sessionStateService';
 import { ActionLog } from './types/actionLog';
 import type { NlpResult } from './types/nlp';
 import { ValidationError } from './errors';
+import websocketService from './services/websocketService';
 
 dotenv.config();
 
@@ -30,6 +31,9 @@ const io = new Server(server, {
   pingTimeout: 60000, // Increase timeout to reduce premature disconnects
   pingInterval: 25000,
 });
+
+// Initialize websocketService with io instance
+websocketService.init(io);
 
 const PORT = process.env.PORT || 8080;
 

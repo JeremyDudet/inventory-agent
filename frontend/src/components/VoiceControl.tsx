@@ -374,16 +374,34 @@ const VoiceControl: React.FC<VoiceControlProps> = ({ onUpdate, onFailure, onList
       });
     };
 
+    const handleInventoryUpdated = (data: any) => {
+      if (data.status === 'success') {
+        // Log success message
+        setSystemActions(prev => [...prev, {
+          action: 'Inventory',
+          details: `${data.data.action} ${data.data.quantity} ${data.data.unit} of ${data.data.item} successfully completed`,
+          timestamp: data.timestamp || Date.now(),
+          status: 'success'
+        }]);
+        
+        // Update the feedback with success message
+        setFeedback(`Success: ${data.data.action} ${data.data.quantity} ${data.data.unit} of ${data.data.item}`);
+        addNotification('success', `Inventory updated: ${data.data.item}`);
+      }
+    };
+
     socket.on('nlp-response', handleNlpResponse);
     socket.on('command-confirmed', handleCommandConfirmed);
     socket.on('command-corrected', handleCommandCorrected);
     socket.on('command-rejected', handleCommandRejected);
+    socket.on('inventory-updated', handleInventoryUpdated);
 
     return () => {
       socket.off('nlp-response', handleNlpResponse);
       socket.off('command-confirmed', handleCommandConfirmed);
       socket.off('command-corrected', handleCommandCorrected);
       socket.off('command-rejected', handleCommandRejected);
+      socket.off('inventory-updated', handleInventoryUpdated);
     };
   }, [socket]);
 

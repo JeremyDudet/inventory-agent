@@ -134,6 +134,9 @@ describe('NlpService', () => {
     expect(result[0]).toEqual({
       action: 'undo',
       confidence: expect.any(Number),
+      item: '',
+      quantity: undefined,
+      unit: '',
       isComplete: true,
     });
   });
