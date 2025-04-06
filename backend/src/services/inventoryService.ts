@@ -1,5 +1,6 @@
 // backend/src/services/inventoryService.ts
 import stringSimilarity from 'string-similarity';
+import { logSystemAction } from './sessionLogsService';
 import { InventoryRepository } from '../repositories/InventoryRepository';
 import { InventoryItem, InventoryItemInsert } from '../models/InventoryItem';
 import { NotFoundError, ValidationError } from '../errors';
@@ -80,7 +81,7 @@ class InventoryService {
     }
   }
 
-  async updateInventoryCount(update: InventoryUpdate): Promise<void> {
+  async updateInventoryCount(update: InventoryUpdate, req?: any): Promise<void> {
     console.log(`📦 Updating inventory: ${update.action} ${update.quantity} ${update.unit || 'unspecified unit'} of ${update.item}`);
     try {
       const item = await this.findBestMatch(update.item);
@@ -137,6 +138,12 @@ class InventoryService {
         throw new ValidationError('Failed to update inventory quantity');
       }
       console.log(`📦 Successfully updated ${item.name} to ${newQuantity} ${item.unit}`);
+      await logSystemAction(
+        'Inventory Update',
+        `${'User'} ${update.action}ed ${quantityToUpdate} ${item.unit} of ${item.name}`,
+        'success',
+        undefined
+      );
       
       // Send WebSocket success message
       const successMessage = {

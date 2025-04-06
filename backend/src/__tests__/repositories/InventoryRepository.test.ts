@@ -1,3 +1,4 @@
+// backend/src/__tests__/repositories/InventoryRepository.test.ts
 import { InventoryRepository } from '../../repositories/InventoryRepository';
 import supabase from '../../config/db';
 import { INVENTORY_TABLE } from '../../models/InventoryItem';
@@ -242,7 +243,7 @@ describe('InventoryRepository', () => {
     });
   });
 
-  describe('getAll', () => {
+  describe('getAllItems', () => {
     it('should get all inventory items with pagination', async () => {
       // Arrange
       const mockItems = [{ id: '1', name: 'Item 1' }, { id: '2', name: 'Item 2' }];
@@ -254,7 +255,7 @@ describe('InventoryRepository', () => {
       (supabase.from as jest.Mock).mockReturnValue(mockQuery);
   
       // Act
-      const result = await repository.getAll(0, 10);
+      const result = await repository.getAllItems(0, 10);
   
       // Assert
       expect(result).toEqual(mockItems);
@@ -272,7 +273,7 @@ describe('InventoryRepository', () => {
       (supabase.from as jest.Mock).mockReturnValue(mockQuery);
   
       // Act
-      const result = await repository.getAll(10, 5);
+      const result = await repository.getAllItems(10, 5);
   
       // Assert
       expect(result).toEqual(mockItems);
@@ -289,7 +290,7 @@ describe('InventoryRepository', () => {
       (supabase.from as jest.Mock).mockReturnValue(mockQuery);
   
       // Act
-      const result = await repository.getAll(0, 10);
+      const result = await repository.getAllItems(0, 10);
   
       // Assert
       expect(result).toEqual([]);

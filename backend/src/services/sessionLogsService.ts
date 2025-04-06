@@ -6,6 +6,7 @@ import {
   getSessionLogs, 
   getUserSessions,
 } from '../models/SessionLog';
+import supabase from '../config/db';
 
 // Cache the current session ID
 let currentSessionId: string | null = null;
@@ -18,6 +19,20 @@ export const getSessionId = () => {
     currentSessionId = uuidv4();
   }
   return currentSessionId;
+};
+
+/**
+ * Get recent inventory updates
+ */
+export const getRecentInventoryUpdates = async (limit: number) => {
+  const { data } = await supabase
+    .from('session_logs')
+    .select('text, timestamp, user_id')
+    .eq('type', 'action')
+    .ilike('text', '%Inventory Update%')
+    .order('timestamp', { ascending: false })
+    .limit(limit);
+  return data || [];
 };
 
 /**

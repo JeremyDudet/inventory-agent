@@ -4,7 +4,8 @@ import {
   getLogsForSession, 
   getUserSessionList, 
   resetSessionId, 
-  getSessionId 
+  getSessionId,
+  getRecentInventoryUpdates
 } from '../services/sessionLogsService';
 import { authMiddleware } from '../middleware/auth';
 import { UserRole } from '../services/authService';
@@ -23,6 +24,11 @@ router.post('/session', (req, res) => {
   res.json({ sessionId });
 });
 
+router.get('/recent', authMiddleware, async (req, res) => {
+  const logs = await getRecentInventoryUpdates(10); // Last 10 updates
+  res.json(logs);
+});
+
 // Get all logs for a session - making authentication optional for now
 router.get('/session/:sessionId/logs', async (req, res) => {
   try {
@@ -39,6 +45,8 @@ router.get('/session/:sessionId/logs', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+
 
 // Define handler for getting user sessions
 const getUserSessionsHandler = async (req: express.Request, res: express.Response) => {
