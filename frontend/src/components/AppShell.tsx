@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import NotificationFeed from './NotificationFeed'
+import { useState } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import NotificationFeed from "./NotificationFeed";
+import BottomNavigation from "./BottomNavigation";
 import {
   Dialog,
   DialogBackdrop,
@@ -11,7 +12,7 @@ import {
   MenuItem,
   MenuItems,
   TransitionChild,
-} from '@headlessui/react'
+} from "@headlessui/react";
 import {
   Bars3Icon,
   BellIcon,
@@ -23,8 +24,11 @@ import {
   HomeIcon,
   UsersIcon,
   XMarkIcon,
-} from '@heroicons/react/24/outline'
-import { ChevronDownIcon, MagnifyingGlassIcon } from '@heroicons/react/20/solid'
+} from "@heroicons/react/24/outline";
+import {
+  ChevronDownIcon,
+  MagnifyingGlassIcon,
+} from "@heroicons/react/20/solid";
 
 type UserNavigationItem = {
   name: string;
@@ -33,42 +37,41 @@ type UserNavigationItem = {
 };
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
-  { name: 'Inventory', href: '/inventory', icon: HomeIcon },
-  { name: 'Team', href: '/team', icon: UsersIcon },
-  { name: 'Projects', href: '/projects', icon: FolderIcon },
-  { name: 'Calendar', href: '/calendar', icon: CalendarIcon },
-  { name: 'Documents', href: '/documents', icon: DocumentDuplicateIcon },
-  { name: 'Reports', href: '/reports', icon: ChartPieIcon },
-]
+  { name: "Dashboard", href: "/dashboard", icon: HomeIcon },
+  { name: "Inventory", href: "/inventory", icon: HomeIcon },
+  { name: "Team", href: "/team", icon: UsersIcon },
+  { name: "Projects", href: "/projects", icon: FolderIcon },
+  { name: "Calendar", href: "/calendar", icon: CalendarIcon },
+  { name: "Documents", href: "/documents", icon: DocumentDuplicateIcon },
+  { name: "Reports", href: "/reports", icon: ChartPieIcon },
+];
 const teams = [
-  { id: 1, name: 'Heroicons', href: '#', initial: 'H', current: false },
-  { id: 2, name: 'Tailwind Labs', href: '#', initial: 'T', current: false },
-  { id: 3, name: 'Workcation', href: '#', initial: 'W', current: false },
-]
-
+  { id: 1, name: "Heroicons", href: "#", initial: "H", current: false },
+  { id: 2, name: "Tailwind Labs", href: "#", initial: "T", current: false },
+  { id: 3, name: "Workcation", href: "#", initial: "W", current: false },
+];
 
 function classNames(...classes: string[]) {
-  return classes.filter(Boolean).join(' ')
+  return classes.filter(Boolean).join(" ");
 }
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const navigate = useNavigate()
-  const location = useLocation()
-  const { user: authUser, signOut } = useAuth()
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user: authUser, signOut } = useAuth();
 
   const userNavigation: UserNavigationItem[] = [
-    { name: 'Your profile', href: '#' },
-    { 
-      name: 'Sign out', 
-      href: '#', 
+    { name: "Your profile", href: "#" },
+    {
+      name: "Sign out",
+      href: "#",
       onClick: (e: React.MouseEvent<HTMLAnchorElement>) => {
         e.preventDefault();
         signOut();
-      }
+      },
     },
-  ]
+  ];
 
   return (
     <>
@@ -81,7 +84,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         ```
       */}
       <div className="min-h-screen flex flex-col">
-        <Dialog open={sidebarOpen} onClose={setSidebarOpen} className="relative z-50 lg:hidden">
+        <Dialog
+          open={sidebarOpen}
+          onClose={setSidebarOpen}
+          className="relative z-50 lg:hidden"
+        >
           <DialogBackdrop
             transition
             className="fixed inset-0 bg-gray-900/80 transition-opacity duration-300 ease-linear data-[closed]:opacity-0"
@@ -94,9 +101,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             >
               <TransitionChild>
                 <div className="absolute left-full top-0 flex w-16 justify-center pt-5 duration-300 ease-in-out data-[closed]:opacity-0">
-                  <button type="button" onClick={() => setSidebarOpen(false)} className="-m-2.5 p-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setSidebarOpen(false)}
+                    className="-m-2.5 p-2.5"
+                  >
                     <span className="sr-only">Close sidebar</span>
-                    <XMarkIcon aria-hidden="true" className="size-6 text-white" />
+                    <XMarkIcon
+                      aria-hidden="true"
+                      className="size-6 text-white"
+                    />
                   </button>
                 </div>
               </TransitionChild>
@@ -121,27 +135,31 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                                 to={item.href}
                                 className={classNames(
                                   isCurrentPage
-                                    ? 'bg-gray-50 text-indigo-600'
-                                    : 'text-gray-700 hover:bg-gray-50 hover:text-indigo-600',
-                                  'group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold',
+                                    ? "bg-gray-50 text-indigo-600"
+                                    : "text-gray-700 hover:bg-gray-50 hover:text-indigo-600",
+                                  "group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold"
                                 )}
                               >
                                 <item.icon
                                   aria-hidden="true"
                                   className={classNames(
-                                    isCurrentPage ? 'text-indigo-600' : 'text-gray-400 group-hover:text-indigo-600',
-                                    'size-6 shrink-0',
+                                    isCurrentPage
+                                      ? "text-indigo-600"
+                                      : "text-gray-400 group-hover:text-indigo-600",
+                                    "size-6 shrink-0"
                                   )}
                                 />
                                 {item.name}
                               </Link>
                             </li>
-                          )
+                          );
                         })}
                       </ul>
                     </li>
                     <li>
-                      <div className="text-xs/6 font-semibold text-gray-400">Your teams</div>
+                      <div className="text-xs/6 font-semibold text-gray-400">
+                        Your teams
+                      </div>
                       <ul role="list" className="-mx-2 mt-2 space-y-1">
                         {teams.map((team) => (
                           <li key={team.name}>
@@ -149,17 +167,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                               href={team.href}
                               className={classNames(
                                 team.current
-                                  ? 'bg-gray-50 text-indigo-600'
-                                  : 'text-gray-700 hover:bg-gray-50 hover:text-indigo-600',
-                                'group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold',
+                                  ? "bg-gray-50 text-indigo-600"
+                                  : "text-gray-700 hover:bg-gray-50 hover:text-indigo-600",
+                                "group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold"
                               )}
                             >
                               <span
                                 className={classNames(
                                   team.current
-                                    ? 'border-indigo-600 text-indigo-600'
-                                    : 'border-gray-200 text-gray-400 group-hover:border-indigo-600 group-hover:text-indigo-600',
-                                  'flex size-6 shrink-0 items-center justify-center rounded-lg border bg-white text-[0.625rem] font-medium',
+                                    ? "border-indigo-600 text-indigo-600"
+                                    : "border-gray-200 text-gray-400 group-hover:border-indigo-600 group-hover:text-indigo-600",
+                                  "flex size-6 shrink-0 items-center justify-center rounded-lg border bg-white text-[0.625rem] font-medium"
                                 )}
                               >
                                 {team.initial}
@@ -170,27 +188,29 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                         ))}
                       </ul>
                     </li>
-                    
+
                     {/* Notifications area - Mobile */}
                     <li className="flex-shrink-0 mt-4 mb-2 overflow-visible flex-grow">
                       <NotificationFeed />
                     </li>
-                    
+
                     <li className="mt-auto">
                       <Link
                         to="/settings"
                         className={classNames(
-                          location.pathname === '/settings'
-                            ? 'bg-gray-50 text-indigo-600'
-                            : 'text-gray-700 hover:bg-gray-50 hover:text-indigo-600',
-                          'group -mx-2 flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold',
+                          location.pathname === "/settings"
+                            ? "bg-gray-50 text-indigo-600"
+                            : "text-gray-700 hover:bg-gray-50 hover:text-indigo-600",
+                          "group -mx-2 flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold"
                         )}
                       >
                         <Cog6ToothIcon
                           aria-hidden="true"
                           className={classNames(
-                            location.pathname === '/settings' ? 'text-indigo-600' : 'text-gray-400 group-hover:text-indigo-600',
-                            'size-6 shrink-0',
+                            location.pathname === "/settings"
+                              ? "text-indigo-600"
+                              : "text-gray-400 group-hover:text-indigo-600",
+                            "size-6 shrink-0"
                           )}
                         />
                         Settings
@@ -226,27 +246,31 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                             to={item.href}
                             className={classNames(
                               isCurrentPage
-                                ? 'bg-gray-50 text-indigo-600'
-                                : 'text-gray-700 hover:bg-gray-50 hover:text-indigo-600',
-                              'group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold',
+                                ? "bg-gray-50 text-indigo-600"
+                                : "text-gray-700 hover:bg-gray-50 hover:text-indigo-600",
+                              "group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold"
                             )}
                           >
                             <item.icon
                               aria-hidden="true"
                               className={classNames(
-                                isCurrentPage ? 'text-indigo-600' : 'text-gray-400 group-hover:text-indigo-600',
-                                'size-6 shrink-0',
+                                isCurrentPage
+                                  ? "text-indigo-600"
+                                  : "text-gray-400 group-hover:text-indigo-600",
+                                "size-6 shrink-0"
                               )}
                             />
                             {item.name}
                           </Link>
                         </li>
-                      )
+                      );
                     })}
                   </ul>
                 </li>
                 <li>
-                  <div className="text-xs/6 font-semibold text-gray-400">Your teams</div>
+                  <div className="text-xs/6 font-semibold text-gray-400">
+                    Your teams
+                  </div>
                   <ul role="list" className="-mx-2 mt-2 space-y-1">
                     {teams.map((team) => (
                       <li key={team.name}>
@@ -254,17 +278,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                           href={team.href}
                           className={classNames(
                             team.current
-                              ? 'bg-gray-50 text-indigo-600'
-                              : 'text-gray-700 hover:bg-gray-50 hover:text-indigo-600',
-                            'group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold',
+                              ? "bg-gray-50 text-indigo-600"
+                              : "text-gray-700 hover:bg-gray-50 hover:text-indigo-600",
+                            "group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold"
                           )}
                         >
                           <span
                             className={classNames(
                               team.current
-                                ? 'border-indigo-600 text-indigo-600'
-                                : 'border-gray-200 text-gray-400 group-hover:border-indigo-600 group-hover:text-indigo-600',
-                              'flex size-6 shrink-0 items-center justify-center rounded-lg border bg-white text-[0.625rem] font-medium',
+                                ? "border-indigo-600 text-indigo-600"
+                                : "border-gray-200 text-gray-400 group-hover:border-indigo-600 group-hover:text-indigo-600",
+                              "flex size-6 shrink-0 items-center justify-center rounded-lg border bg-white text-[0.625rem] font-medium"
                             )}
                           >
                             {team.initial}
@@ -275,27 +299,29 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     ))}
                   </ul>
                 </li>
-                
+
                 {/* Notifications area - Desktop */}
                 <li className="flex-shrink-0 mt-4 mb-2 overflow-visible flex-grow">
                   <NotificationFeed />
                 </li>
-                
+
                 <li className="mt-auto">
                   <Link
                     to="/settings"
                     className={classNames(
-                      location.pathname === '/settings'
-                        ? 'bg-gray-50 text-indigo-600'
-                        : 'text-gray-700 hover:bg-gray-50 hover:text-indigo-600',
-                      'group -mx-2 flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold',
+                      location.pathname === "/settings"
+                        ? "bg-gray-50 text-indigo-600"
+                        : "text-gray-700 hover:bg-gray-50 hover:text-indigo-600",
+                      "group -mx-2 flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold"
                     )}
                   >
                     <Cog6ToothIcon
                       aria-hidden="true"
                       className={classNames(
-                        location.pathname === '/settings' ? 'text-indigo-600' : 'text-gray-400 group-hover:text-indigo-600',
-                        'size-6 shrink-0',
+                        location.pathname === "/settings"
+                          ? "text-indigo-600"
+                          : "text-gray-400 group-hover:text-indigo-600",
+                        "size-6 shrink-0"
                       )}
                     />
                     Settings
@@ -308,13 +334,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="lg:pl-72">
           <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
-            <button type="button" onClick={() => setSidebarOpen(true)} className="-m-2.5 p-2.5 text-gray-700 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="-m-2.5 p-2.5 text-gray-700 lg:hidden"
+            >
               <span className="sr-only">Open sidebar</span>
               <Bars3Icon aria-hidden="true" className="size-6" />
             </button>
 
             {/* Separator */}
-            <div aria-hidden="true" className="h-6 w-px bg-gray-200 lg:hidden" />
+            <div
+              aria-hidden="true"
+              className="h-6 w-px bg-gray-200 lg:hidden"
+            />
 
             <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
               <form action="#" method="GET" className="grid flex-1 grid-cols-1">
@@ -331,13 +364,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 />
               </form>
               <div className="flex items-center gap-x-4 lg:gap-x-6">
-                <button type="button" className="-m-2.5 p-2.5 text-gray-400 hover:text-gray-500">
+                <button
+                  type="button"
+                  className="-m-2.5 p-2.5 text-gray-400 hover:text-gray-500"
+                >
                   <span className="sr-only">View notifications</span>
                   <BellIcon aria-hidden="true" className="size-6" />
                 </button>
 
                 {/* Separator */}
-                <div aria-hidden="true" className="hidden lg:block lg:h-6 lg:w-px lg:bg-gray-200" />
+                <div
+                  aria-hidden="true"
+                  className="hidden lg:block lg:h-6 lg:w-px lg:bg-gray-200"
+                />
 
                 {/* Profile dropdown */}
                 <Menu as="div" className="relative">
@@ -345,14 +384,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     <span className="sr-only">Open user menu</span>
                     <img
                       alt=""
-                      src={`https://ui-avatars.com/api/?name=${encodeURIComponent(authUser?.user_metadata?.name || 'User')}&background=0D9488&color=fff`}
+                      src={`https://ui-avatars.com/api/?name=${encodeURIComponent(
+                        authUser?.user_metadata?.name || "User"
+                      )}&background=0D9488&color=fff`}
                       className="size-8 rounded-full bg-gray-50"
                     />
                     <span className="hidden lg:flex lg:items-center">
-                      <span aria-hidden="true" className="ml-4 text-sm/6 font-semibold text-gray-900">
-                        {authUser?.user_metadata?.name || 'User'}
+                      <span
+                        aria-hidden="true"
+                        className="ml-4 text-sm/6 font-semibold text-gray-900"
+                      >
+                        {authUser?.user_metadata?.name || "User"}
                       </span>
-                      <ChevronDownIcon aria-hidden="true" className="ml-2 size-5 text-gray-400" />
+                      <ChevronDownIcon
+                        aria-hidden="true"
+                        className="ml-2 size-5 text-gray-400"
+                      />
                     </span>
                   </MenuButton>
                   <MenuItems
@@ -380,11 +427,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
 
-          <main className="py-10 flex-grow">
+          <main className="py-10 flex-grow pb-16 lg:pb-10">
             <div className="px-4 sm:px-6 lg:px-8">{children}</div>
           </main>
         </div>
+
+        <BottomNavigation />
       </div>
     </>
-  )
+  );
 }
