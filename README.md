@@ -1,6 +1,6 @@
 # StockCount
 
-A voice-driven AI agent designed for cafes/restaurants to manage inventory via natural, real-time conversation. It leverages speech recognition, natural language processing, and text-to-speech to allow staff to update and query inventory.
+A voice-driven AI agent designed for cafes/restaurants to manage inventory via natural, real-time conversation. It leverages speech recognition, natural language processing, and text-to-speech to allow staff to update and query inventory efficiently.
 
 ## Features
 
@@ -81,4 +81,4 @@ A voice-driven AI agent designed for cafes/restaurants to manage inventory via n
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+This project is licensed under the MIT License - see the LICENSE file for details.  
