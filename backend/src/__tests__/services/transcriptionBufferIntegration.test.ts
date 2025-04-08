@@ -2,8 +2,13 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import TranscriptionBuffer from '../../services/transcriptionBuffer';
 import { NlpService } from '../../services/nlpService';
 import { NlpResult } from '../../types/nlp';
+import { SessionStateService } from '../../services/sessionStateService';
 
-type ProcessTranscriptionFn = (transcription: string) => Promise<NlpResult[]>;
+type ProcessTranscriptionFn = (
+  transcription: string, 
+  conversationHistory: Array<{ role: "user" | "assistant"; content: string }>,
+  recentCommands: Array<any>
+) => Promise<NlpResult[]>;
 
 jest.mock('../../services/nlpService', () => {
   return {
@@ -13,8 +18,21 @@ jest.mock('../../services/nlpService', () => {
   };
 });
 
+jest.mock('../../services/sessionStateService', () => {
+  return {
+    SessionStateService: jest.fn().mockImplementation(() => ({
+      getState: jest.fn().mockReturnValue({
+        conversationHistory: [],
+        recentCommands: []
+      }),
+      getRecentCommands: jest.fn().mockReturnValue([])
+    }))
+  };
+});
+
 describe('TranscriptionBuffer Integration Tests', () => {
   let nlpService: NlpService;
+  let sessionState: SessionStateService;
   let transcriptionBuffer: TranscriptionBuffer;
   let mockProcessTranscription: jest.Mock<ProcessTranscriptionFn>;
 
@@ -30,9 +48,10 @@ describe('TranscriptionBuffer Integration Tests', () => {
 
   beforeEach(() => {
     nlpService = new NlpService();
+    sessionState = new SessionStateService();
     mockProcessTranscription = nlpService.processTranscription as jest.Mock<ProcessTranscriptionFn>;
     mockProcessTranscription.mockImplementation(async () => [mockResult]);
-    transcriptionBuffer = new TranscriptionBuffer(nlpService);
+    transcriptionBuffer = new TranscriptionBuffer(nlpService, sessionState);
     jest.clearAllMocks();
   });
 
@@ -50,13 +69,15 @@ describe('TranscriptionBuffer Integration Tests', () => {
 
     transcriptionBuffer.addTranscription('add 5 pounds of coffee');
     const buffer = transcriptionBuffer.getCurrentBuffer();
-    const nlpResults = await nlpService.processTranscription(buffer);
+    const emptyConversationHistory: Array<{ role: "user" | "assistant"; content: string }> = [];
+    const emptyRecentCommands: Array<any> = [];
+    const nlpResults = await nlpService.processTranscription(buffer, emptyConversationHistory, emptyRecentCommands);
 
     if (nlpResults[0].isComplete) {
       transcriptionBuffer.clearBuffer();
     }
 
-    expect(mockProcessTranscription).toHaveBeenCalledWith('add 5 pounds of coffee');
+    expect(mockProcessTranscription).toHaveBeenCalledWith('add 5 pounds of coffee', expect.any(Array), expect.any(Array));
     expect(transcriptionBuffer.getCurrentBuffer()).toBe('');
   });
 
@@ -74,13 +95,15 @@ describe('TranscriptionBuffer Integration Tests', () => {
 
     transcriptionBuffer.addTranscription('add 5 pounds of');
     const buffer = transcriptionBuffer.getCurrentBuffer();
-    const nlpResults = await nlpService.processTranscription(buffer);
+    const emptyConversationHistory: Array<{ role: "user" | "assistant"; content: string }> = [];
+    const emptyRecentCommands: Array<any> = [];
+    const nlpResults = await nlpService.processTranscription(buffer, emptyConversationHistory, emptyRecentCommands);
 
     if (nlpResults[0].isComplete) {
       transcriptionBuffer.clearBuffer();
     }
 
-    expect(mockProcessTranscription).toHaveBeenCalledWith('add 5 pounds of');
+    expect(mockProcessTranscription).toHaveBeenCalledWith('add 5 pounds of', expect.any(Array), expect.any(Array));
     expect(transcriptionBuffer.getCurrentBuffer()).toBe('add 5 pounds of');
   });
 
@@ -109,24 +132,26 @@ describe('TranscriptionBuffer Integration Tests', () => {
 
     transcriptionBuffer.addTranscription('add 5 pounds of');
     let buffer = transcriptionBuffer.getCurrentBuffer();
-    let nlpResults = await nlpService.processTranscription(buffer);
+    const emptyConversationHistory: Array<{ role: "user" | "assistant"; content: string }> = [];
+    const emptyRecentCommands: Array<any> = [];
+    let nlpResults = await nlpService.processTranscription(buffer, emptyConversationHistory, emptyRecentCommands);
 
     if (nlpResults[0].isComplete) {
       transcriptionBuffer.clearBuffer();
     }
 
-    expect(mockProcessTranscription).toHaveBeenNthCalledWith(1, 'add 5 pounds of');
+    expect(mockProcessTranscription).toHaveBeenNthCalledWith(1, 'add 5 pounds of', expect.any(Array), expect.any(Array));
     expect(transcriptionBuffer.getCurrentBuffer()).toBe('add 5 pounds of');
 
     transcriptionBuffer.addTranscription('coffee');
     buffer = transcriptionBuffer.getCurrentBuffer();
-    nlpResults = await nlpService.processTranscription(buffer);
+    nlpResults = await nlpService.processTranscription(buffer, emptyConversationHistory, emptyRecentCommands);
 
     if (nlpResults[0].isComplete) {
       transcriptionBuffer.clearBuffer();
     }
 
-    expect(mockProcessTranscription).toHaveBeenNthCalledWith(2, 'add 5 pounds of coffee');
+    expect(mockProcessTranscription).toHaveBeenNthCalledWith(2, 'add 5 pounds of coffee', expect.any(Array), expect.any(Array));
     expect(transcriptionBuffer.getCurrentBuffer()).toBe('');
   });
 
@@ -155,24 +180,26 @@ describe('TranscriptionBuffer Integration Tests', () => {
 
     transcriptionBuffer.addTranscription('Set the 16 ounce paper cups');
     let buffer = transcriptionBuffer.getCurrentBuffer();
-    let nlpResults = await nlpService.processTranscription(buffer);
+    const emptyConversationHistory: Array<{ role: "user" | "assistant"; content: string }> = [];
+    const emptyRecentCommands: Array<any> = [];
+    let nlpResults = await nlpService.processTranscription(buffer, emptyConversationHistory, emptyRecentCommands);
 
     if (nlpResults[0].isComplete) {
       transcriptionBuffer.clearBuffer();
     }
 
-    expect(mockProcessTranscription).toHaveBeenNthCalledWith(1, 'Set the 16 ounce paper cups');
+    expect(mockProcessTranscription).toHaveBeenNthCalledWith(1, 'Set the 16 ounce paper cups', expect.any(Array), expect.any(Array));
     expect(transcriptionBuffer.getCurrentBuffer()).toBe('Set the 16 ounce paper cups');
 
     transcriptionBuffer.addTranscription('to 30 sleeves');
     buffer = transcriptionBuffer.getCurrentBuffer();
-    nlpResults = await nlpService.processTranscription(buffer);
+    nlpResults = await nlpService.processTranscription(buffer, emptyConversationHistory, emptyRecentCommands);
 
     if (nlpResults[0].isComplete) {
       transcriptionBuffer.clearBuffer();
     }
 
-    expect(mockProcessTranscription).toHaveBeenNthCalledWith(2, 'Set the 16 ounce paper cups to 30 sleeves');
+    expect(mockProcessTranscription).toHaveBeenNthCalledWith(2, 'Set the 16 ounce paper cups to 30 sleeves', expect.any(Array), expect.any(Array));
     expect(transcriptionBuffer.getCurrentBuffer()).toBe('');
   });
 });
