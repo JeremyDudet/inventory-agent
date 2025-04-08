@@ -85,6 +85,9 @@ class TranscriptionBuffer extends EventEmitter {
       const conversationHistory =
         this.sessionState.getState().conversationHistory;
       const recentCommands = this.sessionState.getRecentCommands();
+      
+      const hasRelativeTerms = this.containsRelativeTerms(completeTranscription);
+      
       // Process transcription with conversation history
       const nlpResults = await this.nlpService.processTranscription(
         completeTranscription,
@@ -105,6 +108,21 @@ class TranscriptionBuffer extends EventEmitter {
       console.error("Error processing complete transcription:", error);
       this.emit("error", error);
     }
+  }
+  
+  /**
+   * Check if the transcription contains terms that indicate a relative command
+   * @param transcription - The transcription to check
+   * @returns Whether the transcription contains relative terms
+   */
+  private containsRelativeTerms(transcription: string): boolean {
+    const lowerText = transcription.toLowerCase();
+    const relativeTerms = [
+      'more', 'another', 'additional', 'extra', 'same', 
+      'again', 'also', 'too', 'as well', 'like before'
+    ];
+    
+    return relativeTerms.some(term => lowerText.includes(term));
   }
 
   /**

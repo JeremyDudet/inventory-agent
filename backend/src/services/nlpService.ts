@@ -31,6 +31,8 @@ export class NlpService {
   /**
    * Process a transcription and extract inventory commands
    * @param transcription - The transcription to process
+   * @param conversationHistory - Recent conversation history for context
+   * @param recentCommands - Recent inventory commands for context
    * @returns Array of NLP results
    */
   async processTranscription(
@@ -41,6 +43,8 @@ export class NlpService {
     console.log(`🧠 [NLP] Processing transcription: "${transcription}"`);
 
     try {
+      const hasRelativeTerms = this.containsRelativeTerms(transcription);
+      
       // Parse the transcription into NLP result(s)
       const parsedResults = await this.parseTranscription(
         transcription,
@@ -49,6 +53,14 @@ export class NlpService {
       );
 
       let output: NlpResult[] = [];
+
+      if (parsedResults.some(r => !r.isComplete) && (recentCommands.length > 0 || conversationHistory.length > 0)) {
+        for (let i = 0; i < parsedResults.length; i++) {
+          if (!parsedResults[i].isComplete) {
+            parsedResults[i] = this.enhanceWithContext(parsedResults[i], conversationHistory, recentCommands);
+          }
+        }
+      }
 
       for (const result of parsedResults) {
         if (result.isComplete) {
@@ -110,6 +122,74 @@ export class NlpService {
         },
       ];
     }
+  }
+  
+  /**
+   * Check if the transcription contains terms that indicate a relative command
+   * @param transcription - The transcription to check
+   * @returns Whether the transcription contains relative terms
+   */
+  private containsRelativeTerms(transcription: string): boolean {
+    const lowerText = transcription.toLowerCase();
+    const relativeTerms = [
+      'more', 'another', 'additional', 'extra', 'same', 
+      'again', 'also', 'too', 'as well', 'like before'
+    ];
+    
+    return relativeTerms.some(term => lowerText.includes(term));
+  }
+  
+  /**
+   * Enhance an incomplete NLP result with context from conversation history and recent commands
+   * @param result - The incomplete NLP result
+   * @param conversationHistory - Recent conversation history
+   * @param recentCommands - Recent inventory commands
+   * @returns Enhanced NLP result
+   */
+  private enhanceWithContext(
+    result: NlpResult, 
+    conversationHistory: Array<{ role: "user" | "assistant"; content: string }>,
+    recentCommands: Array<RecentCommand>
+  ): NlpResult {
+    const enhanced = { ...result };
+    
+    if (enhanced.quantity !== undefined && (!enhanced.item || !enhanced.unit)) {
+      if (recentCommands.length > 0) {
+        const mostRecent = recentCommands[recentCommands.length - 1];
+        
+        if (!enhanced.action || enhanced.action === mostRecent.action) {
+          if (!enhanced.item) enhanced.item = mostRecent.item;
+          if (!enhanced.unit) enhanced.unit = mostRecent.unit;
+          if (!enhanced.action) enhanced.action = mostRecent.action;
+        }
+      }
+      
+      if ((!enhanced.item || !enhanced.unit) && conversationHistory.length > 0) {
+        for (let i = conversationHistory.length - 1; i >= 0; i--) {
+          const message = conversationHistory[i];
+          
+          const itemMatch = message.content.match(/(?:add|remove|set)\s+\d+\s+(\w+)\s+of\s+([^,.]+)/i);
+          if (itemMatch) {
+            if (!enhanced.unit) enhanced.unit = itemMatch[1];
+            if (!enhanced.item) enhanced.item = itemMatch[2].trim();
+            break;
+          }
+        }
+      }
+    }
+    
+    if (this.isCommandComplete({
+      action: enhanced.action,
+      item: enhanced.item,
+      quantity: enhanced.quantity,
+      unit: enhanced.unit,
+      timestamp: Date.now()
+    })) {
+      enhanced.isComplete = true;
+      enhanced.confidence = Math.max(enhanced.confidence, 0.9); // Increase confidence for context-enhanced commands
+    }
+    
+    return enhanced;
   }
 
   /**
