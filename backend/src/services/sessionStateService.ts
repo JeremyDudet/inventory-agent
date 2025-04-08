@@ -1,5 +1,9 @@
 // backend/src/services/sessionStateService.ts
-import { SessionState, SessionStateType } from '../types/session';
+import {
+  SessionState,
+  SessionStateType,
+  RecentCommand,
+} from "../types/session";
 
 export class SessionStateService {
   private state: SessionState;
@@ -7,9 +11,11 @@ export class SessionStateService {
 
   constructor() {
     this.state = {
-      currentState: 'normal',
+      currentState: "normal",
       pendingConfirmation: null,
-      isProcessingVoiceCommand: false
+      isProcessingVoiceCommand: false,
+      conversationHistory: [],
+      recentCommands: [],
     };
   }
 
@@ -30,7 +36,7 @@ export class SessionStateService {
   /**
    * Get the pending confirmation
    */
-  getPendingConfirmation(): SessionState['pendingConfirmation'] {
+  getPendingConfirmation(): SessionState["pendingConfirmation"] {
     return this.state.pendingConfirmation;
   }
 
@@ -55,7 +61,7 @@ export class SessionStateService {
   updateState(partialState: Partial<SessionState>): void {
     this.state = {
       ...this.state,
-      ...partialState
+      ...partialState,
     };
     this.notifyStateChange();
   }
@@ -65,9 +71,11 @@ export class SessionStateService {
    */
   resetState(): void {
     this.state = {
-      currentState: 'normal',
+      currentState: "normal",
       pendingConfirmation: null,
-      isProcessingVoiceCommand: false
+      isProcessingVoiceCommand: false,
+      conversationHistory: [],
+      recentCommands: [],
     };
     this.notifyStateChange();
   }
@@ -79,7 +87,9 @@ export class SessionStateService {
   onStateChange(callback: (state: SessionState) => void): () => void {
     this.stateChangeListeners.push(callback);
     return () => {
-      this.stateChangeListeners = this.stateChangeListeners.filter(cb => cb !== callback);
+      this.stateChangeListeners = this.stateChangeListeners.filter(
+        (cb) => cb !== callback
+      );
     };
   }
 
@@ -88,7 +98,7 @@ export class SessionStateService {
    */
   private notifyStateChange(): void {
     const currentState = this.getState();
-    this.stateChangeListeners.forEach(callback => callback(currentState));
+    this.stateChangeListeners.forEach((callback) => callback(currentState));
   }
 
   /**
@@ -101,7 +111,9 @@ export class SessionStateService {
   /**
    * Set pending confirmation
    */
-  setPendingConfirmation(confirmation: SessionState['pendingConfirmation']): void {
+  setPendingConfirmation(
+    confirmation: SessionState["pendingConfirmation"]
+  ): void {
     this.updateState({ pendingConfirmation: confirmation });
   }
 
@@ -111,4 +123,37 @@ export class SessionStateService {
   setProcessingVoiceCommand(isProcessing: boolean): void {
     this.updateState({ isProcessingVoiceCommand: isProcessing });
   }
-} 
+
+  addRecentCommand(command: RecentCommand): void {
+    this.state.recentCommands.push(command);
+    // Keep only the last 2 commands to avoid excessive memory use
+    if (this.state.recentCommands.length > 2) {
+      this.state.recentCommands.shift();
+    }
+    this.notifyStateChange();
+  }
+
+  // Add a getter for recent commands
+  getRecentCommands(): Array<RecentCommand> {
+    return [...this.state.recentCommands];
+  }
+
+  addUserMessage(content: string): void {
+    this.state.conversationHistory.push({ role: "user", content });
+    this.trimConversationHistory();
+    this.notifyStateChange();
+  }
+
+  addAssistantMessage(content: string): void {
+    this.state.conversationHistory.push({ role: "assistant", content });
+    this.trimConversationHistory();
+    this.notifyStateChange();
+  }
+
+  private trimConversationHistory(): void {
+    const maxHistory = 8; // Last 4 turns (user + assistant)
+    while (this.state.conversationHistory.length > maxHistory) {
+      this.state.conversationHistory.shift();
+    }
+  }
+}

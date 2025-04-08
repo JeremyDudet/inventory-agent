@@ -1,14 +1,14 @@
 // backend/src/services/nlpService.ts
-import dotenv from 'dotenv';
-import axios from 'axios';
-import { NlpResult } from '../types/nlp';
-
+import dotenv from "dotenv";
+import axios from "axios";
+import { NlpResult } from "../types/nlp";
+import { RecentCommand } from "../types/session";
 // Load environment variables
 dotenv.config();
 
 // OpenAI API key for advanced NLP processing
-const openaiApiKey = process.env.OPENAI_API_KEY || '';
-const useOpenAI = openaiApiKey !== '';
+const openaiApiKey = process.env.OPENAI_API_KEY || "";
+const useOpenAI = openaiApiKey !== "";
 
 // Define the CommandAccumulator interface
 interface CommandAccumulator {
@@ -17,7 +17,6 @@ interface CommandAccumulator {
   quantity: number | undefined;
   unit: string;
   timestamp: number;
-
 }
 /**
  * NLP service for processing transcriptions and extracting inventory commands
@@ -34,23 +33,38 @@ export class NlpService {
    * @param transcription - The transcription to process
    * @returns Array of NLP results
    */
-  async processTranscription(transcription: string): Promise<NlpResult[]> {
+  async processTranscription(
+    transcription: string,
+    conversationHistory: Array<{ role: "user" | "assistant"; content: string }>,
+    recentCommands: Array<RecentCommand>
+  ): Promise<NlpResult[]> {
     console.log(`🧠 [NLP] Processing transcription: "${transcription}"`);
-  
+
     try {
       // Parse the transcription into NLP result(s)
-      const parsedResults = await this.parseTranscription(transcription);
-  
+      const parsedResults = await this.parseTranscription(
+        transcription,
+        conversationHistory,
+        recentCommands
+      );
+
       let output: NlpResult[] = [];
-  
+
       for (const result of parsedResults) {
         if (result.isComplete) {
           // Complete commands are added directly to output
           output.push(result);
         } else {
           // Handle incomplete commands with the accumulator
-          if (this.commandAccumulator && Date.now() - this.commandAccumulator.timestamp <= this.contextWindowMs) {
-            const mergedResult = this.mergeWithAccumulator(this.commandAccumulator, result);
+          if (
+            this.commandAccumulator &&
+            Date.now() - this.commandAccumulator.timestamp <=
+              this.contextWindowMs
+          ) {
+            const mergedResult = this.mergeWithAccumulator(
+              this.commandAccumulator,
+              result
+            );
             this.commandAccumulator = mergedResult;
             if (this.isCommandComplete(mergedResult)) {
               output.push({
@@ -69,7 +83,7 @@ export class NlpService {
           }
         }
       }
-  
+
       // If an incomplete accumulator remains, include it in the output without timestamp
       if (this.commandAccumulator) {
         output.push({
@@ -81,16 +95,16 @@ export class NlpService {
           isComplete: false,
         });
       }
-  
+
       return output;
     } catch (error) {
-      console.error('🧠 [NLP] ❌ Error processing transcription:', error);
+      console.error("🧠 [NLP] ❌ Error processing transcription:", error);
       return [
         {
-          action: 'unknown',
-          item: 'unknown',
+          action: "unknown",
+          item: "unknown",
           quantity: undefined,
-          unit: '',
+          unit: "",
           confidence: 0.3,
           isComplete: false,
         },
@@ -103,12 +117,20 @@ export class NlpService {
    * @param transcription - The transcription to parse
    * @returns Array of parsed NLP results
    */
-  private async parseTranscription(transcription: string): Promise<NlpResult[]> {
+  private async parseTranscription(
+    transcription: string,
+    conversationHistory: Array<{ role: "user" | "assistant"; content: string }>,
+    recentCommands: Array<RecentCommand>
+  ): Promise<NlpResult[]> {
     if (useOpenAI) {
-      console.log('🧠 [NLP] Using OpenAI API for NLP processing');
-      return await this.processWithOpenAI(transcription);
+      console.log("🧠 [NLP] Using OpenAI API for NLP processing");
+      return await this.processWithOpenAI(
+        transcription,
+        conversationHistory,
+        recentCommands
+      );
     } else {
-      console.log('🧠 [NLP] ❌ Error: OpenAI API key not found');
+      console.log("🧠 [NLP] ❌ Error: OpenAI API key not found");
       return [];
     }
   }
@@ -142,10 +164,10 @@ export class NlpService {
    */
   private isCommandComplete(accumulator: CommandAccumulator): boolean {
     const { action, item, quantity, unit } = accumulator;
-    if (action === 'set') {
+    if (action === "set") {
       return Boolean(item && quantity !== undefined && unit);
     }
-    if (['add', 'remove'].includes(action)) {
+    if (["add", "remove"].includes(action)) {
       return Boolean(item && quantity !== undefined);
     }
     return false;
@@ -175,15 +197,19 @@ export class NlpService {
    * @param transcription - The transcription to process
    * @returns Array of extracted inventory commands
    */
-  private async processWithOpenAI(transcription: string): Promise<NlpResult[]> {
+  private async processWithOpenAI(
+    transcription: string,
+    conversationHistory: Array<{ role: "user" | "assistant"; content: string }>,
+    recentCommands: Array<RecentCommand>
+  ): Promise<NlpResult[]> {
     try {
       const response = await axios.post(
-        'https://api.openai.com/v1/chat/completions',
+        "https://api.openai.com/v1/chat/completions",
         {
-          model: 'gpt-3.5-turbo',
+          model: "gpt-3.5-turbo",
           messages: [
             {
-              role: 'system',
+              role: "system",
               content: `You are a natural language processor for an inventory management system. Your task is to extract one or more inventory commands from the user's input. Each command should have:
 
 action: 'add', 'remove', or 'set' (empty string if not found)
@@ -191,6 +217,9 @@ item: the item name, including any specified attributes like size (return an emp
 quantity: a positive number if specified, undefined if not found
 unit: standard unit e.g., 'gallons', 'pounds', 'bags', 'boxes' (empty string if not found)
 confidence: 0 to 1 (0.95 for complete, 0.8 for action+item, 0.6 for partial)
+
+If the user says 'more' or 'another X', infer the item and unit from the last mentioned command in the history. 
+For 'undo' or 'revert last', return [{action: 'undo', isComplete: true, confidence: X}]. If the input isn't an inventory command, return [].
 
 Additionally, if the user input is 'undo' or 'revert last' or any other command that we can clearly identify as an action to undo, 
 return an array with a single object as so: [{action: 'undo', isComplete: true, confidence: (as a number between 0 and 1)}]
@@ -209,7 +238,10 @@ IMPORTANT RULES:
    - "Add 10 boxes of large coffee filters" → item: "large coffee filters"
 5. If the input has a structure like "X units of Y item", treat it as a single command.
 6. If the input lists multiple "X units of Y item" separated by "and" or commas, treat them as separate commands.
-7. If the input is a command to undo an action, return an array with a single object as so: [{action: 'undo', isComplete: true, confidence: (as a number between 0 and 1)}]
+7. Fill in missing details from the conversation history when possible. For example:
+   - History: [{"role": "user", "content": "Add 10 gallons of milk"}, {"role": "assistant", "content": "Added 10 gallons of milk"}]
+   - Input: "Add 5 more"
+   - Output: [{"action": "add", "item": "milk", "quantity": 5, "unit": "gallons", "confidence": 0.95}]
 8. If the input is not a command or if it's out of scope, meaning that it's not an inventory command, return an empty array.
 
 Examples:
@@ -234,68 +266,71 @@ Output: [
 Return a JSON array of commands.`,
             },
             {
-              role: 'user',
-              content: transcription,
+              role: "user",
+              content: `Transcription: ${transcription}
+              Recent Commands: ${JSON.stringify(recentCommands)}
+              Conversation History: ${JSON.stringify(conversationHistory)}`,
             },
           ],
           temperature: 0.3,
           max_tokens: 100,
-          response_format: { type: 'json_object' },
+          response_format: { type: "json_object" },
         },
         {
           headers: {
             Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
         }
       );
 
       // Log the raw content for debugging
       const content = response.data.choices[0].message.content;
-      console.log('🧠 [NLP] OpenAI response content:', content);
+      console.log("🧠 [NLP] OpenAI response content:", content);
 
       let results = [];
       try {
         results = JSON.parse(content);
         // Handle single object responses (wrap in array)
-        if (!Array.isArray(results) && typeof results === 'object') {
+        if (!Array.isArray(results) && typeof results === "object") {
           results = [results];
         } else if (!Array.isArray(results)) {
-          console.error('🧠 [NLP] Error: OpenAI response is not a valid format');
+          console.error(
+            "🧠 [NLP] Error: OpenAI response is not a valid format"
+          );
           return [];
         }
       } catch (parseError) {
-        console.error('🧠 [NLP] Error parsing OpenAI response:', parseError);
-        console.error('🧠 [NLP] Raw response:', response.data);
+        console.error("🧠 [NLP] Error parsing OpenAI response:", parseError);
+        console.error("🧠 [NLP] Raw response:", response.data);
         return [];
       }
-      
+
       // Map the results to the NlpResult type
       return results.map((result: any) => {
-        console.log('🧠 [NLP] Result:', result);
-        if (result.action === 'undo') {
+        console.log("🧠 [NLP] Result:", result);
+        if (result.action === "undo") {
           return {
-            action: 'undo',
+            action: "undo",
             confidence: result.confidence,
             isComplete: true,
-            item: '',
+            item: "",
             quantity: undefined,
-            unit: ''
+            unit: "",
           };
         }
         return {
-          action: result.action || '',
-          item: result.item || '',
+          action: result.action || "",
+          item: result.item || "",
           quantity: result.quantity !== undefined ? result.quantity : undefined,
-          unit: result.unit || '',
+          unit: result.unit || "",
           confidence: result.confidence || 0.6,
           isComplete: this.isCommandComplete(result),
         };
       });
     } catch (error) {
-      console.error('🧠 [NLP] Error with OpenAI API:', error);
+      console.error("🧠 [NLP] Error with OpenAI API:", error);
       return [];
     }
   }
 }
-

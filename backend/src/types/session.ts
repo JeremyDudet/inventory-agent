@@ -31,4 +31,14 @@ export interface SessionState {
   currentState: SessionStateType;
   pendingConfirmation: PendingConfirmation | null;
   isProcessingVoiceCommand: boolean;
+  conversationHistory: Array<{ role: "user" | "assistant"; content: string }>;
+  recentCommands: Array<RecentCommand>;
+}
+
+export interface RecentCommand {
+  action: string;
+  item: string;
+  quantity: number;
+  unit: string;
+  timestamp: number;
 }
