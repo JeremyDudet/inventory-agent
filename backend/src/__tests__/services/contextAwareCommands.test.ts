@@ -1,94 +1,51 @@
+import { describe, it, expect, beforeEach, jest, afterEach } from '@jest/globals';
 import { RecentCommand } from '../../types/session';
 import { NlpResult } from '../../types/nlp';
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 
 const mockProcessTranscription = jest.fn();
-const MockNlpService = jest.fn().mockImplementation(() => ({
-  processTranscription: mockProcessTranscription
-}));
 
-jest.mock('../../services/nlpService', () => ({
-  NlpService: MockNlpService
-}));
+jest.mock('../../services/nlpService', () => {
+  return {
+    NlpService: jest.fn().mockImplementation(() => {
+      return {
+        processTranscription: mockProcessTranscription
+      };
+    })
+  };
+});
+
+import { NlpService } from '../../services/nlpService';
 
 describe('Context-Aware Command Processing', () => {
-  let nlpService: { processTranscription: jest.Mock };
-
+  let nlpService: any;
+  
   beforeEach(() => {
     jest.clearAllMocks();
-    nlpService = new MockNlpService();
-    
-    mockProcessTranscription.mockImplementation(
-      (transcription: string, conversationHistory: any[], recentCommands: any[]) => {
-        if (transcription === 'add 5 more' && conversationHistory.length > 0) {
-          return Promise.resolve([{
-            action: 'add',
-            item: 'milk',
-            quantity: 5,
-            unit: 'gallons',
-            confidence: 0.9,
-            isComplete: true
-          }]);
-        } else if (transcription === 'set coffee to') {
-          return Promise.resolve([{
-            action: 'set',
-            item: 'coffee',
-            quantity: undefined,
-            unit: '',
-            confidence: 0.7,
-            isComplete: false
-          }]);
-        } else if (transcription === '15 pounds') {
-          return Promise.resolve([{
-            action: 'set',
-            item: 'coffee',
-            quantity: 15,
-            unit: 'pounds',
-            confidence: 0.95,
-            isComplete: true
-          }]);
-        } else if (transcription === 'add 5 more of the same' && recentCommands.length > 0) {
-          return Promise.resolve([{
-            action: 'add',
-            item: 'sugar',
-            quantity: 5,
-            unit: 'pounds',
-            confidence: 0.9,
-            isComplete: true
-          }]);
-        } else if (transcription === 'add 10 more boxes' && recentCommands.length > 0) {
-          return Promise.resolve([{
-            action: 'add',
-            item: 'napkins',
-            quantity: 10,
-            unit: 'boxes',
-            confidence: 0.9,
-            isComplete: true
-          }]);
-        } else if (transcription === 'add 3 more' && 
-                  (conversationHistory.length > 0 || recentCommands.length > 0)) {
-          return Promise.resolve([{
-            action: 'add',
-            item: 'milk',
-            quantity: 3,
-            unit: 'gallons',
-            confidence: 0.9,
-            isComplete: true
-          }]);
-        }
-        
-        return Promise.resolve([]);
-      }
-    );
+    nlpService = new NlpService();
+  });
+  
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
   describe('Using Conversation History', () => {
     it('should complete commands with "more" using conversation history', async () => {
-      const conversationHistory: Array<{ role: "user" | "assistant"; content: string }> = [
-        { role: "user", content: 'add 10 gallons of milk' },
-        { role: "assistant", content: 'Added 10 gallons of milk to inventory' }
+      const mockResult: NlpResult[] = [{
+        action: 'add',
+        item: 'milk',
+        quantity: 5,
+        unit: 'gallons',
+        confidence: 0.9,
+        isComplete: true
+      }];
+      
+      (mockProcessTranscription as any).mockResolvedValue(mockResult);
+      
+      const conversationHistory = [
+        { role: "user" as const, content: 'add 10 gallons of milk' },
+        { role: "assistant" as const, content: 'Added 10 gallons of milk to inventory' }
       ];
-      const emptyRecentCommands: Array<RecentCommand> = [];
+      const emptyRecentCommands: RecentCommand[] = [];
 
       const results = await nlpService.processTranscription(
         'add 5 more',
@@ -97,22 +54,49 @@ describe('Context-Aware Command Processing', () => {
       );
 
       expect(results).toHaveLength(1);
-      expect(results[0]).toEqual({
+      expect((results as any)[0]).toEqual({
         action: 'add',
         item: 'milk',
         quantity: 5,
         unit: 'gallons',
-        confidence: expect.any(Number),
+        confidence: 0.9,
         isComplete: true
       });
+      
+      expect(mockProcessTranscription).toHaveBeenCalledWith(
+        'add 5 more',
+        conversationHistory,
+        emptyRecentCommands
+      );
     });
 
     it('should handle multi-part commands with context', async () => {
-      const conversationHistory: Array<{ role: "user" | "assistant"; content: string }> = [
-        { role: "user", content: 'we need to order more coffee' },
-        { role: "assistant", content: 'Would you like to update the coffee inventory?' }
+      const firstMockResult: NlpResult[] = [{
+        action: 'set',
+        item: 'coffee',
+        quantity: undefined,
+        unit: '',
+        confidence: 0.7,
+        isComplete: false
+      }];
+      
+      const secondMockResult: NlpResult[] = [{
+        action: 'set',
+        item: 'coffee',
+        quantity: 15,
+        unit: 'pounds',
+        confidence: 0.95,
+        isComplete: true
+      }];
+      
+      (mockProcessTranscription as any).mockResolvedValueOnce(firstMockResult);
+      (mockProcessTranscription as any).mockResolvedValueOnce(secondMockResult);
+      
+      const conversationHistory = [
+        { role: "user" as const, content: 'we need to order more coffee' },
+        { role: "assistant" as const, content: 'Would you like to update the coffee inventory?' }
       ];
-      const emptyRecentCommands: Array<RecentCommand> = [];
+      const emptyRecentCommands: RecentCommand[] = [];
 
       const firstResults = await nlpService.processTranscription(
         'set coffee to',
@@ -121,9 +105,9 @@ describe('Context-Aware Command Processing', () => {
       );
 
       expect(firstResults).toHaveLength(1);
-      expect(firstResults[0].isComplete).toBe(false);
-      expect(firstResults[0].action).toBe('set');
-      expect(firstResults[0].item).toBe('coffee');
+      expect((firstResults as any)[0].isComplete).toBe(false);
+      expect((firstResults as any)[0].action).toBe('set');
+      expect((firstResults as any)[0].item).toBe('coffee');
 
       const secondResults = await nlpService.processTranscription(
         '15 pounds',
@@ -132,18 +116,29 @@ describe('Context-Aware Command Processing', () => {
       );
 
       expect(secondResults).toHaveLength(1);
-      expect(secondResults[0].isComplete).toBe(true);
-      expect(secondResults[0].action).toBe('set');
-      expect(secondResults[0].item).toBe('coffee');
-      expect(secondResults[0].quantity).toBe(15);
-      expect(secondResults[0].unit).toBe('pounds');
+      expect((secondResults as any)[0].isComplete).toBe(true);
+      expect((secondResults as any)[0].action).toBe('set');
+      expect((secondResults as any)[0].item).toBe('coffee');
+      expect((secondResults as any)[0].quantity).toBe(15);
+      expect((secondResults as any)[0].unit).toBe('pounds');
     });
   });
 
   describe('Using Recent Commands', () => {
     it('should use recent commands to resolve ambiguous references', async () => {
+      const mockResult: NlpResult[] = [{
+        action: 'add',
+        item: 'sugar',
+        quantity: 5,
+        unit: 'pounds',
+        confidence: 0.9,
+        isComplete: true
+      }];
+      
+      (mockProcessTranscription as any).mockResolvedValue(mockResult);
+      
       const emptyConversationHistory: Array<{ role: "user" | "assistant"; content: string }> = [];
-      const recentCommands: Array<RecentCommand> = [
+      const recentCommands: RecentCommand[] = [
         {
           action: 'add',
           item: 'sugar',
@@ -160,19 +155,36 @@ describe('Context-Aware Command Processing', () => {
       );
 
       expect(results).toHaveLength(1);
-      expect(results[0]).toEqual({
+      expect((results as any)[0]).toEqual({
         action: 'add',
         item: 'sugar',
         quantity: 5,
         unit: 'pounds',
-        confidence: expect.any(Number),
+        confidence: 0.9,
         isComplete: true
       });
+      
+      expect(mockProcessTranscription).toHaveBeenCalledWith(
+        'add 5 more of the same',
+        emptyConversationHistory,
+        recentCommands
+      );
     });
 
     it('should handle relative quantity references', async () => {
+      const mockResult: NlpResult[] = [{
+        action: 'add',
+        item: 'napkins',
+        quantity: 10,
+        unit: 'boxes',
+        confidence: 0.9,
+        isComplete: true
+      }];
+      
+      (mockProcessTranscription as any).mockResolvedValue(mockResult);
+      
       const emptyConversationHistory: Array<{ role: "user" | "assistant"; content: string }> = [];
-      const recentCommands: Array<RecentCommand> = [
+      const recentCommands: RecentCommand[] = [
         {
           action: 'set',
           item: 'napkins',
@@ -189,12 +201,12 @@ describe('Context-Aware Command Processing', () => {
       );
 
       expect(results).toHaveLength(1);
-      expect(results[0]).toEqual({
+      expect((results as any)[0]).toEqual({
         action: 'add',
         item: 'napkins',
         quantity: 10,
         unit: 'boxes',
-        confidence: expect.any(Number),
+        confidence: 0.9,
         isComplete: true
       });
     });
@@ -202,11 +214,22 @@ describe('Context-Aware Command Processing', () => {
 
   describe('Handling Ambiguous Commands', () => {
     it('should handle incomplete commands by inferring missing parts', async () => {
-      const conversationHistory: Array<{ role: "user" | "assistant"; content: string }> = [
-        { role: "user", content: 'how much milk do we have?' },
-        { role: "assistant", content: 'You have 5 gallons of milk in inventory' }
+      const mockResult: NlpResult[] = [{
+        action: 'add',
+        item: 'milk',
+        quantity: 3,
+        unit: 'gallons',
+        confidence: 0.9,
+        isComplete: true
+      }];
+      
+      (mockProcessTranscription as any).mockResolvedValue(mockResult);
+      
+      const conversationHistory = [
+        { role: "user" as const, content: 'how much milk do we have?' },
+        { role: "assistant" as const, content: 'You have 5 gallons of milk in inventory' }
       ];
-      const recentCommands: Array<RecentCommand> = [
+      const recentCommands: RecentCommand[] = [
         {
           action: 'add',
           item: 'milk',
@@ -223,12 +246,12 @@ describe('Context-Aware Command Processing', () => {
       );
 
       expect(results).toHaveLength(1);
-      expect(results[0]).toEqual({
+      expect((results as any)[0]).toEqual({
         action: 'add',
         item: 'milk',
         quantity: 3,
         unit: 'gallons',
-        confidence: expect.any(Number),
+        confidence: 0.9,
         isComplete: true
       });
     });
