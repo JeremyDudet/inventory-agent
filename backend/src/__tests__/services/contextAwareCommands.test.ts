@@ -1,26 +1,24 @@
-import { NlpService } from '../../services/nlpService';
 import { RecentCommand } from '../../types/session';
 import { NlpResult } from '../../types/nlp';
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 
-jest.mock('../../services/nlpService', () => {
-  return {
-    NlpService: jest.fn().mockImplementation(() => {
-      return {
-        processTranscription: jest.fn()
-      };
-    })
-  };
-});
+const mockProcessTranscription = jest.fn();
+const MockNlpService = jest.fn().mockImplementation(() => ({
+  processTranscription: mockProcessTranscription
+}));
+
+jest.mock('../../services/nlpService', () => ({
+  NlpService: MockNlpService
+}));
 
 describe('Context-Aware Command Processing', () => {
-  let nlpService: NlpService;
+  let nlpService: { processTranscription: jest.Mock };
 
   beforeEach(() => {
     jest.clearAllMocks();
-    nlpService = new NlpService();
+    nlpService = new MockNlpService();
     
-    (nlpService.processTranscription as jest.Mock).mockImplementation(
+    mockProcessTranscription.mockImplementation(
       (transcription: string, conversationHistory: any[], recentCommands: any[]) => {
         if (transcription === 'add 5 more' && conversationHistory.length > 0) {
           return Promise.resolve([{
