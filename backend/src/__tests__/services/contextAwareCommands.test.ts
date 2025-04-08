@@ -1,8 +1,17 @@
 import { NlpService } from '../../services/nlpService';
 import { RecentCommand } from '../../types/session';
+import { NlpResult } from '../../types/nlp';
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 
-jest.mock('../../services/nlpService');
+jest.mock('../../services/nlpService', () => {
+  return {
+    NlpService: jest.fn().mockImplementation(() => {
+      return {
+        processTranscription: jest.fn()
+      };
+    })
+  };
+});
 
 describe('Context-Aware Command Processing', () => {
   let nlpService: NlpService;
