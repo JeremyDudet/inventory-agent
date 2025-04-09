@@ -81,18 +81,10 @@ class TranscriptionBuffer extends EventEmitter {
     }
 
     try {
-      // Retrieve the current conversation history from session state
-      const conversationHistory =
-        this.sessionState.getState().conversationHistory;
-      const recentCommands = this.sessionState.getRecentCommands();
-      
       const hasRelativeTerms = this.containsRelativeTerms(completeTranscription);
       
-      // Process transcription with conversation history
       const nlpResults = await this.nlpService.processTranscription(
-        completeTranscription,
-        conversationHistory,
-        recentCommands
+        completeTranscription
       );
 
       // Emit results for handling in app.ts

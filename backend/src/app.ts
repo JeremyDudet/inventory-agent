@@ -16,6 +16,7 @@ import { logTranscript, logSystemAction } from "./services/sessionLogsService";
 import TranscriptionBuffer from "./services/transcriptionBuffer";
 import { errorHandler } from "./middleware/errorHandler";
 import { SessionStateService } from "./services/sessionStateService";
+import { SessionStateContextProvider } from "./services/sessionStateContextProvider";
 import { ActionLog } from "./types/actionLog";
 import type { NlpResult } from "./types/nlp";
 import { ValidationError } from "./errors";
@@ -61,7 +62,9 @@ voiceNamespace.on("connection", (socket: Socket) => {
 
   // Initialize services
   const sessionState = new SessionStateService();
+  const contextProvider = new SessionStateContextProvider(sessionState);
   const nlpService = new NlpService();
+  nlpService.setContextProvider(contextProvider);
   const transcriptionBuffer = new TranscriptionBuffer(nlpService, sessionState);
 
   // Add event handlers for the transcriptionBuffer
