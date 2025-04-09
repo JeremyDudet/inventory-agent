@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import axios from "axios";
 import { NlpResult } from "../types/nlp";
 import { RecentCommand } from "../types/session";
+import { ContextProvider } from "../types/context";
 // Load environment variables
 dotenv.config();
 
@@ -28,36 +29,54 @@ export class NlpService {
   // Time window for considering accumulator context (5 seconds)
   private contextWindowMs = 5000;
 
+  private contextProvider: ContextProvider | null = null;
+
+  /**
+   * Set the context provider for this NLP service
+   * @param provider The context provider to use
+   */
+  setContextProvider(provider: ContextProvider): void {
+    this.contextProvider = provider;
+  }
+
   /**
    * Process a transcription and extract inventory commands
    * @param transcription - The transcription to process
-   * @param conversationHistory - Recent conversation history for context
-   * @param recentCommands - Recent inventory commands for context
+   * @param conversationHistory - Recent conversation history for context (deprecated, use context provider)
+   * @param recentCommands - Recent inventory commands for context (deprecated, use context provider)
    * @returns Array of NLP results
    */
   async processTranscription(
     transcription: string,
-    conversationHistory: Array<{ role: "user" | "assistant"; content: string }>,
-    recentCommands: Array<RecentCommand>
+    conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>,
+    recentCommands?: Array<RecentCommand>
   ): Promise<NlpResult[]> {
     console.log(`🧠 [NLP] Processing transcription: "${transcription}"`);
 
     try {
+      const history = this.contextProvider 
+        ? this.contextProvider.getConversationHistory() 
+        : (conversationHistory || []);
+      
+      const commands = this.contextProvider 
+        ? this.contextProvider.getRecentCommands() 
+        : (recentCommands || []);
+
       const hasRelativeTerms = this.containsRelativeTerms(transcription);
       
       // Parse the transcription into NLP result(s)
       const parsedResults = await this.parseTranscription(
         transcription,
-        conversationHistory,
-        recentCommands
+        history,
+        commands
       );
 
       let output: NlpResult[] = [];
 
-      if (parsedResults.some(r => !r.isComplete) && (recentCommands.length > 0 || conversationHistory.length > 0)) {
+      if (parsedResults.some(r => !r.isComplete) && (commands.length > 0 || history.length > 0)) {
         for (let i = 0; i < parsedResults.length; i++) {
           if (!parsedResults[i].isComplete) {
-            parsedResults[i] = this.enhanceWithContext(parsedResults[i], conversationHistory, recentCommands);
+            parsedResults[i] = this.enhanceWithContext(parsedResults[i], history, commands);
           }
         }
       }
