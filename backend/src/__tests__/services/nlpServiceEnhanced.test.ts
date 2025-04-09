@@ -6,17 +6,19 @@ import { MockSessionStateService } from '../mocks/sessionStateService';
 import { RecentCommand } from '../../types/session';
 import { ContextProvider } from '../../types/context';
 
-jest.mock('openai', () => {
-  return {
-    OpenAI: jest.fn().mockImplementation(() => ({
-      chat: {
-        completions: {
-          create: jest.fn()
-        }
-      }
-    }))
-  };
-});
+const mockOpenAIInstance = {
+  chat: {
+    completions: {
+      create: jest.fn()
+    }
+  }
+};
+
+const MockOpenAI = jest.fn().mockImplementation(() => mockOpenAIInstance);
+
+jest.mock('openai', () => ({
+  OpenAI: MockOpenAI
+}), { virtual: true });
 
 describe('Enhanced NlpService Tests', () => {
   let nlpService: NlpService;

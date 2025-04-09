@@ -1,5 +1,13 @@
 import { SessionState, SessionStateType, RecentCommand } from "../../types/session";
-import { jest } from '@jest/globals';
+import { jest, describe, it, expect } from '@jest/globals';
+
+describe('Session State Service Mock', () => {
+  it('should provide a mock implementation of SessionStateService', () => {
+    const mockService = new MockSessionStateService();
+    expect(mockService).toBeDefined();
+    expect(typeof mockService.getState).toBe('function');
+  });
+});
 
 /**
  * Mock implementation of SessionStateService for testing

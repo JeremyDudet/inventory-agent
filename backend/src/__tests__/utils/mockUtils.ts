@@ -1,9 +1,17 @@
-import { jest } from '@jest/globals';
+import { jest, describe, it, expect } from '@jest/globals';
 import { NlpService } from '../../services/nlpService';
 import { NlpResult } from '../../types/nlp';
 import { InventoryRepository } from '../../repositories/InventoryRepository';
 import { MockInventoryRepository } from '../mocks/inventoryRepository';
 import { RecentCommand } from '../../types/session';
+
+describe('Mock Utilities', () => {
+  it('should export mock creation functions', () => {
+    expect(typeof createMockNlpService).toBe('function');
+    expect(typeof createMockInventoryRepository).toBe('function');
+    expect(typeof createMockWebSocket).toBe('function');
+  });
+});
 
 /**
  * Create a mock NLP service with configurable response

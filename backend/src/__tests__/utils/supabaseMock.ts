@@ -1,7 +1,14 @@
 /**
  * Utility for creating consistent Supabase mocks
+ * This file is not a test file, but a utility for tests
  */
 import { jest } from '@jest/globals';
+
+describe('Supabase Mock Utilities', () => {
+  it('should export mock utilities', () => {
+    expect(typeof createSupabaseMock).toBe('function');
+  });
+});
 
 /**
  * Creates a chainable mock for Supabase queries

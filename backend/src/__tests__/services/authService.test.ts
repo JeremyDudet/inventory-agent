@@ -4,11 +4,27 @@ import supabase from '../../config/db';
 import jwt from 'jsonwebtoken';
 import { createUser } from '../utils/testFixtures';
 
-import { createSupabaseMock } from '../utils/supabaseMock';
+const mockSupabase = {
+  from: jest.fn().mockReturnThis(),
+  select: jest.fn().mockReturnThis(),
+  eq: jest.fn().mockReturnThis(),
+  is: jest.fn().mockReturnThis(),
+  gt: jest.fn().mockReturnThis(),
+  single: jest.fn().mockReturnThis(),
+  insert: jest.fn().mockReturnThis(),
+  update: jest.fn().mockReturnThis(),
+  delete: jest.fn().mockReturnThis(),
+  auth: {
+    signInWithPassword: jest.fn(),
+    admin: {
+      createUser: jest.fn(),
+    },
+    getUser: jest.fn(),
+  },
+  rpc: jest.fn().mockReturnThis(),
+};
 
-jest.mock('../../config/db', () => {
-  return createSupabaseMock();
-});
+jest.mock('../../config/db', () => mockSupabase);
 
 jest.mock('jsonwebtoken', () => ({
   sign: jest.fn().mockReturnValue('mock-token'),

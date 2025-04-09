@@ -1,6 +1,15 @@
 import { InventoryItem } from '../../models/InventoryItem';
 import { User, UserRole } from '../../services/authService';
 import { NlpResult } from '../../types/nlp';
+import { describe, it, expect } from '@jest/globals';
+
+describe('Test Fixtures', () => {
+  it('should export fixture creation functions', () => {
+    expect(typeof createInventoryItem).toBe('function');
+    expect(typeof createUser).toBe('function');
+    expect(typeof createNlpResult).toBe('function');
+  });
+});
 
 /**
  * Factory for creating inventory items for testing
