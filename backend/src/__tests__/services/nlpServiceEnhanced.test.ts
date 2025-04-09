@@ -10,7 +10,9 @@ jest.mock('axios', () => ({
   post: jest.fn()
 }));
 
-process.env.OPENAI_API_KEY = 'test-api-key';
+jest.mock('../../config/env', () => ({
+  OPENAI_API_KEY: 'mock-api-key'
+}));
 
 describe('Enhanced NlpService Tests', () => {
   let nlpService: NlpService;
