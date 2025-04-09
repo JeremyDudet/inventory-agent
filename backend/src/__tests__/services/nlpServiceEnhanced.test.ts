@@ -6,18 +6,17 @@ import { MockSessionStateService } from '../mocks/sessionStateService';
 import { RecentCommand } from '../../types/session';
 import { ContextProvider } from '../../types/context';
 
+const mockCreateFn = jest.fn();
 const mockOpenAIInstance = {
   chat: {
     completions: {
-      create: jest.fn()
+      create: mockCreateFn
     }
   }
 };
 
-const MockOpenAI = jest.fn().mockImplementation(() => mockOpenAIInstance);
-
 jest.mock('openai', () => ({
-  OpenAI: MockOpenAI
+  OpenAI: jest.fn().mockImplementation(() => mockOpenAIInstance)
 }), { virtual: true });
 
 describe('Enhanced NlpService Tests', () => {
@@ -30,11 +29,11 @@ describe('Enhanced NlpService Tests', () => {
     
     nlpService = new NlpService();
     
-    mockOpenAI = (nlpService as any).openai;
+    mockOpenAI = mockCreateFn;
     
     mockSessionState = new MockSessionStateService();
     
-    mockOpenAI.chat.completions.create.mockResolvedValue({
+    mockOpenAI.mockResolvedValue({
       choices: [
         {
           message: {
@@ -76,7 +75,7 @@ describe('Enhanced NlpService Tests', () => {
         isComplete: true
       }));
       
-      expect(mockOpenAI.chat.completions.create).toHaveBeenCalledWith(
+      expect(mockOpenAI).toHaveBeenCalledWith(
         expect.objectContaining({
           messages: expect.arrayContaining([
             expect.objectContaining({
@@ -90,7 +89,7 @@ describe('Enhanced NlpService Tests', () => {
     it('should handle multiple commands in a single transcription', async () => {
       const transcription = 'add 5 gallons of milk and remove 2 boxes of cereal';
       
-      mockOpenAI.chat.completions.create.mockResolvedValue({
+      mockOpenAI.mockResolvedValue({
         choices: [
           {
             message: {
@@ -137,7 +136,7 @@ describe('Enhanced NlpService Tests', () => {
     it('should handle incomplete commands', async () => {
       const transcription = 'add some';
       
-      mockOpenAI.chat.completions.create.mockResolvedValue({
+      mockOpenAI.mockResolvedValue({
         choices: [
           {
             message: {
@@ -182,7 +181,7 @@ describe('Enhanced NlpService Tests', () => {
         }
       ];
       
-      mockOpenAI.chat.completions.create.mockResolvedValue({
+      mockOpenAI.mockResolvedValue({
         choices: [
           {
             message: {
@@ -211,7 +210,7 @@ describe('Enhanced NlpService Tests', () => {
         unit: 'gallons'
       }));
       
-      expect(mockOpenAI.chat.completions.create).toHaveBeenCalledWith(
+      expect(mockOpenAI).toHaveBeenCalledWith(
         expect.objectContaining({
           messages: expect.arrayContaining([
             expect.objectContaining({
@@ -230,7 +229,7 @@ describe('Enhanced NlpService Tests', () => {
     it('should handle API errors gracefully', async () => {
       const transcription = 'add 5 gallons of milk';
       
-      mockOpenAI.chat.completions.create.mockRejectedValue(new Error('API Error'));
+      mockOpenAI.mockRejectedValue(new Error('API Error'));
       
       await expect(nlpService.processTranscription(transcription, [], []))
         .rejects.toThrow('Failed to process transcription');
@@ -239,7 +238,7 @@ describe('Enhanced NlpService Tests', () => {
     it('should handle invalid JSON responses', async () => {
       const transcription = 'add 5 gallons of milk';
       
-      mockOpenAI.chat.completions.create.mockResolvedValue({
+      mockOpenAI.mockResolvedValue({
         choices: [
           {
             message: {
@@ -280,7 +279,7 @@ describe('Enhanced NlpService Tests', () => {
       
       expect(mockGetConversationHistory).toHaveBeenCalled();
       
-      expect(mockOpenAI.chat.completions.create).toHaveBeenCalledWith(
+      expect(mockOpenAI).toHaveBeenCalledWith(
         expect.objectContaining({
           messages: expect.arrayContaining([
             expect.objectContaining({
@@ -302,13 +301,13 @@ describe('Enhanced NlpService Tests', () => {
       const results = await nlpService.processTranscription(transcription, [], []);
       
       expect(results).toEqual([]);
-      expect(mockOpenAI.chat.completions.create).not.toHaveBeenCalled();
+      expect(mockOpenAI).not.toHaveBeenCalled();
     });
     
     it('should set confidence to 0 for unrecognized actions', async () => {
       const transcription = 'do something weird';
       
-      mockOpenAI.chat.completions.create.mockResolvedValue({
+      mockOpenAI.mockResolvedValue({
         choices: [
           {
             message: {

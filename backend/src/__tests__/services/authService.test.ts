@@ -1,10 +1,6 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-import AuthService, { UserRole, UserPermissions } from '../../services/authService';
-import supabase from '../../config/db';
-import jwt from 'jsonwebtoken';
-import { createUser } from '../utils/testFixtures';
 
-const mockSupabase = {
+jest.mock('../../config/db', () => ({
   from: jest.fn().mockReturnThis(),
   select: jest.fn().mockReturnThis(),
   eq: jest.fn().mockReturnThis(),
@@ -22,9 +18,12 @@ const mockSupabase = {
     getUser: jest.fn(),
   },
   rpc: jest.fn().mockReturnThis(),
-};
+}));
 
-jest.mock('../../config/db', () => mockSupabase);
+import AuthService, { UserRole, UserPermissions } from '../../services/authService';
+import supabase from '../../config/db';
+import jwt from 'jsonwebtoken';
+import { createUser } from '../utils/testFixtures';
 
 jest.mock('jsonwebtoken', () => ({
   sign: jest.fn().mockReturnValue('mock-token'),
@@ -44,7 +43,7 @@ describe('AuthService', () => {
   let authService: any;
   
   beforeEach(() => {
-    authService = new (AuthService as any)();
+    authService = AuthService;
     jest.clearAllMocks();
   });
   

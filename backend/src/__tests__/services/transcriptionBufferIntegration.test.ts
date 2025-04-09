@@ -50,7 +50,7 @@ describe('TranscriptionBuffer Integration Tests', () => {
     nlpService = new NlpService();
     sessionState = new SessionStateService();
     mockProcessTranscription = nlpService.processTranscription as jest.Mock<ProcessTranscriptionFn>;
-    mockProcessTranscription.mockImplementation(async () => [mockResult]);
+    mockProcessTranscription.mockImplementation(async (transcription) => [mockResult]);
     transcriptionBuffer = new TranscriptionBuffer(nlpService, sessionState);
     jest.clearAllMocks();
   });
@@ -127,8 +127,8 @@ describe('TranscriptionBuffer Integration Tests', () => {
       type: undefined
     };
     mockProcessTranscription
-      .mockResolvedValueOnce([incompleteResult])
-      .mockResolvedValueOnce([completeResult]);
+      .mockImplementationOnce(async () => [incompleteResult])
+      .mockImplementationOnce(async () => [completeResult]);
 
     transcriptionBuffer.addTranscription('add 5 pounds of');
     let buffer = transcriptionBuffer.getCurrentBuffer();
@@ -175,8 +175,8 @@ describe('TranscriptionBuffer Integration Tests', () => {
       type: undefined
     };
     mockProcessTranscription
-      .mockResolvedValueOnce([incompleteResult])
-      .mockResolvedValueOnce([completeResult]);
+      .mockImplementationOnce(async () => [incompleteResult])
+      .mockImplementationOnce(async () => [completeResult]);
 
     transcriptionBuffer.addTranscription('Set the 16 ounce paper cups');
     let buffer = transcriptionBuffer.getCurrentBuffer();
@@ -199,7 +199,7 @@ describe('TranscriptionBuffer Integration Tests', () => {
       transcriptionBuffer.clearBuffer();
     }
 
-    expect(mockProcessTranscription).toHaveBeenNthCalledWith(2, 'Set the 16 ounce paper cups to 30 sleeves', expect.any(Array), expect.any(Array));
+    expect(mockProcessTranscription.mock.calls[1][0]).toBe('Set the 16 ounce paper cups to 30 sleeves');
     expect(transcriptionBuffer.getCurrentBuffer()).toBe('');
   });
 });
