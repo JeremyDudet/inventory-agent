@@ -1,11 +1,16 @@
-# Supabase Authentication Setup
+# Supabase Setup and Configuration
 
-This document provides instructions for setting up and using the Supabase authentication system in the StockCount application.
+This document provides instructions for setting up and using Supabase in the Inventory Agent application.
 
 ## Overview
 
-StockCount uses Supabase for authentication and user management. The system includes:
+Inventory Agent uses Supabase for:
+- Authentication and user management
+- Database storage for inventory items
+- Row-level security for data access
+- Real-time updates
 
+The system includes:
 - Email/password authentication
 - User profiles with roles
 - Password reset functionality
@@ -35,18 +40,34 @@ SUPABASE_URL=your_supabase_url
 SUPABASE_KEY=your_supabase_service_role_key
 ```
 
-### 3. Run Migrations
+### 3. Install Supabase CLI
 
-The migration file `20240303_auth_setup.sql` creates the necessary database structure:
+The Supabase CLI is required for migrations and local development:
+
+```bash
+# Install with Homebrew
+brew install supabase/tap/supabase
+
+# Verify installation
+supabase --version
+```
+
+### 4. Run Migrations
+
+The migration files in the `migrations` directory create the necessary database structure:
 
 1. Navigate to the Supabase dashboard for your project
 2. Go to the SQL Editor
-3. Copy the contents of `infra/supabase/migrations/20240303_auth_setup.sql`
+3. Copy the contents of migration files from `infra/supabase/migrations/`
 4. Paste into the SQL Editor and run the query
 
 Alternatively, if you're using the Supabase CLI:
 
 ```bash
+# Link to your Supabase project (requires access token)
+supabase link --project-ref your_project_ref
+
+# Run migrations
 supabase migration up
 ```
 
@@ -73,23 +94,94 @@ The system supports the following roles:
 3. The AuthContext maintains the user's session throughout the application
 4. Protected routes check for authentication before allowing access
 
-## Development Notes
+## Database Schema
 
-### User Profile Management
+The database schema includes the following tables:
 
-The `profiles` table stores additional user information:
-- `id`: UUID from auth.users
-- `name`: User's display name
-- `role`: User's role in the system
-- `created_at` and `updated_at`: Timestamps
+### User Management Tables
 
-### Row-Level Security
+#### profiles
+- `id`: UUID (Primary Key, references auth.users)
+- `name`: TEXT (User's display name)
+- `email`: TEXT
+- `image`: TEXT
+- `has_access`: BOOLEAN
+- `customer_id`: TEXT
+- `price_id`: TEXT
+- `created_at`: TIMESTAMP WITH TIME ZONE
+- `updated_at`: TIMESTAMP WITH TIME ZONE
+
+#### user_roles
+- `id`: UUID (Primary Key)
+- `name`: TEXT
+- `permissions`: JSONB
+- `createdat`: TIMESTAMP WITH TIME ZONE
+- `updatedat`: TIMESTAMP WITH TIME ZONE
+
+### Inventory Tables
+
+#### inventory_items
+- `id`: UUID (Primary Key)
+- `name`: TEXT
+- `description`: TEXT
+- `quantity`: NUMERIC
+- `threshold`: NUMERIC
+- `unit`: TEXT
+- `category`: TEXT
+- `embedding`: VECTOR
+- `createdat`: TIMESTAMP WITH TIME ZONE
+- `updatedat`: TIMESTAMP WITH TIME ZONE
+- `lastupdated`: TIMESTAMP WITH TIME ZONE
+
+#### items
+- `id`: BIGINT (Primary Key)
+- `name`: TEXT
+- `description`: TEXT
+- `unit_of_measure`: TEXT
+- `qty_on_hand`: REAL
+- `par`: DOUBLE PRECISION
+- `created_at`: TIMESTAMP WITH TIME ZONE
+- `last_edited`: TIMESTAMP WITH TIME ZONE
+- `last_edited_by`: UUID
+
+#### categories
+- `id`: UUID (Primary Key)
+- `name`: TEXT
+
+### Tracking and Logging Tables
+
+#### inventory_updates
+- `id`: UUID (Primary Key)
+- `itemid`: UUID
+- `action`: TEXT
+- `quantity`: NUMERIC
+- `previousquantity`: NUMERIC
+- `newquantity`: NUMERIC
+- `unit`: TEXT
+- `userid`: UUID
+- `username`: TEXT
+- `createdat`: TIMESTAMP WITH TIME ZONE
+
+#### session_logs
+- `id`: UUID (Primary Key)
+- `session_id`: TEXT
+- `user_id`: UUID
+- `type`: TEXT
+- `text`: TEXT
+- `action`: TEXT
+- `status`: TEXT
+- `is_final`: BOOLEAN
+- `confidence`: DOUBLE PRECISION
+- `timestamp`: TIMESTAMP WITH TIME ZONE
+- `metadata`: JSONB
+
+## Row-Level Security
 
 Row-level security policies ensure users can only access appropriate data:
 - Users can view and update their own profiles
 - Admins (owners and managers) can view all profiles
 
-### Automatic Profile Creation
+## Automatic Profile Creation
 
 A database trigger automatically creates a profile when a new user registers.
 
@@ -100,10 +192,12 @@ A database trigger automatically creates a profile when a new user registers.
 1. **Authentication Errors**: Check that your environment variables are correctly set
 2. **Missing Profile**: Ensure the database trigger is properly installed
 3. **Permission Issues**: Verify that RLS policies are correctly configured
+4. **Migration Issues**: If migrations fail, check the SQL syntax and ensure the Supabase CLI is properly configured
 
 ### Debugging
 
-To debug authentication issues:
+To debug issues:
 1. Check browser console for errors
 2. Verify network requests to Supabase endpoints
-3. Check Supabase dashboard logs for authentication events 
+3. Check Supabase dashboard logs for authentication events
+4. Use `supabase status` to check the status of your local Supabase instance    
