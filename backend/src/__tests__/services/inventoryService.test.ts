@@ -201,4 +201,163 @@ describe('InventoryService', () => {
       );
     });
   });
+  
+  describe('updateItem', () => {
+    test('should update an item successfully', async () => {
+      const items = mockRepository.getItems();
+      const itemToUpdate = items.find(item => item.name === 'Coffee 16 ounce');
+      if (!itemToUpdate) {
+        fail('Test item not found');
+        return;
+      }
+      
+      const updates = { 
+        name: 'Premium Coffee 16 ounce',
+        quantity: 20
+      };
+      
+      const result = await inventoryService.updateItem(itemToUpdate.id, updates);
+      
+      expect(result).toEqual(expect.objectContaining({
+        id: itemToUpdate.id,
+        name: 'Premium Coffee 16 ounce',
+        quantity: 20
+      }));
+      
+      const updatedItem = await mockRepository.findById(itemToUpdate.id);
+      expect(updatedItem?.name).toBe('Premium Coffee 16 ounce');
+      expect(updatedItem?.quantity).toBe(20);
+    });
+    
+    test('should throw ValidationError when update fails', async () => {
+      jest.spyOn(mockRepository, 'save').mockResolvedValue(null as unknown as InventoryItem);
+      
+      await expect(inventoryService.updateItem('non-existent-id', { quantity: 20 }))
+        .rejects.toThrow(ValidationError);
+    });
+  });
+  
+  describe('fetchInventory', () => {
+    test('should return all inventory items', async () => {
+      const result = await inventoryService.fetchInventory();
+      
+      expect(result).toHaveLength(4); // We added 4 items in beforeEach
+      expect(result).toEqual(expect.arrayContaining([
+        expect.objectContaining({ name: 'Coffee 16 ounce' }),
+        expect.objectContaining({ name: 'Coffee 8 ounce' }),
+        expect.objectContaining({ name: 'Coffee' }),
+        expect.objectContaining({ name: 'Dark Roast Coffee 16 ounce' })
+      ]));
+    });
+  });
+  
+  describe('addItem', () => {
+    test('should add a new item successfully', async () => {
+      const newItemData = {
+        name: 'Tea',
+        quantity: 10,
+        unit: 'boxes',
+        category: 'Beverages',
+        threshold: 3
+      };
+      
+      const result = await inventoryService.addItem(newItemData);
+      
+      expect(result).toEqual(expect.objectContaining({
+        id: expect.any(String),
+        name: 'Tea',
+        quantity: 10,
+        unit: 'boxes',
+        category: 'Beverages',
+        threshold: 3,
+        lastupdated: expect.any(String)
+      }));
+      
+      const items = mockRepository.getItems();
+      const addedItem = items.find(item => item.name === 'Tea');
+      expect(addedItem).toBeDefined();
+    });
+    
+    test('should throw ValidationError when creation fails', async () => {
+      jest.spyOn(mockRepository, 'create').mockRejectedValue(new Error('Failed to create item'));
+      
+      await expect(inventoryService.addItem({
+        name: 'Failed Item',
+        quantity: 10,
+        unit: 'units',
+        category: 'test'
+      })).rejects.toThrow(ValidationError);
+    });
+  });
+  
+  describe('deleteItem', () => {
+    test('should delete an item successfully', async () => {
+      const items = mockRepository.getItems();
+      const itemToDelete = items.find(item => item.name === 'Coffee 16 ounce');
+      if (!itemToDelete) {
+        fail('Test item not found');
+        return;
+      }
+      
+      jest.spyOn(mockRepository, 'delete').mockResolvedValue(true);
+      
+      await inventoryService.deleteItem(itemToDelete.id);
+      
+      expect(mockRepository.delete).toHaveBeenCalledWith(itemToDelete.id);
+    });
+    
+    test('should throw ValidationError when deletion fails', async () => {
+      jest.spyOn(mockRepository, 'delete').mockResolvedValue(false);
+      
+      await expect(inventoryService.deleteItem('non-existent-id'))
+        .rejects.toThrow(ValidationError);
+    });
+  });
+  
+  describe('getItemQuantity', () => {
+    test('should return item quantity in the same unit', async () => {
+      const items = mockRepository.getItems();
+      const item = items.find(item => item.name === 'Coffee 16 ounce');
+      if (!item) {
+        fail('Test item not found');
+        return;
+      }
+      
+      jest.spyOn(inventoryService, 'findBestMatch').mockResolvedValue(item);
+      
+      const result = await inventoryService.getItemQuantity('Coffee 16 ounce');
+      
+      expect(result).toEqual({
+        quantity: 10, // Initial quantity from beforeEach
+        unit: 'bags'
+      });
+    });
+    
+    test('should convert quantity to requested unit when possible', async () => {
+      const items = mockRepository.getItems();
+      const item = items.find(item => item.name === 'Coffee 16 ounce');
+      if (!item) {
+        fail('Test item not found');
+        return;
+      }
+      
+      jest.spyOn(inventoryService, 'findBestMatch').mockResolvedValue(item);
+      
+      const unitConversions = require('../../utils/unitConversions');
+      jest.spyOn(unitConversions, 'getUnitType')
+        .mockImplementation((unit) => unit === 'bags' || unit === 'units' ? 'count' : 'unknown');
+      
+      jest.spyOn(unitConversions, 'convertQuantity')
+        .mockImplementation(() => 20); // 10 bags = 20 units
+      
+      const result = await inventoryService.getItemQuantity('Coffee 16 ounce', 'units');
+      
+      expect(result).toEqual({
+        quantity: 20,
+        unit: 'units'
+      });
+      
+      jest.restoreAllMocks();
+    });
+  });
 });
