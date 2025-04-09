@@ -39,7 +39,9 @@ describe('SessionStateService', () => {
           },
           speechFeedback: 'Test feedback'
         },
-        isProcessingVoiceCommand: true
+        isProcessingVoiceCommand: true,
+        conversationHistory: [],
+        recentCommands: []
       };
 
       sessionStateService.setState(newState);
@@ -54,7 +56,9 @@ describe('SessionStateService', () => {
       const newState: SessionState = {
         currentState: 'waiting_for_clarification',
         pendingConfirmation: null,
-        isProcessingVoiceCommand: true
+        isProcessingVoiceCommand: true,
+        conversationHistory: [],
+        recentCommands: []
       };
 
       sessionStateService.setState(newState);
@@ -94,7 +98,9 @@ describe('SessionStateService', () => {
           },
           speechFeedback: 'Test feedback'
         },
-        isProcessingVoiceCommand: true
+        isProcessingVoiceCommand: true,
+        conversationHistory: [],
+        recentCommands: []
       };
 
       sessionStateService.setState(initialState);
@@ -115,7 +121,9 @@ describe('SessionStateService', () => {
       const initialState: SessionState = {
         currentState: 'normal',
         pendingConfirmation: null,
-        isProcessingVoiceCommand: false
+        isProcessingVoiceCommand: false,
+        conversationHistory: [],
+        recentCommands: []
       };
 
       // Set some non-initial state
@@ -138,7 +146,9 @@ describe('SessionStateService', () => {
           },
           speechFeedback: 'Test feedback'
         },
-        isProcessingVoiceCommand: true
+        isProcessingVoiceCommand: true,
+        conversationHistory: [],
+        recentCommands: []
       });
 
       sessionStateService.resetState();
@@ -157,7 +167,9 @@ describe('SessionStateService', () => {
       const newState: SessionState = {
         currentState: 'waiting_for_clarification',
         pendingConfirmation: null,
-        isProcessingVoiceCommand: true
+        isProcessingVoiceCommand: true,
+        conversationHistory: [],
+        recentCommands: []
       };
 
       sessionStateService.setState(newState);
@@ -172,7 +184,9 @@ describe('SessionStateService', () => {
       const newState: SessionState = {
         currentState: 'waiting_for_clarification',
         pendingConfirmation: null,
-        isProcessingVoiceCommand: true
+        isProcessingVoiceCommand: true,
+        conversationHistory: [],
+        recentCommands: []
       };
 
       sessionStateService.setState(newState);
@@ -182,10 +196,12 @@ describe('SessionStateService', () => {
       sessionStateService.setState({
         currentState: 'normal',
         pendingConfirmation: null,
-        isProcessingVoiceCommand: false
+        isProcessingVoiceCommand: false,
+        conversationHistory: [],
+        recentCommands: []
       });
 
       expect(mockCallback).toHaveBeenCalledTimes(1);
     });
   });
-}); 
+});    

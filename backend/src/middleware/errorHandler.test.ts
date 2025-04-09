@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { errorHandler } from './errorHandler';
-import { AppError, ErrorType } from '../errors/AppError';
+import { ApiError } from '../errors/ApiError';
 
 describe('Error Handler Middleware', () => {
   let mockRequest: Partial<Request>;
@@ -16,14 +16,14 @@ describe('Error Handler Middleware', () => {
     nextFunction = jest.fn();
   });
 
-  test('should handle AppError correctly', () => {
-    const error = new AppError('Test error', ErrorType.VALIDATION_ERROR);
+  test('should handle ApiError correctly', () => {
+    const error = new ApiError('Test error', 400, 'VALIDATION_ERROR');
     errorHandler(error, mockRequest as Request, mockResponse as Response, nextFunction);
 
     expect(mockResponse.status).toHaveBeenCalledWith(400);
     expect(mockResponse.json).toHaveBeenCalledWith({
       status: 'error',
-      type: ErrorType.VALIDATION_ERROR,
+      type: 'VALIDATION_ERROR',
       message: 'Test error'
     });
   });
@@ -35,32 +35,32 @@ describe('Error Handler Middleware', () => {
     expect(mockResponse.status).toHaveBeenCalledWith(500);
     expect(mockResponse.json).toHaveBeenCalledWith({
       status: 'error',
-      type: ErrorType.INTERNAL_ERROR,
+      type: 'INTERNAL_ERROR',
       message: 'An unexpected error occurred'
     });
   });
 
   test('should handle non-operational errors without exposing details', () => {
-    const error = new AppError('System error', ErrorType.INTERNAL_ERROR, 500, false);
+    const error = new ApiError('System error', 500, 'INTERNAL_ERROR', false);
     errorHandler(error, mockRequest as Request, mockResponse as Response, nextFunction);
 
     expect(mockResponse.status).toHaveBeenCalledWith(500);
     expect(mockResponse.json).toHaveBeenCalledWith({
       status: 'error',
-      type: ErrorType.INTERNAL_ERROR,
+      type: 'INTERNAL_ERROR',
       message: 'An unexpected error occurred'
     });
   });
 
   test('should handle validation errors with details', () => {
-    const error = new AppError('Invalid input', ErrorType.VALIDATION_ERROR);
+    const error = new ApiError('Invalid input', 400, 'VALIDATION_ERROR');
     errorHandler(error, mockRequest as Request, mockResponse as Response, nextFunction);
 
     expect(mockResponse.status).toHaveBeenCalledWith(400);
     expect(mockResponse.json).toHaveBeenCalledWith({
       status: 'error',
-      type: ErrorType.VALIDATION_ERROR,
+      type: 'VALIDATION_ERROR',
       message: 'Invalid input'
     });
   });
-}); 
+});    

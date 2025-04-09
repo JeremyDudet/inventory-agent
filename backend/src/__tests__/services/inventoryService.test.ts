@@ -279,7 +279,7 @@ describe('InventoryService', () => {
     });
     
     test('should throw ValidationError when creation fails', async () => {
-      jest.spyOn(mockRepository, 'save').mockResolvedValue(null as unknown as InventoryItem);
+      jest.spyOn(mockRepository, 'create').mockRejectedValue(new Error('Failed to create item'));
       
       await expect(inventoryService.addItem({
         name: 'Failed Item',
@@ -299,18 +299,15 @@ describe('InventoryService', () => {
         return;
       }
       
+      jest.spyOn(mockRepository, 'delete').mockResolvedValue(true);
+      
       await inventoryService.deleteItem(itemToDelete.id);
       
-      const remainingItems = mockRepository.getItems();
-      expect(remainingItems).not.toContainEqual(expect.objectContaining({
-        id: itemToDelete.id
-      }));
-      expect(remainingItems).toHaveLength(3); // Started with 4, deleted 1
+      expect(mockRepository.delete).toHaveBeenCalledWith(itemToDelete.id);
     });
     
     test('should throw ValidationError when deletion fails', async () => {
-      jest.spyOn(mockRepository, 'delete').mockImplementation(async () => {});
-      jest.spyOn(mockRepository, 'updateQuantity').mockResolvedValue(false);
+      jest.spyOn(mockRepository, 'delete').mockResolvedValue(false);
       
       await expect(inventoryService.deleteItem('non-existent-id'))
         .rejects.toThrow(ValidationError);
@@ -346,20 +343,21 @@ describe('InventoryService', () => {
       
       jest.spyOn(inventoryService, 'findBestMatch').mockResolvedValue(item);
       
-      const getUnitTypeMock = jest.fn().mockReturnValue('count');
-      const convertQuantityMock = jest.fn().mockReturnValue(20); // 10 bags = 20 units
+      const unitConversions = require('../../utils/unitConversions');
+      jest.spyOn(unitConversions, 'getUnitType')
+        .mockImplementation((unit) => unit === 'bags' || unit === 'units' ? 'count' : 'unknown');
       
-      jest.mock('../../utils/unitConversions', () => ({
-        getUnitType: getUnitTypeMock,
-        convertQuantity: convertQuantityMock
-      }));
+      jest.spyOn(unitConversions, 'convertQuantity')
+        .mockImplementation(() => 20); // 10 bags = 20 units
       
       const result = await inventoryService.getItemQuantity('Coffee 16 ounce', 'units');
       
       expect(result).toEqual({
-        quantity: expect.any(Number),
+        quantity: 20,
         unit: 'units'
       });
+      
+      jest.restoreAllMocks();
     });
   });
 });

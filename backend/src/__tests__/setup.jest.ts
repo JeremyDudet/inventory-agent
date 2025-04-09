@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import { initializeSupabase } from '../config/db';
 import { createClient } from '@supabase/supabase-js';
+import { describe, it, expect, jest } from '@jest/globals';
 
 // Load test environment variables
 dotenv.config({ path: '.env.test' });
@@ -67,3 +68,14 @@ console.warn = (...args) => {
   }
   originalWarn.call(console, ...args);
 }; 
+
+describe('Jest Setup', () => {
+  it('should set up environment variables for testing', () => {
+    expect(process.env.NODE_ENV).toBe('test');
+  });
+  
+  it('should mock Supabase client correctly', () => {
+    expect(createClient).toBeDefined();
+    expect(jest.isMockFunction(createClient)).toBe(true);
+  });
+}); 

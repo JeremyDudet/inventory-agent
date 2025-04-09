@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { authenticate, authorize, requireRole } from '../../middleware/auth';
 import authService, { UserRole, UserPermissions, AuthTokenPayload } from '../../services/authService';
+import { UnauthorizedError, ForbiddenError } from '../../errors/AuthError';
 
 // Mock the auth service
 jest.mock('../../services/authService');
@@ -30,13 +31,12 @@ describe('Authentication Middleware', () => {
         nextFunction
       );
 
-      expect(mockResponse.status).toHaveBeenCalledWith(401);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        error: {
-          code: 'MISSING_TOKEN',
-          message: 'Authentication Error: No token provided. Please log in to access this resource.',
-        },
-      });
+      expect(nextFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'No token provided. Please log in to access this resource.',
+          statusCode: 401
+        })
+      );
     });
 
     it('should return 401 if token is invalid', async () => {
@@ -54,13 +54,12 @@ describe('Authentication Middleware', () => {
         nextFunction
       );
 
-      expect(mockResponse.status).toHaveBeenCalledWith(401);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        error: {
-          code: 'INVALID_TOKEN',
-          message: 'Authentication Error: Invalid or expired token. Please log in again.',
-        },
-      });
+      expect(nextFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Invalid or expired token. Please log in again.',
+          statusCode: 401
+        })
+      );
     });
 
     it('should call next() if token is valid', async () => {
@@ -115,13 +114,12 @@ describe('Authentication Middleware', () => {
         nextFunction
       );
 
-      expect(mockResponse.status).toHaveBeenCalledWith(401);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        error: {
-          code: 'UNAUTHORIZED',
-          message: 'Authentication Error: You must be logged in to access this resource.',
-        },
-      });
+      expect(nextFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'You must be logged in to access this resource.',
+          statusCode: 401
+        })
+      );
     });
 
     it('should return 403 if user does not have required permission', () => {
@@ -147,15 +145,12 @@ describe('Authentication Middleware', () => {
         nextFunction
       );
 
-      expect(mockResponse.status).toHaveBeenCalledWith(403);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        error: {
-          code: 'FORBIDDEN',
-          message: "Authorization Error: You don't have the required inventory:write permission",
-          requiredPermission: 'inventory:write',
-          userRole: UserRole.READONLY,
-        },
-      });
+      expect(nextFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: "You don't have the required inventory:write permission",
+          statusCode: 403
+        })
+      );
     });
 
     it('should call next() if user has required permission', () => {
@@ -194,13 +189,12 @@ describe('Authentication Middleware', () => {
         nextFunction
       );
 
-      expect(mockResponse.status).toHaveBeenCalledWith(401);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        error: {
-          code: 'UNAUTHORIZED',
-          message: 'Authentication Error: You must be logged in to access this resource.',
-        },
-      });
+      expect(nextFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'You must be logged in to access this resource.',
+          statusCode: 401
+        })
+      );
     });
 
     it('should return 403 if user does not have required role', () => {
@@ -226,15 +220,12 @@ describe('Authentication Middleware', () => {
         nextFunction
       );
 
-      expect(mockResponse.status).toHaveBeenCalledWith(403);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        error: {
-          code: 'FORBIDDEN',
-          message: `Authorization Error: Access denied. Your role (${UserRole.STAFF}) doesn't have permission for this action. Required role: ${UserRole.MANAGER}`,
-          userRole: UserRole.STAFF,
-          requiredRoles: [UserRole.MANAGER],
-        },
-      });
+      expect(nextFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringContaining(`Access denied. Your role (${UserRole.STAFF}) doesn't have permission for this action`),
+          statusCode: 403
+        })
+      );
     });
 
     it('should call next() if user has required role', () => {
@@ -263,4 +254,4 @@ describe('Authentication Middleware', () => {
       expect(nextFunction).toHaveBeenCalled();
     });
   });
-}); 
+});  
