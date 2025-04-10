@@ -29,7 +29,7 @@ export default function BottomNavigation() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 lg:hidden">
-      <div className="flex h-16 items-center justify-around bg-white border-t border-gray-200">
+      <div className="flex h-16 items-center justify-around border-t">
         {navigation.map((item) => {
           const isCurrentPage = location.pathname === item.href;
           return (

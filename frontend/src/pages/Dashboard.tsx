@@ -5,11 +5,9 @@ import { useNotification } from "../context/NotificationContext";
 import { useAuth } from "../context/AuthContext";
 import InventoryGrid, { InventoryItem } from "../components/InventoryGrid";
 import LoadingSpinner from "../components/LoadingSpinner";
-import AudioVisualizer from "../components/AudioVisualizer";
 import MinimizedAudioVisualizer from "../components/MinimizedAudioVisualizer";
-import ThemeToggle from "../components/ThemeToggle";
 import supabase from "../config/supabase";
-import AppShell from "@/components/AppShell";
+import { ApplicationLayout } from "@/components/AppLayout";
 import { api } from "../services/api";
 import io from "socket.io-client";
 
@@ -215,7 +213,7 @@ const Dashboard: React.FC = () => {
   if (isLoading) return <LoadingSpinner fullScreen text="Loading..." />;
 
   return (
-    <AppShell>
+    <ApplicationLayout>
       <div className="py-6">
         <div className="voice-control-section mb-6">
           <div className="flex items-center gap-4">
@@ -404,7 +402,7 @@ const Dashboard: React.FC = () => {
           />
         </div>
       </div>
-    </AppShell>
+    </ApplicationLayout>
   );
 };
 

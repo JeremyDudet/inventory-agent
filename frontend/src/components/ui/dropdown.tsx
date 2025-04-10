@@ -1,218 +1,188 @@
-"use client";
+'use client'
 
-import * as Headless from "@headlessui/react";
-import clsx from "clsx";
-import type React from "react";
-import { Button } from "./button";
-import { Link } from "./link";
-import { Fragment } from "react";
-import { Transition } from "@headlessui/react";
-import { cn } from "@/lib/utils";
+import * as Headless from '@headlessui/react'
+import clsx from 'clsx'
+import type React from 'react'
+import { Button } from './button'
+import { Link } from './link'
 
-export function Dropdown({ children }: { children: React.ReactNode }) {
-  return (
-    <Headless.Menu as="div" className="relative">
-      {children}
-    </Headless.Menu>
-  );
+export function Dropdown(props: Headless.MenuProps) {
+  return <Headless.Menu {...props} />
 }
 
-interface DropdownButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  as?: React.ElementType;
-}
-
-export function DropdownButton({
-  as: Component = "button",
-  className,
+export function DropdownButton<T extends React.ElementType = typeof Button>({
+  as = Button,
   ...props
-}: DropdownButtonProps) {
-  return (
-    <Headless.Menu.Button
-      as={Component}
-      className={cn(
-        "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100",
-        className
-      )}
-      {...props}
-    />
-  );
-}
-
-interface DropdownMenuProps {
-  children: React.ReactNode;
-  className?: string;
-  anchor?: "top start" | "bottom end" | "bottom start" | "top end";
+}: { className?: string } & Omit<Headless.MenuButtonProps<T>, 'className'>) {
+  return <Headless.MenuButton as={as} {...props} />
 }
 
 export function DropdownMenu({
-  children,
+  anchor = 'bottom',
   className,
-  anchor = "bottom end",
-}: DropdownMenuProps) {
-  const anchorClasses = {
-    "top start": "origin-top-left left-0",
-    "bottom end": "origin-bottom-right right-0",
-    "bottom start": "origin-bottom-left left-0",
-    "top end": "origin-top-right right-0",
-  };
-
+  ...props
+}: { className?: string } & Omit<Headless.MenuItemsProps, 'as' | 'className'>) {
   return (
-    <Transition
-      as={Fragment}
-      enter="transition ease-out duration-100"
-      enterFrom="transform opacity-0 scale-95"
-      enterTo="transform opacity-100 scale-100"
-      leave="transition ease-in duration-75"
-      leaveFrom="transform opacity-100 scale-100"
-      leaveTo="transform opacity-0 scale-95"
-    >
-      <Headless.Menu.Items
-        className={cn(
-          "absolute mt-2 w-56 rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none",
-          anchorClasses[anchor],
-          className
-        )}
-      >
-        {children}
-      </Headless.Menu.Items>
-    </Transition>
-  );
-}
-
-interface DropdownItemProps
-  extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
-  children: React.ReactNode;
+    <Headless.MenuItems
+      {...props}
+      transition
+      anchor={anchor}
+      className={clsx(
+        className,
+        // Anchor positioning
+        '[--anchor-gap:--spacing(2)] [--anchor-padding:--spacing(1)] data-[anchor~=end]:[--anchor-offset:6px] data-[anchor~=start]:[--anchor-offset:-6px] sm:data-[anchor~=end]:[--anchor-offset:4px] sm:data-[anchor~=start]:[--anchor-offset:-4px]',
+        // Base styles
+        'isolate w-max rounded-xl p-1',
+        // Invisible border that is only visible in `forced-colors` mode for accessibility purposes
+        'outline outline-transparent focus:outline-hidden',
+        // Handle scrolling when menu won't fit in viewport
+        'overflow-y-auto',
+        // Popover background
+        'bg-white/75 backdrop-blur-xl dark:bg-zinc-800/75',
+        // Shadows
+        'ring-1 shadow-lg ring-zinc-950/10 dark:ring-white/10 dark:ring-inset',
+        // Define grid at the menu level if subgrid is supported
+        'supports-[grid-template-columns:subgrid]:grid supports-[grid-template-columns:subgrid]:grid-cols-[auto_1fr_1.5rem_0.5rem_auto]',
+        // Transitions
+        'transition data-leave:duration-100 data-leave:ease-in data-closed:data-leave:opacity-0'
+      )}
+    />
+  )
 }
 
 export function DropdownItem({
-  children,
   className,
   ...props
-}: DropdownItemProps) {
-  return (
-    <Headless.Menu.Item>
-      {({ active }) => (
-        <a
-          className={cn(
-            "flex items-center gap-2 px-4 py-2 text-sm text-gray-700",
-            active && "bg-gray-100",
-            className
-          )}
-          {...props}
-        >
-          {children}
-        </a>
-      )}
-    </Headless.Menu.Item>
-  );
+}: { className?: string } & (
+  | Omit<Headless.MenuItemProps<'button'>, 'as' | 'className'>
+  | Omit<Headless.MenuItemProps<typeof Link>, 'as' | 'className'>
+)) {
+  let classes = clsx(
+    className,
+    // Base styles
+    'group cursor-default rounded-lg px-3.5 py-2.5 focus:outline-hidden sm:px-3 sm:py-1.5',
+    // Text styles
+    'text-left text-base/6 text-zinc-950 sm:text-sm/6 dark:text-white forced-colors:text-[CanvasText]',
+    // Focus
+    'data-focus:bg-blue-500 data-focus:text-white',
+    // Disabled state
+    'data-disabled:opacity-50',
+    // Forced colors mode
+    'forced-color-adjust-none forced-colors:data-focus:bg-[Highlight] forced-colors:data-focus:text-[HighlightText] forced-colors:data-focus:*:data-[slot=icon]:text-[HighlightText]',
+    // Use subgrid when available but fallback to an explicit grid layout if not
+    'col-span-full grid grid-cols-[auto_1fr_1.5rem_0.5rem_auto] items-center supports-[grid-template-columns:subgrid]:grid-cols-subgrid',
+    // Icons
+    '*:data-[slot=icon]:col-start-1 *:data-[slot=icon]:row-start-1 *:data-[slot=icon]:mr-2.5 *:data-[slot=icon]:-ml-0.5 *:data-[slot=icon]:size-5 sm:*:data-[slot=icon]:mr-2 sm:*:data-[slot=icon]:size-4',
+    '*:data-[slot=icon]:text-zinc-500 data-focus:*:data-[slot=icon]:text-white dark:*:data-[slot=icon]:text-zinc-400 dark:data-focus:*:data-[slot=icon]:text-white',
+    // Avatar
+    '*:data-[slot=avatar]:mr-2.5 *:data-[slot=avatar]:-ml-1 *:data-[slot=avatar]:size-6 sm:*:data-[slot=avatar]:mr-2 sm:*:data-[slot=avatar]:size-5'
+  )
+
+  return 'href' in props ? (
+    <Headless.MenuItem as={Link} {...props} className={classes} />
+  ) : (
+    <Headless.MenuItem as="button" type="button" {...props} className={classes} />
+  )
 }
 
-export function DropdownLabel({ children }: { children: React.ReactNode }) {
-  return <span className="flex-1">{children}</span>;
-}
-
-export function DropdownDivider() {
-  return <div className="my-1 h-px bg-gray-200" />;
-}
-
-export function DropdownHeader({
-  className,
-  ...props
-}: React.ComponentPropsWithoutRef<"div">) {
-  return (
-    <div
-      {...props}
-      className={clsx(className, "col-span-5 px-3.5 pt-2.5 pb-1 sm:px-3")}
-    />
-  );
+export function DropdownHeader({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) {
+  return <div {...props} className={clsx(className, 'col-span-5 px-3.5 pt-2.5 pb-1 sm:px-3')} />
 }
 
 export function DropdownSection({
   className,
   ...props
-}: { className?: string } & Omit<
-  Headless.MenuSectionProps,
-  "as" | "className"
->) {
+}: { className?: string } & Omit<Headless.MenuSectionProps, 'as' | 'className'>) {
   return (
     <Headless.MenuSection
       {...props}
       className={clsx(
         className,
         // Define grid at the section level instead of the item level if subgrid is supported
-        "col-span-full supports-[grid-template-columns:subgrid]:grid supports-[grid-template-columns:subgrid]:grid-cols-[auto_1fr_1.5rem_0.5rem_auto]"
+        'col-span-full supports-[grid-template-columns:subgrid]:grid supports-[grid-template-columns:subgrid]:grid-cols-[auto_1fr_1.5rem_0.5rem_auto]'
       )}
     />
-  );
+  )
 }
 
 export function DropdownHeading({
   className,
   ...props
-}: { className?: string } & Omit<
-  Headless.MenuHeadingProps,
-  "as" | "className"
->) {
+}: { className?: string } & Omit<Headless.MenuHeadingProps, 'as' | 'className'>) {
   return (
     <Headless.MenuHeading
       {...props}
       className={clsx(
         className,
-        "col-span-full grid grid-cols-[1fr_auto] gap-x-12 px-3.5 pt-2 pb-1 text-sm/5 font-medium text-zinc-500 sm:px-3 sm:text-xs/5 dark:text-zinc-400"
+        'col-span-full grid grid-cols-[1fr_auto] gap-x-12 px-3.5 pt-2 pb-1 text-sm/5 font-medium text-zinc-500 sm:px-3 sm:text-xs/5 dark:text-zinc-400'
       )}
     />
-  );
+  )
+}
+
+export function DropdownDivider({
+  className,
+  ...props
+}: { className?: string } & Omit<Headless.MenuSeparatorProps, 'as' | 'className'>) {
+  return (
+    <Headless.MenuSeparator
+      {...props}
+      className={clsx(
+        className,
+        'col-span-full mx-3.5 my-1 h-px border-0 bg-zinc-950/5 sm:mx-3 dark:bg-white/10 forced-colors:bg-[CanvasText]'
+      )}
+    />
+  )
+}
+
+export function DropdownLabel({
+  className,
+  ...props
+}: { className?: string } & Omit<Headless.LabelProps, 'as' | 'className'>) {
+  return (
+    <Headless.Label {...props} data-slot="label" className={clsx(className, 'col-start-2 row-start-1')} {...props} />
+  )
 }
 
 export function DropdownDescription({
   className,
   ...props
-}: { className?: string } & Omit<
-  Headless.DescriptionProps,
-  "as" | "className"
->) {
+}: { className?: string } & Omit<Headless.DescriptionProps, 'as' | 'className'>) {
   return (
     <Headless.Description
       data-slot="description"
       {...props}
       className={clsx(
         className,
-        "col-span-2 col-start-2 row-start-2 text-sm/5 text-zinc-500 group-data-focus:text-white sm:text-xs/5 dark:text-zinc-400 forced-colors:group-data-focus:text-[HighlightText]"
+        'col-span-2 col-start-2 row-start-2 text-sm/5 text-zinc-500 group-data-focus:text-white sm:text-xs/5 dark:text-zinc-400 forced-colors:group-data-focus:text-[HighlightText]'
       )}
     />
-  );
+  )
 }
 
 export function DropdownShortcut({
   keys,
   className,
   ...props
-}: { keys: string | string[]; className?: string } & Omit<
-  Headless.DescriptionProps<"kbd">,
-  "as" | "className"
->) {
+}: { keys: string | string[]; className?: string } & Omit<Headless.DescriptionProps<'kbd'>, 'as' | 'className'>) {
   return (
     <Headless.Description
       as="kbd"
       {...props}
-      className={clsx(
-        className,
-        "col-start-5 row-start-1 flex justify-self-end"
-      )}
+      className={clsx(className, 'col-start-5 row-start-1 flex justify-self-end')}
     >
-      {(Array.isArray(keys) ? keys : keys.split("")).map((char, index) => (
+      {(Array.isArray(keys) ? keys : keys.split('')).map((char, index) => (
         <kbd
           key={index}
           className={clsx([
-            "min-w-[2ch] text-center font-sans text-zinc-400 capitalize group-data-focus:text-white forced-colors:group-data-focus:text-[HighlightText]",
+            'min-w-[2ch] text-center font-sans text-zinc-400 capitalize group-data-focus:text-white forced-colors:group-data-focus:text-[HighlightText]',
             // Make sure key names that are longer than one character (like "Tab") have extra space
-            index > 0 && char.length > 1 && "pl-1",
+            index > 0 && char.length > 1 && 'pl-1',
           ])}
         >
           {char}
         </kbd>
       ))}
     </Headless.Description>
-  );
+  )
 }
