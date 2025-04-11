@@ -43,6 +43,7 @@ import {
   SparklesIcon,
   Square2StackIcon,
   TicketIcon,
+  ClockIcon,
 } from "@heroicons/react/20/solid";
 import { useLocation } from "react-router-dom";
 import { useTheme } from "@/context/ThemeContext";
@@ -112,6 +113,7 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
                           ? "/teams/logo-light.svg"
                           : "/teams/logo-black.svg"
                       }
+                      className="w-14 h-14"
                     />
                   );
                 })()}
@@ -137,7 +139,6 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
                             ? "/teams/logo-light.svg"
                             : "/teams/logo-black.svg"
                         }
-                        square
                       />
                     );
                   })()}
@@ -164,15 +165,15 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
             <SidebarSection>
               <SidebarItem href="/dashboard">
                 <HomeIcon />
-                <SidebarLabel>Home</SidebarLabel>
+                <SidebarLabel>Dashboard</SidebarLabel>
               </SidebarItem>
               <SidebarItem href="/items">
                 <Square2StackIcon />
                 <SidebarLabel>Items</SidebarLabel>
               </SidebarItem>
               <SidebarItem href="/orders">
-                <TicketIcon />
-                <SidebarLabel>Orders</SidebarLabel>
+                <ClockIcon />
+                <SidebarLabel>Changelog</SidebarLabel>
               </SidebarItem>
               <SidebarItem href="/settings">
                 <Cog6ToothIcon />
