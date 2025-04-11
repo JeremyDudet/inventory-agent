@@ -3,7 +3,7 @@ import clsx from "clsx";
 import { LayoutGroup, motion } from "framer-motion";
 import React, { forwardRef, useId } from "react";
 import { TouchTarget } from "./button";
-import { Link } from "./link";
+import { Link } from "@/components/ui/link";
 
 export function Sidebar({
   className,
@@ -164,21 +164,20 @@ export const SidebarItem = forwardRef<
         />
       )}
       {"href" in props ? (
-        <Headless.CloseButton
-          as={Link}
+        <Link
           {...props}
           className={classes}
           data-current={current ? "true" : undefined}
-          ref={ref}
+          ref={ref as React.ForwardedRef<HTMLAnchorElement>}
         >
           <TouchTarget>{children}</TouchTarget>
-        </Headless.CloseButton>
+        </Link>
       ) : (
         <Headless.Button
           {...props}
           className={clsx("cursor-default", classes)}
           data-current={current ? "true" : undefined}
-          ref={ref}
+          ref={ref as React.ForwardedRef<HTMLButtonElement>}
         >
           <TouchTarget>{children}</TouchTarget>
         </Headless.Button>

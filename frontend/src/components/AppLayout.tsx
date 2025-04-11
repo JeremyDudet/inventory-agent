@@ -45,6 +45,7 @@ import {
   TicketIcon,
 } from "@heroicons/react/20/solid";
 import { useLocation } from "react-router-dom";
+import { useTheme } from "@/context/ThemeContext";
 
 function AccountDropdownMenu({
   anchor,
@@ -102,8 +103,19 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
           <SidebarHeader>
             <Dropdown>
               <DropdownButton as={SidebarItem}>
-                <Avatar src="/teams/catalyst.svg" />
-                <SidebarLabel>Catalyst</SidebarLabel>
+                {(() => {
+                  const { theme } = useTheme();
+                  return (
+                    <Avatar
+                      src={
+                        theme === "dark"
+                          ? "/teams/logo-light.svg"
+                          : "/teams/logo-black.svg"
+                      }
+                    />
+                  );
+                })()}
+                <SidebarLabel>StockCount</SidebarLabel>
                 <ChevronDownIcon />
               </DropdownButton>
               <DropdownMenu
@@ -116,8 +128,20 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
                 </DropdownItem>
                 <DropdownDivider />
                 <DropdownItem href="#">
-                  <Avatar slot="icon" src="/teams/catalyst.svg" />
-                  <DropdownLabel>Catalyst</DropdownLabel>
+                  {(() => {
+                    const { theme } = useTheme();
+                    return (
+                      <Avatar
+                        src={
+                          theme === "dark"
+                            ? "/teams/logo-light.svg"
+                            : "/teams/logo-black.svg"
+                        }
+                        square
+                      />
+                    );
+                  })()}
+                  <SidebarLabel>StockCount</SidebarLabel>
                 </DropdownItem>
                 <DropdownItem href="#">
                   <Avatar
@@ -138,16 +162,19 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
 
           <SidebarBody>
             <SidebarSection>
-              <SidebarItem href="/" current={pathname === "/"}>
+              <SidebarItem
+                href="/dashboard"
+                current={pathname === "/dashboard"}
+              >
                 <HomeIcon />
                 <SidebarLabel>Home</SidebarLabel>
               </SidebarItem>
               <SidebarItem
-                href="/events"
-                current={pathname.startsWith("/events")}
+                href="/items"
+                current={pathname.startsWith("/items")}
               >
                 <Square2StackIcon />
-                <SidebarLabel>Events</SidebarLabel>
+                <SidebarLabel>Items</SidebarLabel>
               </SidebarItem>
               <SidebarItem
                 href="/orders"

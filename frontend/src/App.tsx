@@ -16,6 +16,7 @@ import Register from "./pages/Register";
 import Landing from "./pages/Landing";
 import LoadingSpinner from "./components/LoadingSpinner";
 import Settings from "./pages/Settings";
+
 // Protected route component that uses Supabase auth
 const ProtectedRoute = () => {
   const { user, isLoading } = useAuth();

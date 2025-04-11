@@ -1,8 +1,8 @@
 import { FormEvent, useState } from "react";
+import { ApplicationLayout } from "../components/AppLayout";
 import { ChevronDownIcon } from "@heroicons/react/16/solid";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
-import AppShell from "@/components/AppShell";
 import { useAuth } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
 import supabase from "../config/supabase";
@@ -33,7 +33,8 @@ export default function Settings() {
   const fullName = user?.user_metadata?.name || "";
   const nameParts = fullName.split(" ");
   const defaultFirstName = user?.user_metadata?.firstName || nameParts[0] || "";
-  const defaultLastName = user?.user_metadata?.lastName || nameParts.slice(1).join(" ") || "";
+  const defaultLastName =
+    user?.user_metadata?.lastName || nameParts.slice(1).join(" ") || "";
 
   const handlePersonalInfoSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -64,13 +65,13 @@ export default function Settings() {
 
       // Refresh the session to get updated user data
       await supabase.auth.refreshSession();
-      
+
       addNotification("success", "Personal information updated successfully");
     } catch (error: any) {
       console.error("Error updating personal info:", error);
       addNotification(
         "error",
-        error.message || "Failed to update personal information",
+        error.message || "Failed to update personal information"
       );
     } finally {
       setIsSubmitting(false);
@@ -124,7 +125,7 @@ export default function Settings() {
       console.error("Error logging out other sessions:", error);
       addNotification(
         "error",
-        error.message || "Failed to log out other sessions",
+        error.message || "Failed to log out other sessions"
       );
     } finally {
       setIsLoggingOut(false);
@@ -137,7 +138,7 @@ export default function Settings() {
     try {
       // Delete the user account
       const { error } = await supabase.auth.admin.deleteUser(
-        user?.id as string,
+        user?.id as string
       );
 
       if (error) throw error;
@@ -154,7 +155,7 @@ export default function Settings() {
   };
 
   return (
-    <AppShell>
+    <ApplicationLayout>
       <main className="h-full">
         <h1 className="sr-only">Account Settings</h1>
 
@@ -197,12 +198,17 @@ export default function Settings() {
                   </p>
                 </div>
 
-                <form className="md:col-span-2" onSubmit={handlePersonalInfoSubmit}>
+                <form
+                  className="md:col-span-2"
+                  onSubmit={handlePersonalInfoSubmit}
+                >
                   <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:max-w-xl sm:grid-cols-6">
                     <div className="col-span-full flex items-center gap-x-8">
                       <img
                         alt=""
-                        src={`https://ui-avatars.com/api/?name=${encodeURIComponent(user?.user_metadata?.name || 'User')}&background=0D9488&color=fff&size=96`}
+                        src={`https://ui-avatars.com/api/?name=${encodeURIComponent(
+                          user?.user_metadata?.name || "User"
+                        )}&background=0D9488&color=fff&size=96`}
                         className="size-24 flex-none rounded-lg bg-gray-100 object-cover"
                       />
                       <div>
@@ -223,12 +229,21 @@ export default function Settings() {
                       <button
                         type="button"
                         onClick={() => {
-                          addNotification("success", "This is a test notification");
+                          addNotification(
+                            "success",
+                            "This is a test notification"
+                          );
                           setTimeout(() => {
-                            addNotification("error", "This is an error notification");
+                            addNotification(
+                              "error",
+                              "This is an error notification"
+                            );
                           }, 1000);
                           setTimeout(() => {
-                            addNotification("warning", "This is a warning notification");
+                            addNotification(
+                              "warning",
+                              "This is a warning notification"
+                            );
                           }, 2000);
                         }}
                         className="text-sm text-indigo-600 hover:text-indigo-500"
@@ -335,11 +350,11 @@ export default function Settings() {
                           <option>Eastern Standard Time</option>
                           <option>Greenwich Mean Time</option>
                         </select>
-                          <ChevronDownIcon
-                            className="pointer-events-none col-start-1 row-start-1 mr-2 size-5 self-center justify-self-end text-gray-500 sm:size-4"
-                            aria-hidden="true"
-                          />
-                        </div>
+                        <ChevronDownIcon
+                          className="pointer-events-none col-start-1 row-start-1 mr-2 size-5 self-center justify-self-end text-gray-500 sm:size-4"
+                          aria-hidden="true"
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -440,8 +455,8 @@ export default function Settings() {
                     Log out other sessions
                   </h2>
                   <p className="mt-1 text-sm/6 text-gray-500">
-                    Please enter your password to confirm you would like to log out
-                    of your other sessions across all of your devices.
+                    Please enter your password to confirm you would like to log
+                    out of your other sessions across all of your devices.
                   </p>
                 </div>
 
@@ -476,7 +491,9 @@ export default function Settings() {
                       disabled={isLoggingOut}
                       className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-70"
                     >
-                      {isLoggingOut ? "Processing..." : "Log out other sessions"}
+                      {isLoggingOut
+                        ? "Processing..."
+                        : "Log out other sessions"}
                     </button>
                   </div>
                 </form>
@@ -488,9 +505,9 @@ export default function Settings() {
                     Delete account
                   </h2>
                   <p className="mt-1 text-sm/6 text-gray-500">
-                    No longer want to use our service? You can delete your account
-                    here. This action is not reversible. All information related to
-                    this account will be deleted permanently.
+                    No longer want to use our service? You can delete your
+                    account here. This action is not reversible. All information
+                    related to this account will be deleted permanently.
                   </p>
                 </div>
 
@@ -527,8 +544,12 @@ export default function Settings() {
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-sm font-medium leading-6 text-gray-900">Email Notifications</h3>
-                      <p className="mt-1 text-sm text-gray-500">Receive email notifications about account activity.</p>
+                      <h3 className="text-sm font-medium leading-6 text-gray-900">
+                        Email Notifications
+                      </h3>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Receive email notifications about account activity.
+                      </p>
                     </div>
                     <button
                       type="button"
@@ -539,11 +560,15 @@ export default function Settings() {
                       </span>
                     </button>
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-sm font-medium leading-6 text-gray-900">Push Notifications</h3>
-                      <p className="mt-1 text-sm text-gray-500">Receive push notifications on your device.</p>
+                      <h3 className="text-sm font-medium leading-6 text-gray-900">
+                        Push Notifications
+                      </h3>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Receive push notifications on your device.
+                      </p>
                     </div>
                     <button
                       type="button"
@@ -574,10 +599,12 @@ export default function Settings() {
                 <div className="rounded-md bg-gray-50 p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-sm font-medium text-gray-900">Current Plan</h3>
+                      <h3 className="text-sm font-medium text-gray-900">
+                        Current Plan
+                      </h3>
                       <p className="mt-1 text-sm text-gray-500">Free Plan</p>
                     </div>
-                    <button 
+                    <button
                       type="button"
                       className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
                     >
@@ -588,7 +615,7 @@ export default function Settings() {
               </div>
             </div>
           )}
-          
+
           {activeTab === "Teams" && (
             <div className="grid max-w-7xl grid-cols-1 gap-x-8 gap-y-10 px-4 py-16 sm:px-6 md:grid-cols-3 lg:px-8">
               <div>
@@ -601,20 +628,20 @@ export default function Settings() {
               </div>
 
               <div className="md:col-span-2">
-                <button 
+                <button
                   type="button"
                   className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
                 >
                   Invite Team Member
                 </button>
-                
+
                 <div className="mt-6">
                   <p className="text-sm text-gray-500">No team members yet.</p>
                 </div>
               </div>
             </div>
           )}
-          
+
           {activeTab === "Integrations" && (
             <div className="grid max-w-7xl grid-cols-1 gap-x-8 gap-y-10 px-4 py-16 sm:px-6 md:grid-cols-3 lg:px-8">
               <div>
@@ -630,23 +657,31 @@ export default function Settings() {
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-sm font-medium text-gray-900">Google</h3>
-                      <p className="mt-1 text-sm text-gray-500">Connect your Google account</p>
+                      <h3 className="text-sm font-medium text-gray-900">
+                        Google
+                      </h3>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Connect your Google account
+                      </p>
                     </div>
-                    <button 
+                    <button
                       type="button"
                       className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                     >
                       Connect
                     </button>
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-sm font-medium text-gray-900">GitHub</h3>
-                      <p className="mt-1 text-sm text-gray-500">Connect your GitHub account</p>
+                      <h3 className="text-sm font-medium text-gray-900">
+                        GitHub
+                      </h3>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Connect your GitHub account
+                      </p>
                     </div>
-                    <button 
+                    <button
                       type="button"
                       className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                     >
@@ -716,6 +751,6 @@ export default function Settings() {
           </div>
         </div>
       </Dialog>
-    </AppShell>
+    </ApplicationLayout>
   );
 }
