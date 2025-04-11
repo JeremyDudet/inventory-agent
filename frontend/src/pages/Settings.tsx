@@ -1,5 +1,4 @@
 import { FormEvent, useState } from "react";
-import { ApplicationLayout } from "../components/AppLayout";
 import { ChevronDownIcon } from "@heroicons/react/16/solid";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
@@ -155,7 +154,7 @@ export default function Settings() {
   };
 
   return (
-    <ApplicationLayout>
+    <>
       <main className="h-full">
         <h1 className="sr-only">Account Settings</h1>
 
@@ -751,6 +750,6 @@ export default function Settings() {
           </div>
         </div>
       </Dialog>
-    </ApplicationLayout>
+    </>
   );
 }

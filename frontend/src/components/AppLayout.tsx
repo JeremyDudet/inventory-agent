@@ -162,31 +162,19 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
 
           <SidebarBody>
             <SidebarSection>
-              <SidebarItem
-                href="/dashboard"
-                current={pathname === "/dashboard"}
-              >
+              <SidebarItem href="/dashboard">
                 <HomeIcon />
                 <SidebarLabel>Home</SidebarLabel>
               </SidebarItem>
-              <SidebarItem
-                href="/items"
-                current={pathname.startsWith("/items")}
-              >
+              <SidebarItem href="/items">
                 <Square2StackIcon />
                 <SidebarLabel>Items</SidebarLabel>
               </SidebarItem>
-              <SidebarItem
-                href="/orders"
-                current={pathname.startsWith("/orders")}
-              >
+              <SidebarItem href="/orders">
                 <TicketIcon />
                 <SidebarLabel>Orders</SidebarLabel>
               </SidebarItem>
-              <SidebarItem
-                href="/settings"
-                current={pathname.startsWith("/settings")}
-              >
+              <SidebarItem href="/settings">
                 <Cog6ToothIcon />
                 <SidebarLabel>Settings</SidebarLabel>
               </SidebarItem>

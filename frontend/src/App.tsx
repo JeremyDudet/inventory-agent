@@ -6,6 +6,7 @@ import {
   Route,
   Navigate,
   Outlet,
+  useLocation,
 } from "react-router-dom";
 import { NotificationProvider } from "./context/NotificationContext";
 import { ThemeProvider } from "./context/ThemeContext";
@@ -16,6 +17,7 @@ import Register from "./pages/Register";
 import Landing from "./pages/Landing";
 import LoadingSpinner from "./components/LoadingSpinner";
 import Settings from "./pages/Settings";
+import { ApplicationLayout } from "./components/AppLayout";
 
 // Protected route component that uses Supabase auth
 const ProtectedRoute = () => {
@@ -26,7 +28,7 @@ const ProtectedRoute = () => {
   }
 
   if (!user) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/login" replace />;
   }
 
   return <Outlet />;
@@ -41,10 +43,19 @@ const AuthRoute = () => {
   }
 
   if (user) {
-    return <Navigate to="/dashboard" />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <Outlet />;
+};
+
+// Wrap protected routes with ApplicationLayout
+const ProtectedLayout = () => {
+  return (
+    <ApplicationLayout>
+      <Outlet />
+    </ApplicationLayout>
+  );
 };
 
 const AppRoutes = () => {
@@ -59,14 +70,18 @@ const AppRoutes = () => {
         <Route path="/register" element={<Register />} />
       </Route>
 
-      {/* Protected routes */}
+      {/* Protected routes with shared layout */}
       <Route element={<ProtectedRoute />}>
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/settings" element={<Settings />} />
+        <Route element={<ProtectedLayout />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/items" element={<div>Items Page</div>} />
+          <Route path="/orders" element={<div>Orders Page</div>} />
+        </Route>
       </Route>
 
       {/* Fallback route */}
-      <Route path="*" element={<Navigate to="/" />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 };

@@ -4,3 +4,37 @@
   --font-sans: Inter, sans-serif;
   --font-sans--font-feature-settings: "cv11";
 }
+
+/* Sidebar navigation styles */
+.sidebar-nav-item {
+  position: relative;
+}
+
+.sidebar-nav-item a {
+  position: relative;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.sidebar-nav-item a:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.dark .sidebar-nav-item a:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-nav-item a svg {
+  transition: fill 0.2s ease;
+}
+
+/* Ensure the indicator animates smoothly */
+.sidebar-indicator {
+  position: absolute;
+  pointer-events: none;
+  transform-origin: center;
+}
+
+/* Active link styling */
+.sidebar-nav-item a.active {
+  font-weight: 500;
+}

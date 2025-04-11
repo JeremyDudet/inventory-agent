@@ -4,6 +4,7 @@ import { LayoutGroup, motion } from "framer-motion";
 import React, { forwardRef, useId } from "react";
 import { TouchTarget } from "./button";
 import { Link } from "@/components/ui/link";
+import { NavLink, useLocation } from "react-router-dom";
 
 export function Sidebar({
   className,
@@ -128,14 +129,27 @@ export const SidebarItem = forwardRef<
     current?: boolean;
     className?: string;
     children: React.ReactNode;
+    href?: string;
   } & (
     | Omit<Headless.ButtonProps, "as" | "className">
-    | Omit<Headless.ButtonProps<typeof Link>, "as" | "className">
+    | Omit<React.ComponentPropsWithoutRef<"a">, "className" | "href">
   )
->(function SidebarItem({ current, className, children, ...props }, ref) {
+>(function SidebarItem({ current, className, children, href, ...props }, ref) {
+  const location = useLocation();
+  const isActive =
+    href &&
+    (location.pathname === href ||
+      (href !== "/dashboard" && location.pathname.startsWith(href)));
+
+  // Function to emit custom event for sidebar closure on mobile
+  const handleNavClick = () => {
+    const closeSidebarEvent = new CustomEvent("close-sidebar");
+    window.dispatchEvent(closeSidebarEvent);
+  };
+
   let classes = clsx(
     // Base
-    "flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left text-base/6 font-medium text-zinc-950 sm:py-2 sm:text-sm/5",
+    "flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left text-base/6 font-medium sm:py-2 sm:text-sm/5",
     // Leading icon/icon-only
     "*:data-[slot=icon]:size-6 *:data-[slot=icon]:shrink-0 *:data-[slot=icon]:fill-zinc-500 sm:*:data-[slot=icon]:size-5",
     // Trailing icon (down chevron or similar)
@@ -143,38 +157,60 @@ export const SidebarItem = forwardRef<
     // Avatar
     "*:data-[slot=avatar]:-m-0.5 *:data-[slot=avatar]:size-7 sm:*:data-[slot=avatar]:size-6",
     // Hover
-    "data-hover:bg-zinc-950/5 data-hover:*:data-[slot=icon]:fill-zinc-950",
+    "hover:bg-zinc-950/5",
+    "hover:*:data-[slot=icon]:fill-zinc-950",
     // Active
     "data-active:bg-zinc-950/5 data-active:*:data-[slot=icon]:fill-zinc-950",
-    // Current
-    "data-current:*:data-[slot=icon]:fill-zinc-950",
     // Dark mode
-    "dark:text-white dark:*:data-[slot=icon]:fill-zinc-400",
-    "dark:data-hover:bg-white/5 dark:data-hover:*:data-[slot=icon]:fill-white",
-    "dark:data-active:bg-white/5 dark:data-active:*:data-[slot=icon]:fill-white",
-    "dark:data-current:*:data-[slot=icon]:fill-white"
+    "dark:*:data-[slot=icon]:fill-zinc-400",
+    "dark:hover:bg-white/5",
+    "dark:hover:*:data-[slot=icon]:fill-white",
+    "dark:data-active:bg-white/5 dark:data-active:*:data-[slot=icon]:fill-white"
   );
 
   return (
-    <span className={clsx(className, "relative")}>
-      {current && (
+    <span className={clsx(className, "relative sidebar-nav-item")}>
+      {isActive && (
         <motion.span
-          layoutId="current-indicator"
-          className="absolute inset-y-2 -left-4 w-0.5 rounded-full bg-zinc-950 dark:bg-white"
+          layoutId="sidebar-indicator"
+          className="sidebar-indicator absolute inset-y-2 -left-4 w-0.5 rounded-full bg-zinc-950 dark:bg-white"
+          transition={{
+            type: "spring",
+            stiffness: 300,
+            damping: 30,
+          }}
         />
       )}
-      {"href" in props ? (
-        <Link
-          {...props}
-          className={classes}
-          data-current={current ? "true" : undefined}
+
+      {href && href.startsWith("/") ? (
+        <NavLink
+          to={href}
+          onClick={handleNavClick}
+          className={({ isActive }) =>
+            clsx(
+              classes,
+              isActive
+                ? "active text-zinc-950 dark:text-white hover:text-zinc-950 dark:hover:text-white *:data-[slot=icon]:fill-zinc-950 dark:*:data-[slot=icon]:fill-white"
+                : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+            )
+          }
+          end={href === "/dashboard"}
           ref={ref as React.ForwardedRef<HTMLAnchorElement>}
         >
           <TouchTarget>{children}</TouchTarget>
-        </Link>
+        </NavLink>
+      ) : href ? (
+        <a
+          href={href}
+          onClick={handleNavClick}
+          className={classes}
+          ref={ref as React.ForwardedRef<HTMLAnchorElement>}
+        >
+          <TouchTarget>{children}</TouchTarget>
+        </a>
       ) : (
         <Headless.Button
-          {...props}
+          {...(props as any)}
           className={clsx("cursor-default", classes)}
           data-current={current ? "true" : undefined}
           ref={ref as React.ForwardedRef<HTMLButtonElement>}
