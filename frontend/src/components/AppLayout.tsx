@@ -25,7 +25,6 @@ import {
   SidebarSpacer,
 } from "@/components/ui/sidebar";
 import { SidebarLayout } from "@/components/ui/sidebar-layout";
-import { getEvents } from "@/data";
 import {
   ArrowRightStartOnRectangleIcon,
   ChevronDownIcon,
@@ -42,20 +41,16 @@ import {
   QuestionMarkCircleIcon,
   SparklesIcon,
   Square2StackIcon,
-  TicketIcon,
   ClockIcon,
 } from "@heroicons/react/20/solid";
-import { useLocation } from "react-router-dom";
 import { useTheme } from "@/context/ThemeContext";
+import { FloatingActionBar } from "./FloatingActionBar";
 
 function AccountDropdownMenu({
   anchor,
 }: {
   anchor: "top start" | "bottom end";
 }) {
-  const location = useLocation();
-  const pathname = location.pathname;
-
   return (
     <DropdownMenu className="min-w-64" anchor={anchor}>
       <DropdownItem href="#">
@@ -81,8 +76,16 @@ function AccountDropdownMenu({
 }
 
 export function ApplicationLayout({ children }: { children: React.ReactNode }) {
-  const location = useLocation();
-  const pathname = location.pathname;
+  // Handle action buttons clicks
+  const handleVoiceClick = () => {
+    // Implement voice input functionality
+    console.log("Voice input clicked");
+  };
+
+  const handleTextClick = () => {
+    // Implement text input functionality
+    console.log("Text input clicked");
+  };
 
   return (
     <SidebarLayout
@@ -173,7 +176,7 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
               </SidebarItem>
               <SidebarItem href="/orders">
                 <ClockIcon />
-                <SidebarLabel>Changelog</SidebarLabel>
+                <SidebarLabel>History</SidebarLabel>
               </SidebarItem>
               <SidebarItem href="/settings">
                 <Cog6ToothIcon />
@@ -227,6 +230,10 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
       }
     >
       {children}
+      <FloatingActionBar
+        onVoiceClick={handleVoiceClick}
+        onTextClick={handleTextClick}
+      />
     </SidebarLayout>
   );
 }

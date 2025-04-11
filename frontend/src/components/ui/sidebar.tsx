@@ -150,22 +150,14 @@ export const SidebarItem = forwardRef<
   let classes = clsx(
     // Base
     "flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left text-base/6 font-medium sm:py-2 sm:text-sm/5",
-    // Leading icon/icon-only
-    "*:data-[slot=icon]:size-6 *:data-[slot=icon]:shrink-0 *:data-[slot=icon]:fill-zinc-500 sm:*:data-[slot=icon]:size-5",
+    // Base icon styling
+    "*:data-[slot=icon]:size-6 *:data-[slot=icon]:shrink-0 sm:*:data-[slot=icon]:size-5",
     // Trailing icon (down chevron or similar)
     "*:last:data-[slot=icon]:ml-auto *:last:data-[slot=icon]:size-5 sm:*:last:data-[slot=icon]:size-4",
     // Avatar
     "*:data-[slot=avatar]:-m-0.5 *:data-[slot=avatar]:size-7 sm:*:data-[slot=avatar]:size-6",
-    // Hover
-    "hover:bg-zinc-950/5",
-    "hover:*:data-[slot=icon]:fill-zinc-950",
-    // Active
-    "data-active:bg-zinc-950/5 data-active:*:data-[slot=icon]:fill-zinc-950",
-    // Dark mode
-    "dark:*:data-[slot=icon]:fill-zinc-400",
-    "dark:hover:bg-white/5",
-    "dark:hover:*:data-[slot=icon]:fill-white",
-    "dark:data-active:bg-white/5 dark:data-active:*:data-[slot=icon]:fill-white"
+    // Hover effects
+    "hover:bg-zinc-950/5 dark:hover:bg-white/5"
   );
 
   return (
@@ -189,9 +181,14 @@ export const SidebarItem = forwardRef<
           className={({ isActive }) =>
             clsx(
               classes,
+              // Text styling based on active state
               isActive
-                ? "active text-zinc-950 dark:text-white hover:text-zinc-950 dark:hover:text-white *:data-[slot=icon]:fill-zinc-950 dark:*:data-[slot=icon]:fill-white"
-                : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                ? "text-zinc-950 dark:text-white"
+                : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200",
+              // Icon styling based on active state
+              isActive
+                ? "[&>svg]:text-zinc-950 dark:[&>svg]:text-white"
+                : "[&>svg]:text-zinc-500 dark:[&>svg]:text-zinc-400 hover:[&>svg]:text-zinc-700 dark:hover:[&>svg]:text-zinc-200"
             )
           }
           end={href === "/dashboard"}
