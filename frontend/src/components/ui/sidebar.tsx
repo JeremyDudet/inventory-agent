@@ -200,7 +200,11 @@ export const SidebarItem = forwardRef<
         <a
           href={href}
           onClick={handleNavClick}
-          className={classes}
+          className={clsx(
+            classes,
+            "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200",
+            "[&>svg]:text-zinc-500 dark:[&>svg]:text-zinc-400 hover:[&>svg]:text-zinc-700 dark:hover:[&>svg]:text-zinc-200"
+          )}
           ref={ref as React.ForwardedRef<HTMLAnchorElement>}
         >
           <TouchTarget>{children}</TouchTarget>
@@ -208,7 +212,12 @@ export const SidebarItem = forwardRef<
       ) : (
         <Headless.Button
           {...(props as any)}
-          className={clsx("cursor-default", classes)}
+          className={clsx(
+            "cursor-default",
+            classes,
+            "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200",
+            "[&>svg]:text-zinc-500 dark:[&>svg]:text-zinc-400 hover:[&>svg]:text-zinc-700 dark:hover:[&>svg]:text-zinc-200"
+          )}
           data-current={current ? "true" : undefined}
           ref={ref as React.ForwardedRef<HTMLButtonElement>}
         >
