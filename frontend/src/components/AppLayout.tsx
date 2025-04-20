@@ -45,11 +45,14 @@ import {
 } from "@heroicons/react/20/solid";
 import { useTheme } from "@/context/ThemeContext";
 import { FloatingActionBar } from "./FloatingActionBar";
+import { useAuth } from "@/context/AuthContext";
 
 function AccountDropdownMenu({
   anchor,
+  onSignOut,
 }: {
   anchor: "top start" | "bottom end";
+  onSignOut: () => void;
 }) {
   return (
     <DropdownMenu className="min-w-64" anchor={anchor}>
@@ -67,7 +70,7 @@ function AccountDropdownMenu({
         <DropdownLabel>Share feedback</DropdownLabel>
       </DropdownItem>
       <DropdownDivider />
-      <DropdownItem href="/login">
+      <DropdownItem onClick={onSignOut}>
         <ArrowRightStartOnRectangleIcon />
         <DropdownLabel>Sign out</DropdownLabel>
       </DropdownItem>
@@ -87,6 +90,12 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
     console.log("Text input clicked");
   };
 
+  const { signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
+
   return (
     <SidebarLayout
       navbar={
@@ -97,7 +106,10 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
               <DropdownButton as={NavbarItem}>
                 <Avatar src="/users/erica.jpg" square />
               </DropdownButton>
-              <AccountDropdownMenu anchor="bottom end" />
+              <AccountDropdownMenu
+                anchor="bottom end"
+                onSignOut={handleSignOut}
+              />
             </Dropdown>
           </NavbarSection>
         </Navbar>
@@ -223,7 +235,10 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
                 </span>
                 <ChevronUpIcon />
               </DropdownButton>
-              <AccountDropdownMenu anchor="top start" />
+              <AccountDropdownMenu
+                anchor="top start"
+                onSignOut={handleSignOut}
+              />
             </Dropdown>
           </SidebarFooter>
         </Sidebar>

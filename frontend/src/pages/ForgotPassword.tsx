@@ -1,5 +1,4 @@
-// frontend/src/pages/Login.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
@@ -7,35 +6,14 @@ import LoadingSpinner from "../components/LoadingSpinner";
 import { AuthLayout } from "../components/ui/auth-layout";
 import { Avatar } from "@/components/ui/avatar";
 import { useTheme } from "@/context/ThemeContext";
-import { Checkbox, CheckboxField } from "@/components/ui/checkbox";
 
-const Login: React.FC = () => {
+const ForgotPassword: React.FC = () => {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const { signIn } = useAuth();
+  const { resetPassword } = useAuth();
   const { addNotification } = useNotification();
   const { theme } = useTheme();
-
-  // Load remembered email on mount
-  useEffect(() => {
-    const rememberedEmail = localStorage.getItem("rememberedEmail");
-    if (rememberedEmail) {
-      setEmail(rememberedEmail);
-      setRememberMe(true);
-    }
-  }, []);
-
-  // Save email to localStorage if rememberMe is checked
-  useEffect(() => {
-    if (rememberMe) {
-      localStorage.setItem("rememberedEmail", email);
-    } else {
-      localStorage.removeItem("rememberedEmail");
-    }
-  }, [rememberMe, email]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -44,12 +22,6 @@ const Login: React.FC = () => {
       newErrors.email = "Email is required";
     } else if (!/\S+@\S+\.\S+/.test(email)) {
       newErrors.email = "Email is invalid";
-    }
-
-    if (!password) {
-      newErrors.password = "Password is required";
-    } else if (password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters";
     }
 
     setErrors(newErrors);
@@ -66,16 +38,16 @@ const Login: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const { error } = await signIn(email, password);
+      const { error } = await resetPassword(email);
 
       if (error) {
         addNotification("error", error.message);
         return;
       }
 
-      addNotification("success", "Login successful!");
+      addNotification("success", "Password reset link sent to your email!");
     } catch (error) {
-      addNotification("error", "Login failed. Please try again.");
+      addNotification("error", "Failed to send reset link. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -101,8 +73,11 @@ const Login: React.FC = () => {
           </span>
         </div>
         <h1 className="text-2xl font-semibold tracking-tight">
-          Sign in to your account
+          Reset your password
         </h1>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          Enter your email and we'll send you a link to reset your password.
+        </p>
 
         <div className="grid gap-2">
           <label
@@ -125,58 +100,12 @@ const Login: React.FC = () => {
           )}
         </div>
 
-        <div className="grid gap-2">
-          <label
-            htmlFor="password"
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-          >
-            Password
-          </label>
-          <input
-            id="password"
-            type="password"
-            className={`flex h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:ring-offset-zinc-950 dark:placeholder:text-zinc-400 dark:focus-visible:ring-zinc-300 ${
-              errors.password ? "border-red-500" : ""
-            }`}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          {errors.password && (
-            <span className="text-red-500 text-xs mt-1">{errors.password}</span>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between">
-          <CheckboxField>
-            <Checkbox
-              checked={rememberMe}
-              onChange={(checked) => setRememberMe(checked)}
-              id="remember"
-              color="dark/zinc"
-            />
-            <label
-              htmlFor="remember"
-              data-slot="label"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-              onClick={() => setRememberMe(!rememberMe)}
-            >
-              Remember me
-            </label>
-          </CheckboxField>
-          <Link
-            to="/forgot-password"
-            className="text-sm font-semibold text-zinc-900 dark:text-zinc-50"
-          >
-            Forgot password?
-          </Link>
-        </div>
-
         <button
           type="submit"
           className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-bold ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 dark:ring-offset-zinc-950 dark:focus-visible:ring-zinc-300 bg-zinc-900 text-zinc-50 hover:bg-zinc-900/90 dark:bg-zinc-600 dark:text-zinc-50 dark:hover:bg-zinc-600/90 h-10 px-4 py-2 w-full"
           disabled={isLoading}
         >
-          {isLoading ? <LoadingSpinner size="sm" /> : "Login"}
+          {isLoading ? <LoadingSpinner size="sm" /> : "Reset password"}
         </button>
 
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -193,4 +122,4 @@ const Login: React.FC = () => {
   );
 };
 
-export default Login;
+export default ForgotPassword;

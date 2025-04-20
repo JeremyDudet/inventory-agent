@@ -14,6 +14,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
 import Landing from "./pages/Landing";
 import LoadingSpinner from "./components/LoadingSpinner";
 import Settings from "./pages/Settings";
@@ -68,6 +69,7 @@ const AppRoutes = () => {
       <Route element={<AuthRoute />}>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
       </Route>
 
       {/* Protected routes with shared layout */}
