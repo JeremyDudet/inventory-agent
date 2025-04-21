@@ -94,7 +94,7 @@ export function FloatingActionBar({
   const [confidence, setConfidence] = useState(0);
   const [processingCommand, setProcessingCommand] = useState(false);
   const [feedback, setFeedback] = useState("");
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const [socket, setSocket] = useState<typeof Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [pendingConfirmation, setPendingConfirmation] = useState<{
@@ -127,7 +127,7 @@ export function FloatingActionBar({
 
   useEffect(() => {
     const SOCKET_URL = "http://localhost:8080/voice";
-    const socket = io(SOCKET_URL, {
+    const newSocket = io(SOCKET_URL, {
       transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionAttempts: 10,
@@ -138,57 +138,37 @@ export function FloatingActionBar({
       path: "/socket.io/",
     });
 
-    socket.on("connect", () => {
+    newSocket.on("connect", () => {
+      console.log("Connected to voice server");
       setIsConnected(true);
       setFeedback("Connected to voice server");
       addNotification("success", "Connected to voice server");
-      socket.emit("ping");
+      newSocket.emit("ping");
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current);
+      }
       pingIntervalRef.current = window.setInterval(() => {
-        if (socket.connected) socket.emit("ping");
+        if (newSocket.connected) newSocket.emit("ping");
       }, 15000);
-      setSystemActions((prev) => [
-        ...prev,
-        {
-          action: "Connection",
-          details: "Connected to voice server",
-          timestamp: Date.now(),
-          status: "success",
-        },
-      ]);
     });
 
-    socket.on("connect_error", (error: Error) => {
+    newSocket.on("connect_error", (error: Error) => {
+      console.error("Connection error:", error);
       setIsConnected(false);
       setFeedback(`Connection error: ${error.message}`);
-      addNotification("error", "Failed to connect");
+      addNotification("error", "Failed to connect to voice server");
       if (onFailure) onFailure(error.message);
-      setSystemActions((prev) => [
-        ...prev,
-        {
-          action: "Connection",
-          details: `Error: ${error.message}`,
-          timestamp: Date.now(),
-          status: "error",
-        },
-      ]);
     });
 
-    socket.on("disconnect", (reason: string) => {
+    newSocket.on("disconnect", (reason: string) => {
+      console.log("Disconnected:", reason);
       setIsConnected(false);
       setFeedback(`Disconnected: ${reason}`);
       addNotification("warning", `Disconnected: ${reason}`);
-      setSystemActions((prev) => [
-        ...prev,
-        {
-          action: "Connection",
-          details: `Disconnected: ${reason}`,
-          timestamp: Date.now(),
-          status: "info",
-        },
-      ]);
+      stopRecording();
     });
 
-    socket.on("error", (data: { message: string }) => {
+    newSocket.on("error", (data: { message: string }) => {
       setFeedback(`Error: ${data.message}`);
       addNotification("error", data.message);
       stopRecording();
@@ -203,7 +183,7 @@ export function FloatingActionBar({
       ]);
     });
 
-    socket.on(
+    newSocket.on(
       "transcription",
       (data: { text: string; isFinal: boolean; confidence?: number }) => {
         if (data.isFinal) {
@@ -225,7 +205,7 @@ export function FloatingActionBar({
       }
     );
 
-    socket.on(
+    newSocket.on(
       "nlp-response",
       (data: {
         action: string;
@@ -299,92 +279,88 @@ export function FloatingActionBar({
       }
     );
 
-    setSocket(socket);
+    setSocket(newSocket);
+
     return () => {
+      console.log("Cleaning up socket connection");
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current);
+      }
       stopRecording();
-      if (pingIntervalRef.current)
-        window.clearInterval(pingIntervalRef.current);
-      socket.disconnect();
+      newSocket.disconnect();
     };
   }, []);
 
   const startRecording = async () => {
     if (!socket || !isConnected) {
-      setFeedback("Not connected to server");
+      setFeedback("Not connected to voice server");
+      addNotification("error", "Not connected to voice server");
       return;
     }
-    setPendingConfirmation(null);
-    const mediaStream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
-    });
-    streamRef.current = mediaStream;
-    setStream(mediaStream);
 
-    audioContextRef.current = new AudioContext();
-    analyserRef.current = audioContextRef.current.createAnalyser();
-    analyserRef.current.fftSize = 256;
-    const source = audioContextRef.current.createMediaStreamSource(mediaStream);
-    source.connect(analyserRef.current);
-
-    const mediaRecorder = new MediaRecorder(mediaStream, {
-      mimeType: "audio/webm;codecs=opus",
-    });
-    mediaRecorderRef.current = mediaRecorder;
-
-    mediaRecorder.ondataavailable = (event) => {
-      if (event.data.size > 0 && socket && isConnected) {
-        socket.emit("voice-stream", event.data);
-      }
-    };
-
-    mediaRecorder.onstart = () => {
-      setFeedback("Listening...");
-      setTranscript("");
-      setSystemActions((prev) => [
-        ...prev,
-        {
-          action: "Recording",
-          details: "Started listening for voice commands",
-          timestamp: Date.now(),
-          status: "info",
+    try {
+      console.log("Requesting microphone access...");
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
         },
-      ]);
-    };
+      });
+      console.log("Microphone access granted");
 
-    mediaRecorder.onstop = () => {
-      setFeedback("Stopped");
-      setSystemActions((prev) => [
-        ...prev,
-        {
-          action: "Recording",
-          details: "Stopped listening",
-          timestamp: Date.now(),
-          status: "info",
-        },
-      ]);
-    };
+      streamRef.current = mediaStream;
+      setStream(mediaStream);
 
-    mediaRecorder.onerror = (event) => {
-      console.error("Recorder error:", event);
-      setFeedback("Recording error");
-      stopRecording();
-      setSystemActions((prev) => [
-        ...prev,
-        {
-          action: "Recording",
-          details: "Recording error occurred",
-          timestamp: Date.now(),
-          status: "error",
-        },
-      ]);
-    };
+      audioContextRef.current = new AudioContext();
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      analyserRef.current.fftSize = 256;
+      const source =
+        audioContextRef.current.createMediaStreamSource(mediaStream);
+      source.connect(analyserRef.current);
 
-    mediaRecorder.start(500);
-    setConfidence(0);
+      const mediaRecorder = new MediaRecorder(mediaStream, {
+        mimeType: "audio/webm;codecs=opus",
+      });
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0 && socket && isConnected) {
+          socket.emit("voice-stream", event.data);
+        }
+      };
+
+      mediaRecorder.onstart = () => {
+        console.log("Started recording");
+        setFeedback("Listening...");
+        setVoiceState("listening");
+      };
+
+      mediaRecorder.onstop = () => {
+        console.log("Stopped recording");
+        setFeedback("Stopped");
+        if (socket && isConnected) socket.emit("stop-recording");
+      };
+
+      mediaRecorder.onerror = (event) => {
+        console.error("Recorder error:", event);
+        setFeedback("Recording error occurred");
+        addNotification("error", "Recording error occurred");
+        stopRecording();
+      };
+
+      mediaRecorder.start(500);
+      setConfidence(0);
+      console.log("Started MediaRecorder");
+    } catch (error: unknown) {
+      console.error("Error starting recording:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error occurred";
+      setFeedback(`Error starting recording: ${errorMessage}`);
+      addNotification("error", `Error starting recording: ${errorMessage}`);
+      if (onFailure) onFailure(errorMessage);
+      setVoiceState("off");
+    }
   };
 
   const stopRecording = () => {
@@ -409,13 +385,48 @@ export function FloatingActionBar({
 
   const startVoiceSession = async () => {
     setVoiceState("loading");
+
+    // If we don't have a socket connection yet, create one
+    if (!socket || !isConnected) {
+      const SOCKET_URL = "http://localhost:8080/voice";
+      const newSocket = io(SOCKET_URL, {
+        transports: ["websocket", "polling"],
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 60000,
+        autoConnect: true,
+        path: "/socket.io/",
+      });
+
+      // Wait for connection
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error("Connection timeout"));
+        }, 5000);
+
+        newSocket.on("connect", () => {
+          clearTimeout(timeout);
+          setSocket(newSocket);
+          setIsConnected(true);
+          resolve();
+        });
+
+        newSocket.on("connect_error", (error: Error) => {
+          clearTimeout(timeout);
+          reject(error);
+        });
+      });
+    }
+
     try {
       await startRecording();
-      setVoiceState("listening");
     } catch (error) {
+      console.error("Failed to start recording:", error);
       setVoiceState("off");
       setFeedback("Failed to start recording");
-      if (onFailure) onFailure("Failed to start recording");
+      addNotification("error", "Failed to start recording");
     }
   };
 
@@ -505,26 +516,55 @@ export function FloatingActionBar({
     "fixed z-10",
     voiceState === "off"
       ? "bottom-5 right-5 md:bottom-8 md:right-8 bg-transparent"
-      : "flex items-center justify-between rounded-xl h-14 bottom-5 md:bottom-8 w-[90%] left-1/2 -translate-x-1/2 lg:w-[600px] lg:left-[calc(50%+8rem)] px-3 py-3 bg-zinc-100 dark:bg-zinc-800 outline outline-1 outline-zinc-200 dark:outline-zinc-700",
-    voiceState !== "off" && "h-auto flex-col",
-    isExpanded && "min-h-[200px]",
-    voiceState !== "off" &&
-      "text-zinc-950 dark:text-white antialiased shadow-sm",
-    className
+      : clsx(
+          "flex flex-col bg-white dark:bg-zinc-900 rounded-2xl shadow-lg overflow-hidden",
+          // Mobile: Full width with smaller margins
+          "bottom-0 right-0 left-0 mx-2 mb-2",
+          // Tablet: Centered with max-width
+          "md:left-auto md:right-8 md:bottom-8 md:w-[400px] md:mx-0 md:mb-0",
+          // Add safe area padding for mobile devices
+          "pb-safe",
+          // Add outline
+          theme === "light" ? "ring-1 ring-zinc-200" : "ring-1 ring-zinc-800",
+          // Prevent viewport overflow
+          "max-h-[calc(100vh-2rem)]"
+        ),
+    "transition-all duration-300 ease-in-out"
   );
 
+  const expandedHeaderClasses = clsx(
+    "flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800",
+    // Adjust padding for mobile
+    "sm:p-4 p-3",
+    // Ensure header stays at top
+    "sticky top-0 bg-white dark:bg-zinc-900 z-10"
+  );
+
+  const expandedContentClasses = clsx(
+    "space-y-4",
+    // Add padding and make content scrollable
+    "p-4 sm:p-4 p-3 overflow-y-auto"
+  );
+
+  const controlButtonClasses = clsx(
+    "flex items-center justify-center rounded-full p-2",
+    theme === "light"
+      ? "hover:bg-zinc-100 text-zinc-600"
+      : "hover:bg-zinc-800 text-zinc-300",
+    "transition-all duration-200 ease-in-out",
+    // Make touch targets larger on mobile
+    "sm:p-2 p-3"
+  );
+
+  // Adjust floating button size for mobile
   const floatingButtonClasses = clsx(
-    "flex items-center justify-center rounded-full w-14 h-14",
+    "flex items-center justify-center rounded-full",
+    // Smaller on mobile, larger on desktop
+    "w-12 h-12 sm:w-14 sm:h-14",
     theme === "light"
       ? "bg-white text-black hover:bg-zinc-50"
       : "bg-zinc-800 text-zinc-100 hover:bg-zinc-700",
     "transition-all duration-200 ease-in-out active:scale-95 shadow-lg group ring-1 ring-zinc-200/50 dark:ring-zinc-700/50"
-  );
-
-  const buttonBaseClasses = clsx(
-    "flex items-center justify-center rounded-full w-9 h-9 mx-1",
-    theme === "light" ? "bg-zinc-300 text-black" : "bg-zinc-700 text-zinc-100",
-    "transition-all duration-200 ease-in-out active:scale-95 group relative"
   );
 
   return (
@@ -552,107 +592,139 @@ export function FloatingActionBar({
         </button>
       )}
 
-      {voiceState === "loading" && (
-        <div className="flex items-center justify-center w-full">
-          <div className="text-sm">Connecting...</div>
-        </div>
-      )}
-
-      {voiceState === "listening" && (
+      {voiceState !== "off" && (
         <>
-          <div className="flex items-center w-full space-x-2">
-            {analyserRef.current && (
-              <AudioVisualizer analyser={analyserRef.current} />
-            )}
-            <div className="flex-1 text-sm truncate">
-              {transcript || feedback}
+          <div className={expandedHeaderClasses}>
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-medium">Voice Control</h2>
+              <span
+                className={`px-2 py-0.5 rounded-full text-sm ${
+                  voiceState === "listening"
+                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                    : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                }`}
+              >
+                {voiceState === "listening" ? "Listening" : "Paused"}
+              </span>
             </div>
-            <button onClick={pauseVoiceSession} className={buttonBaseClasses}>
-              Pause
-            </button>
-            <button onClick={stopVoiceSession} className={buttonBaseClasses}>
-              Stop
-            </button>
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className={buttonBaseClasses}
-            >
-              {isExpanded ? "Collapse" : "Expand"}
-            </button>
-          </div>
-          {isExpanded && (
-            <div className="mt-2 w-full">
-              <SessionLogs
-                transcript={transcript}
-                transcriptHistory={transcriptHistory}
-                systemActions={systemActions}
-                isListening={true}
-                confidence={confidence}
-                setTranscriptHistory={setTranscriptHistory}
-                setSystemActions={setSystemActions}
-              />
-            </div>
-          )}
-          {pendingConfirmation && (
-            <div className="mt-2 p-2 bg-base-200 rounded w-full">
-              <div>{feedback}</div>
-              <div className="flex space-x-2 mt-1">
-                <button
-                  onClick={confirmUpdate}
-                  className="btn btn-success btn-sm"
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className={controlButtonClasses}
+                title="Toggle Details"
+              >
+                {isExpanded ? (
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 15l7-7 7 7"
+                    />
+                  </svg>
+                )}
+              </button>
+              <button
+                onClick={stopVoiceSession}
+                className={controlButtonClasses}
+                title="Close"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
                 >
-                  Confirm
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div className={expandedContentClasses}>
+            <div className="flex items-center justify-center h-16 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl sticky top-0">
+              {analyserRef.current ? (
+                <div className="w-full max-w-sm mx-auto">
+                  <AudioVisualizer analyser={analyserRef.current} />
+                </div>
+              ) : (
+                <div className="text-zinc-400 dark:text-zinc-500">
+                  No audio input
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-center gap-3">
+              {voiceState === "listening" ? (
+                <button
+                  onClick={pauseVoiceSession}
+                  className="w-full sm:w-auto px-4 py-2 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium transition-colors duration-200"
+                >
+                  Pause
                 </button>
-                <button onClick={cancelUpdate} className="btn btn-error btn-sm">
-                  Cancel
+              ) : (
+                <button
+                  onClick={resumeVoiceSession}
+                  className="w-full sm:w-auto px-4 py-2 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium transition-colors duration-200"
+                >
+                  Resume
                 </button>
+              )}
+            </div>
+
+            {isExpanded && (
+              <div className="mt-4">
+                <SessionLogs
+                  transcript={transcript}
+                  transcriptHistory={transcriptHistory}
+                  systemActions={systemActions}
+                  isListening={voiceState === "listening"}
+                  confidence={confidence}
+                  setTranscriptHistory={setTranscriptHistory}
+                  setSystemActions={setSystemActions}
+                />
               </div>
-            </div>
-          )}
-        </>
-      )}
-
-      {voiceState === "resting" && (
-        <>
-          <div className="flex items-center w-full space-x-2">
-            <div className="flex-1 text-sm">Paused</div>
-            <button onClick={resumeVoiceSession} className={buttonBaseClasses}>
-              Resume
-            </button>
-            <button onClick={stopVoiceSession} className={buttonBaseClasses}>
-              Stop
-            </button>
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className={buttonBaseClasses}
-            >
-              {isExpanded ? "Collapse" : "Expand"}
-            </button>
+            )}
           </div>
-          {isExpanded && (
-            <div className="mt-2 w-full">
-              <SessionLogs
-                transcript={transcript}
-                transcriptHistory={transcriptHistory}
-                systemActions={systemActions}
-                isListening={voiceState === "listening"}
-                confidence={confidence}
-                setTranscriptHistory={setTranscriptHistory}
-                setSystemActions={setSystemActions}
-              />
-            </div>
-          )}
+
           {pendingConfirmation && (
-            <div className="mt-2 p-2 bg-base-200 rounded w-full">
-              <div>{feedback}</div>
-              <div className="flex space-x-2 mt-1">
+            <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 sm:p-4 p-3 sticky bottom-0 bg-white dark:bg-zinc-900">
+              <div className="mb-2">{feedback}</div>
+              <div className="flex gap-2">
                 <button
                   onClick={confirmUpdate}
-                  className="btn btn-success btn-sm"
+                  className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium transition-colors duration-200"
                 >
                   Confirm
                 </button>
-                <button onClick={cancelUpdate} className="btn btn-error btn-sm">
+                <button
+                  onClick={cancelUpdate}
+                  className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition-colors duration-200"
+                >
                   Cancel
                 </button>
               </div>
