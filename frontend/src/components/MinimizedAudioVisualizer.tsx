@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback } from "react";
 
 interface MinimizedAudioVisualizerProps {
   isListening: boolean;
@@ -9,7 +9,10 @@ interface MinimizedAudioVisualizerProps {
  * MinimizedAudioVisualizer component optimized for smaller containers
  * Displays a simpler visualization with shorter bars and reduced complexity
  */
-const MinimizedAudioVisualizer: React.FC<MinimizedAudioVisualizerProps> = ({ isListening, stream }) => {
+const MinimizedAudioVisualizer: React.FC<MinimizedAudioVisualizerProps> = ({
+  isListening,
+  stream,
+}) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number>();
@@ -19,14 +22,14 @@ const MinimizedAudioVisualizer: React.FC<MinimizedAudioVisualizerProps> = ({ isL
   // Resize canvas to match container
   const resizeCanvas = useCallback(() => {
     if (!canvasRef.current || !containerRef.current) return;
-    
+
     const container = containerRef.current;
     const canvas = canvasRef.current;
-    
+
     // Set canvas dimensions to match container size
     canvas.width = container.clientWidth;
     canvas.height = container.clientHeight;
-    
+
     // Re-trigger visualization if needed
     if (analyserRef.current && isListening) {
       if (animationRef.current) {
@@ -54,23 +57,23 @@ const MinimizedAudioVisualizer: React.FC<MinimizedAudioVisualizerProps> = ({ isL
       if (audioContextRef.current) {
         audioContextRef.current.close().catch(console.error);
       }
-      
+
       audioContextRef.current = new AudioContext();
       analyserRef.current = audioContextRef.current.createAnalyser();
-      
+
       // Use a smaller FFT size for a simpler visualization
       analyserRef.current.fftSize = 128; // Smaller than the default
-      
+
       const source = audioContextRef.current.createMediaStreamSource(stream);
       source.connect(analyserRef.current);
-      
+
       // Make sure canvas is properly sized before visualizing
       resizeCanvas();
-      
+
       // Start the visualization
       visualize();
     } catch (error) {
-      console.error('Error setting up audio context:', error);
+      console.error("Error setting up audio context:", error);
     }
 
     return () => {
@@ -82,13 +85,13 @@ const MinimizedAudioVisualizer: React.FC<MinimizedAudioVisualizerProps> = ({ isL
 
   // Listen for window resize events
   useEffect(() => {
-    window.addEventListener('resize', resizeCanvas);
-    
+    window.addEventListener("resize", resizeCanvas);
+
     // Initial resize
     resizeCanvas();
-    
+
     return () => {
-      window.removeEventListener('resize', resizeCanvas);
+      window.removeEventListener("resize", resizeCanvas);
     };
   }, [resizeCanvas]);
 
@@ -110,8 +113,8 @@ const MinimizedAudioVisualizer: React.FC<MinimizedAudioVisualizerProps> = ({ isL
 
     const canvas = canvasRef.current;
     const analyser = analyserRef.current;
-    const ctx = canvas.getContext('2d');
-    
+    const ctx = canvas.getContext("2d");
+
     if (!ctx) return;
 
     const bufferLength = analyser.frequencyBinCount;
@@ -119,15 +122,15 @@ const MinimizedAudioVisualizer: React.FC<MinimizedAudioVisualizerProps> = ({ isL
 
     const draw = () => {
       if (!ctx || !canvas) return;
-      
+
       animationRef.current = requestAnimationFrame(draw);
-      
+
       // Get the audio data
       analyser.getByteFrequencyData(dataArray);
-      
+
       // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
+
       // Set up the visualization style - wider bars for smaller container
       const barCount = 16; // Use fewer bars
       const barWidth = Math.max(2, Math.floor(canvas.width / barCount) - 1);
@@ -145,20 +148,23 @@ const MinimizedAudioVisualizer: React.FC<MinimizedAudioVisualizerProps> = ({ isL
           }
         }
         const average = sum / dataStep;
-        
+
         // Scale the bar height to fit the smaller container
         // Use a minimum height for visual appeal even in quiet moments
         const minHeight = canvas.height * 0.1;
-        const barHeight = Math.max(minHeight, (average / 255) * canvas.height * 0.9);
-        
+        const barHeight = Math.max(
+          minHeight,
+          (average / 255) * canvas.height * 0.9
+        );
+
         // Use gradient for the bars
         const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-        gradient.addColorStop(0, '#4ade80'); // Green at top
-        gradient.addColorStop(1, '#3b82f6'); // Blue at bottom
-        
+        gradient.addColorStop(0, "#4ade80"); // Green at top
+        gradient.addColorStop(1, "#3b82f6"); // Blue at bottom
+
         ctx.fillStyle = gradient;
         ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
-        
+
         x += barWidth + 1;
       }
     };
@@ -167,14 +173,11 @@ const MinimizedAudioVisualizer: React.FC<MinimizedAudioVisualizerProps> = ({ isL
   }, []);
 
   return (
-    <div 
+    <div
       ref={containerRef}
       className="minimized-audio-visualizer w-full h-full rounded overflow-hidden"
     >
-      <canvas
-        ref={canvasRef}
-        className="w-full h-full"
-      />
+      <canvas ref={canvasRef} className="w-full h-full" />
     </div>
   );
 };
