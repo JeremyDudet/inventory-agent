@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Socket } from "socket.io-client";
 import io from "socket.io-client";
 import clsx from "clsx";
@@ -8,9 +9,9 @@ import { useNotification } from "../context/NotificationContext";
 import AudioVisualizer from "./AudioVisualizer";
 import SessionLogs from "./SessionLogs";
 import { sessionStateService } from "../services/sessionStateService";
-import { SessionState, Command } from "../types/session";
+import { SessionState } from "../types/session";
 
-type VoiceState = "off" | "loading" | "listening" | "resting" | "expanded";
+type VoiceState = "off" | "loading" | "listening" | "resting";
 
 type FloatingActionBarProps = {
   onVoiceClick?: () => void;
@@ -144,9 +145,7 @@ export function FloatingActionBar({
       setFeedback("Connected to voice server");
       addNotification("success", "Connected to voice server");
       newSocket.emit("ping");
-      if (pingIntervalRef.current) {
-        clearInterval(pingIntervalRef.current);
-      }
+      if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
       pingIntervalRef.current = window.setInterval(() => {
         if (newSocket.connected) newSocket.emit("ping");
       }, 15000);
@@ -283,9 +282,7 @@ export function FloatingActionBar({
 
     return () => {
       console.log("Cleaning up socket connection");
-      if (pingIntervalRef.current) {
-        clearInterval(pingIntervalRef.current);
-      }
+      if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
       stopRecording();
       newSocket.disconnect();
     };
@@ -333,7 +330,6 @@ export function FloatingActionBar({
       mediaRecorder.onstart = () => {
         console.log("Started recording");
         setFeedback("Listening...");
-        setVoiceState("listening");
       };
 
       mediaRecorder.onstop = () => {
@@ -385,49 +381,16 @@ export function FloatingActionBar({
 
   const startVoiceSession = async () => {
     setVoiceState("loading");
-
-    // If we don't have a socket connection yet, create one
-    if (!socket || !isConnected) {
-      const SOCKET_URL = "http://localhost:8080/voice";
-      const newSocket = io(SOCKET_URL, {
-        transports: ["websocket", "polling"],
-        reconnection: true,
-        reconnectionAttempts: 10,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        timeout: 60000,
-        autoConnect: true,
-        path: "/socket.io/",
-      });
-
-      // Wait for connection
-      await new Promise<void>((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error("Connection timeout"));
-        }, 5000);
-
-        newSocket.on("connect", () => {
-          clearTimeout(timeout);
-          setSocket(newSocket);
-          setIsConnected(true);
-          resolve();
-        });
-
-        newSocket.on("connect_error", (error: Error) => {
-          clearTimeout(timeout);
-          reject(error);
-        });
-      });
-    }
-
     try {
       await startRecording();
+      setVoiceState("listening");
     } catch (error) {
       console.error("Failed to start recording:", error);
       setVoiceState("off");
       setFeedback("Failed to start recording");
       addNotification("error", "Failed to start recording");
     }
+    if (onVoiceClick) onVoiceClick();
   };
 
   const pauseVoiceSession = () => {
@@ -512,97 +475,78 @@ export function FloatingActionBar({
     setFeedback("Update cancelled");
   };
 
-  const containerClasses = clsx(
-    "fixed z-10",
-    voiceState === "off"
-      ? "bottom-5 right-5 md:bottom-8 md:right-8 bg-transparent"
-      : clsx(
-          "flex flex-col bg-white dark:bg-zinc-900 rounded-2xl shadow-lg overflow-hidden",
-          // Mobile: Full width with smaller margins
-          "bottom-0 right-0 left-0 mx-2 mb-2",
-          // Tablet: Centered with max-width
-          "md:left-auto md:right-8 md:bottom-8 md:w-[400px] md:mx-0 md:mb-0",
-          // Add safe area padding for mobile devices
-          "pb-safe",
-          // Add outline
-          theme === "light" ? "ring-1 ring-zinc-200" : "ring-1 ring-zinc-800",
-          // Prevent viewport overflow
-          "max-h-[calc(100vh-2rem)]"
-        ),
-    "transition-all duration-300 ease-in-out"
-  );
-
-  const expandedHeaderClasses = clsx(
-    "flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800",
-    // Adjust padding for mobile
-    "sm:p-4 p-3",
-    // Ensure header stays at top
-    "sticky top-0 bg-white dark:bg-zinc-900 z-10"
-  );
-
-  const expandedContentClasses = clsx(
-    "space-y-4",
-    // Add padding and make content scrollable
-    "p-4 sm:p-4 p-3 overflow-y-auto"
-  );
-
-  const controlButtonClasses = clsx(
-    "flex items-center justify-center rounded-full p-2",
-    theme === "light"
-      ? "hover:bg-zinc-100 text-zinc-600"
-      : "hover:bg-zinc-800 text-zinc-300",
-    "transition-all duration-200 ease-in-out",
-    // Make touch targets larger on mobile
-    "sm:p-2 p-3"
-  );
-
-  // Adjust floating button size for mobile
-  const floatingButtonClasses = clsx(
-    "flex items-center justify-center rounded-full",
-    // Smaller on mobile, larger on desktop
-    "w-12 h-12 sm:w-14 sm:h-14",
-    theme === "light"
-      ? "bg-white text-black hover:bg-zinc-50"
-      : "bg-zinc-800 text-zinc-100 hover:bg-zinc-700",
-    "transition-all duration-200 ease-in-out active:scale-95 shadow-lg group ring-1 ring-zinc-200/50 dark:ring-zinc-700/50"
-  );
-
   return (
-    <div className={containerClasses}>
+    <motion.div
+      layout
+      animate={{
+        width:
+          voiceState === "off" ? (isMobile ? 48 : 56) : isMobile ? 360 : 400,
+        height:
+          voiceState === "off" ? (isMobile ? 48 : 56) : isExpanded ? 500 : 200,
+        borderRadius: voiceState === "off" ? (isMobile ? 24 : 28) : 16,
+      }}
+      transition={{ duration: 0.3, ease: "easeInOut" }}
+      className={clsx(
+        "fixed z-10",
+        voiceState === "off"
+          ? "bottom-5 right-5 md:bottom-8 md:right-8 bg-transparent"
+          : "bottom-2 right-2 md:bottom-8 md:right-8 flex flex-col bg-white dark:bg-zinc-900 shadow-lg overflow-hidden",
+        theme === "light" ? "ring-1 ring-zinc-200" : "ring-1 ring-zinc-800",
+        "max-h-[calc(100vh-2rem)]",
+        className
+      )}
+    >
       {voiceState === "off" && (
         <button
-          onClick={() => {
-            startVoiceSession();
-            if (onVoiceClick) onVoiceClick();
-          }}
-          className={floatingButtonClasses}
+          onClick={startVoiceSession}
+          className={clsx(
+            "flex items-center justify-center rounded-full w-full h-full",
+            theme === "light"
+              ? "bg-white text-black hover:bg-zinc-50"
+              : "bg-zinc-800 text-zinc-100 hover:bg-zinc-700",
+            "transition-all duration-200 ease-in-out active:scale-95 shadow-lg group ring-1 ring-zinc-200/50 dark:ring-zinc-700/50"
+          )}
           aria-label="Voice Input"
           title="Voice Input"
         >
           <WaveformIcon className="text-zinc-600 dark:text-zinc-300" />
           <span
-            className={`absolute -top-10 left-1/2 transform -translate-x-1/2 px-3 py-1.5 rounded-lg text-sm font-medium ${
+            className={clsx(
+              "absolute -top-10 left-1/2 transform -translate-x-1/2 px-3 py-1.5 rounded-lg text-sm font-medium",
               theme === "light"
                 ? "bg-zinc-800 text-white"
-                : "bg-zinc-200 text-zinc-800"
-            } opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap`}
+                : "bg-zinc-200 text-zinc-800",
+              "opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap"
+            )}
           >
             Voice Input
           </span>
         </button>
       )}
 
-      {voiceState !== "off" && (
-        <>
-          <div className={expandedHeaderClasses}>
+      {voiceState === "loading" && (
+        <div className="flex items-center justify-center h-full text-zinc-600 dark:text-zinc-300">
+          Loading...
+        </div>
+      )}
+
+      {(voiceState === "listening" || voiceState === "resting") && (
+        <div className="flex flex-col h-full">
+          <div
+            className={clsx(
+              "flex items-center justify-between p-3 md:p-4 border-b border-zinc-200 dark:border-zinc-800",
+              "sticky top-0 bg-white dark:bg-zinc-900 z-10"
+            )}
+          >
             <div className="flex items-center gap-3">
               <h2 className="text-lg font-medium">Voice Control</h2>
               <span
-                className={`px-2 py-0.5 rounded-full text-sm ${
+                className={clsx(
+                  "px-2 py-0.5 rounded-full text-sm",
                   voiceState === "listening"
                     ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                     : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
-                }`}
+                )}
               >
                 {voiceState === "listening" ? "Listening" : "Paused"}
               </span>
@@ -610,7 +554,13 @@ export function FloatingActionBar({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className={controlButtonClasses}
+                className={clsx(
+                  "flex items-center justify-center rounded-full p-2 md:p-2",
+                  theme === "light"
+                    ? "hover:bg-zinc-100 text-zinc-600"
+                    : "hover:bg-zinc-800 text-zinc-300",
+                  "transition-all duration-200 ease-in-out"
+                )}
                 title="Toggle Details"
               >
                 {isExpanded ? (
@@ -645,7 +595,13 @@ export function FloatingActionBar({
               </button>
               <button
                 onClick={stopVoiceSession}
-                className={controlButtonClasses}
+                className={clsx(
+                  "flex items-center justify-center rounded-full p-2 md:p-2",
+                  theme === "light"
+                    ? "hover:bg-zinc-100 text-zinc-600"
+                    : "hover:bg-zinc-800 text-zinc-300",
+                  "transition-all duration-200 ease-in-out"
+                )}
                 title="Close"
               >
                 <svg
@@ -665,35 +621,35 @@ export function FloatingActionBar({
             </div>
           </div>
 
-          <div className={expandedContentClasses}>
-            <div className="flex items-center justify-center h-16 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl sticky top-0">
-              {analyserRef.current ? (
+          <div className="flex-1 p-3 md:p-4 overflow-y-auto space-y-4">
+            <div className="flex items-center justify-center h-16 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl">
+              {analyserRef.current && voiceState === "listening" ? (
                 <div className="w-full max-w-sm mx-auto">
                   <AudioVisualizer analyser={analyserRef.current} />
                 </div>
               ) : (
                 <div className="text-zinc-400 dark:text-zinc-500">
-                  No audio input
+                  {voiceState === "listening" ? "No audio input" : "Paused"}
                 </div>
               )}
             </div>
 
             <div className="flex items-center justify-center gap-3">
-              {voiceState === "listening" ? (
-                <button
-                  onClick={pauseVoiceSession}
-                  className="w-full sm:w-auto px-4 py-2 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium transition-colors duration-200"
-                >
-                  Pause
-                </button>
-              ) : (
-                <button
-                  onClick={resumeVoiceSession}
-                  className="w-full sm:w-auto px-4 py-2 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium transition-colors duration-200"
-                >
-                  Resume
-                </button>
-              )}
+              <button
+                onClick={
+                  voiceState === "listening"
+                    ? pauseVoiceSession
+                    : resumeVoiceSession
+                }
+                className={clsx(
+                  "w-full md:w-auto px-4 py-2 rounded-lg font-medium transition-colors duration-200",
+                  theme === "light"
+                    ? "bg-zinc-100 hover:bg-zinc-200 text-zinc-700"
+                    : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
+                )}
+              >
+                {voiceState === "listening" ? "Pause" : "Resume"}
+              </button>
             </div>
 
             {isExpanded && (
@@ -711,27 +667,35 @@ export function FloatingActionBar({
             )}
           </div>
 
-          {pendingConfirmation && (
-            <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 sm:p-4 p-3 sticky bottom-0 bg-white dark:bg-zinc-900">
-              <div className="mb-2">{feedback}</div>
-              <div className="flex gap-2">
-                <button
-                  onClick={confirmUpdate}
-                  className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium transition-colors duration-200"
-                >
-                  Confirm
-                </button>
-                <button
-                  onClick={cancelUpdate}
-                  className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition-colors duration-200"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-        </>
+          <AnimatePresence>
+            {pendingConfirmation && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                transition={{ duration: 0.2 }}
+                className="p-3 md:p-4 border-t border-zinc-200 dark:border-zinc-800 sticky bottom-0 bg-white dark:bg-zinc-900"
+              >
+                <div className="mb-2">{feedback}</div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={confirmUpdate}
+                    className="flex-1 md:flex-none px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium transition-colors duration-200"
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    onClick={cancelUpdate}
+                    className="flex-1 md:flex-none px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition-colors duration-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       )}
-    </div>
+    </motion.div>
   );
 }
