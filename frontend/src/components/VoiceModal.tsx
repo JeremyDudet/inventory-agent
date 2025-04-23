@@ -3,6 +3,19 @@ import { AnimatePresence, motion, MotionConfig } from "motion/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/ThemeContext";
 
+const WaveformIcon = ({ className }: { className?: string }) => (
+  <div className={`flex items-center justify-center ${className}`}>
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 256 256"
+      fill="currentColor"
+      className="w-full h-full"
+    >
+      <path d="M56,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0ZM88,24a8,8,0,0,0-8,8V224a8,8,0,0,0,16,0V32A8,8,0,0,0,88,24Zm40,32a8,8,0,0,0-8,8V192a8,8,0,0,0,16,0V64A8,8,0,0,0,128,56Zm40,32a8,8,0,0,0-8,8v64a8,8,0,0,0,16,0V96A8,8,0,0,0,168,88Zm40-16a8,8,0,0,0-8,8v96a8,8,0,0,0,16,0V80A8,8,0,0,0,208,72Z"></path>
+    </svg>
+  </div>
+);
+
 export function VoiceModal() {
   const [isOpen, setIsOpen] = useState(false);
   const { theme } = useTheme();
@@ -20,7 +33,13 @@ export function VoiceModal() {
           layoutId="cta"
           whileTap={{ scale: 0.95 }}
         >
-          <motion.span layoutId="cta-text">Receive</motion.span>
+          <motion.span
+            layoutId="cta-text"
+            className="flex justify-center items-center gap-2"
+          >
+            Start Speaking
+            <WaveformIcon className="w-5 h-5" />
+          </motion.span>
         </motion.button>
       </motion.div>
       <AnimatePresence>
@@ -69,7 +88,7 @@ function Dialog({ close, theme }: { close: () => void; theme: string }) {
               className="cancel"
               style={{ borderRadius: 50 }}
             >
-              Cancel
+              Pause
             </button>
             <motion.button
               layoutId="cta"
@@ -77,7 +96,12 @@ function Dialog({ close, theme }: { close: () => void; theme: string }) {
               className="save"
               style={{ borderRadius: 50 }}
             >
-              <motion.span layoutId="cta-text">Receive</motion.span>
+              <motion.span
+                layoutId="cta-text"
+                className="flex justify-center items-center gap-2"
+              >
+                Stop
+              </motion.span>
             </motion.button>
           </div>
           <button className="closeButton" aria-label="Close" onClick={close}>
@@ -141,6 +165,8 @@ function StyleSheet({ theme }: { theme: string }) {
     background: ${
       theme === "dark" ? "rgba(0, 0, 0, 0.5)" : "rgba(0, 0, 0, 0.1)"
     };
+    backdrop-filter: blur(1px);
+    -webkit-backdrop-filter: blur(1px);
     display: flex;
     justify-content: center;
     align-items: flex-end;
@@ -184,6 +210,11 @@ function StyleSheet({ theme }: { theme: string }) {
   .controls button.cancel {
     background-color: ${theme === "dark" ? "#1A1E26" : "#f3f4f6"};
     color: ${theme === "dark" ? "#f6f6f6" : "#374151"};
+  }
+
+  .controls button.save {
+    background-color: ${theme === "dark" ? "#ef4444" : "#dc2626"};
+    color: ${theme === "dark" ? "#0f1115" : "#ffffff"};
   }
 
   .closeButton {
