@@ -1,8 +1,15 @@
 @import "tailwindcss";
+@import "./theme.css";
 
 @theme {
   --font-sans: Inter, sans-serif;
   --font-sans--font-feature-settings: "cv11";
+}
+
+/* Base styles */
+body {
+  @apply bg-background text-text;
+  font-family: var(--font-sans);
 }
 
 /* Sidebar navigation styles */
@@ -16,11 +23,11 @@
 }
 
 .sidebar-nav-item a:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  @apply bg-primary/5;
 }
 
 .dark .sidebar-nav-item a:hover {
-  background-color: rgba(255, 255, 255, 0.05);
+  @apply bg-white/5;
 }
 
 .sidebar-nav-item a svg {
@@ -36,5 +43,5 @@
 
 /* Active link styling */
 .sidebar-nav-item a.active {
-  font-weight: 500;
+  @apply font-medium text-accent;
 }

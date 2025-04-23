@@ -157,7 +157,7 @@ export const SidebarItem = forwardRef<
     // Avatar
     "*:data-[slot=avatar]:-m-0.5 *:data-[slot=avatar]:size-7 sm:*:data-[slot=avatar]:size-6",
     // Hover effects
-    "hover:bg-zinc-950/5 dark:hover:bg-white/5"
+    "hover:!bg-zinc-200 dark:hover:!bg-zinc-700"
   );
 
   return (
@@ -181,6 +181,7 @@ export const SidebarItem = forwardRef<
           className={({ isActive }) =>
             clsx(
               classes,
+              "hover:!bg-zinc-200 dark:hover:!bg-zinc-700",
               // Text styling based on active state
               isActive
                 ? "text-zinc-950 dark:text-white"

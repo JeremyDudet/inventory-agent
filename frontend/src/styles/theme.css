@@ -1,0 +1,38 @@
+:root {
+  /* Light Mode Colors */
+  --color-primary: #a67b5b; /* Warm Taupe */
+  --color-secondary: #8a9a5b; /* Muted Sage Green */
+  --color-accent: #e07a5f; /* Soft Coral */
+  --color-accent-secondary: #3d405b; /* Deep Slate Blue */
+  --color-background: #f2e9e4; /* Creamy Beige */
+  --color-text: #4a4a4a; /* Charcoal Gray */
+  --color-border: #d1d1d1; /* Light Gray */
+  --color-error: #b85c5c; /* Muted Red */
+
+  /* Dark Mode Colors */
+  --color-primary-dark: #6b4e3a; /* Deep Taupe */
+  --color-secondary-dark: #5a6b3a; /* Dark Sage Green */
+  --color-accent-dark: #b85c5c; /* Muted Coral */
+  --color-accent-secondary-dark: #5a5e7b; /* Light Slate Blue */
+  --color-background-dark: #2a2a2a; /* Dark Charcoal */
+  --color-text-dark: #d1d1d1; /* Light Gray */
+  --color-border-dark: #3a3a3a; /* Dark Border */
+  --color-error-dark: #b85c5c; /* Muted Red */
+
+  /* Semantic Colors */
+  --color-success: #8a9a5b;
+  --color-warning: #e07a5f;
+  --color-info: #3d405b;
+}
+
+/* Dark mode overrides */
+.dark {
+  --color-primary: var(--color-primary-dark);
+  --color-secondary: var(--color-secondary-dark);
+  --color-accent: var(--color-accent-dark);
+  --color-accent-secondary: var(--color-accent-secondary-dark);
+  --color-background: var(--color-background-dark);
+  --color-text: var(--color-text-dark);
+  --color-border: var(--color-border-dark);
+  --color-error: var(--color-error-dark);
+}

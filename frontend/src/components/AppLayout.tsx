@@ -130,11 +130,13 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
                           ? "/teams/logo-light.svg"
                           : "/teams/logo-black.svg"
                       }
-                      className="w-14 h-14"
+                      className="w-14 h-14 text-white"
                     />
                   );
                 })()}
-                <SidebarLabel>StockCount</SidebarLabel>
+                <SidebarLabel className="dark:text-white text-black">
+                  StockCount
+                </SidebarLabel>
                 <ChevronDownIcon />
               </DropdownButton>
               <DropdownMenu
