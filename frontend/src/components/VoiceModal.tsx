@@ -194,6 +194,7 @@ function StyleSheet({ theme }: { theme: string }) {
     font-size: 16px;
     padding: 10px 20px;
     border-radius: 10px;
+    cursor: pointer;
   }
 
   .controls {
