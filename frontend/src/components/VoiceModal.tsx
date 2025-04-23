@@ -1,4 +1,3 @@
-// frontend/src/components/VoiceModal.tsx
 import { useState } from "react";
 import { AnimatePresence, motion, MotionConfig } from "motion/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
@@ -10,12 +9,10 @@ export function VoiceModal() {
     <MotionConfig
       transition={{ type: "spring", visualDuration: 0.2, bounce: 0 }}
     >
-      <motion.div layoutId="modal" id="modal-open" style={{ borderRadius: 30 }}>
+      <motion.div layoutId="modal" id="modal-open">
         <motion.button
           className="openButton"
-          onClick={() => {
-            setIsOpen(true);
-          }}
+          onClick={() => setIsOpen(true)}
           style={{ borderRadius: 50 }}
           data-primary-action
           layoutId="cta"
@@ -39,42 +36,52 @@ function Dialog({ close }: { close: () => void }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      transition={{ duration: 0.2, ease: "linear" }} // Match demo’s overlay
       onClick={close}
     >
       <motion.div
         className="modal-content"
         layoutId="modal"
-        initial={{ y: 100, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 100, opacity: 0 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        style={{ borderRadius: 30, overflow: "hidden" }} // Prevent skewing
         onClick={(e) => e.stopPropagation()}
-        style={{ borderRadius: 30 }}
       >
-        <h2 className="title h3">
-          <QuestionMarkIcon />
-          Confirm
-        </h2>
-        <p className="big">Are you sure you want to receive a load of money?</p>
-        <div className="controls">
-          <button
-            onClick={close}
-            className="cancel"
-            style={{ borderRadius: 50 }}
-          >
-            Cancel
+        <motion.div
+          layout
+          initial={{ y: 100 }}
+          animate={{ y: 0 }}
+          exit={{ y: 100 }}
+        >
+          <h2 className="title h3">
+            <QuestionMarkIcon />
+            Confirm
+          </h2>
+          <p className="big">
+            Are you sure you want to receive a load of money?
+          </p>
+          <div className="controls">
+            <button
+              onClick={close}
+              className="cancel"
+              style={{ borderRadius: 50 }}
+            >
+              Cancel
+            </button>
+            <motion.button
+              layoutId="cta"
+              onClick={close}
+              className="save"
+              style={{ borderRadius: 50 }}
+            >
+              <motion.span layoutId="cta-text">Receive</motion.span>
+            </motion.button>
+          </div>
+          <button className="closeButton" aria-label="Close" onClick={close}>
+            <XMarkIcon />
           </button>
-          <motion.button
-            layoutId="cta"
-            onClick={close}
-            className="save"
-            style={{ borderRadius: 50 }}
-          >
-            <motion.span layoutId="cta-text">Receive</motion.span>
-          </motion.button>
-        </div>
-        <button className="closeButton" aria-label="Close" onClick={close}>
-          <XMarkIcon />
-        </button>
+        </motion.div>
       </motion.div>
     </motion.div>
   );
@@ -103,93 +110,95 @@ function QuestionMarkIcon() {
 function StyleSheet() {
   return (
     <style>{`
-      #sandbox {
-        justify-content: flex-end;
-        padding: 20px;
-        overflow: hidden;
-      }
+        :root {
+    --sidebar-width: 256px; /* Matches w-64 in layout.tsx (16rem = 256px) */
+  }
 
-      #sandbox button {
-        -webkit-touch-callout: none;
-        -webkit-user-select: none;
-      }
+  @media (max-width: 1024px) {
+    :root {
+      --sidebar-width: 0px; /* Sidebar hidden below lg breakpoint */
+    }
+  }
 
-      #sandbox button:focus-visible {
-        outline-offset: 2px;
-        outline: 2px solid #8df0cc;
-      }
+  #modal-open {
+    position: fixed;
+    bottom: 20px;
+    left: var(--sidebar-width);
+    right: 0;
+    display: flex;
+    justify-content: center;
+    z-index: 1000;
+  }
 
-      #sandbox button span {
-        display: inline-block;
-      }
+  .modal-overlay {
+    position: fixed;
+    left: var(--sidebar-width);
+    right: 0;
+    top: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    z-index: 1001;
+  }
 
-      #modal-open {
-        width: 100%;
-        max-width: 400px;
-        display: flex;
-        justify-content: center;
-      }
+  .modal-content {
+    width: 100%;
+    max-width: 400px;
+    margin-bottom: 20px;
+    border: 1px solid #1d2628;
+    background-color: #0b1011;
+    padding: 20px;
+    border-radius: 10px;
+    position: relative;
+  }
 
-      .openButton, .controls button {
-        width: 100%;
-        max-width: 300px;
-        background-color: #8df0cc;
-        color: #0f1115;
-        font-size: 16px;
-        padding: 10px 20px;
-        border-radius: 10px;
-      }
+  @media (max-width: 1024px) {
+    .modal-content {
+      max-width: 90%; /* Responsive adjustment for smaller screens */
+    }
+  }
 
-      .controls {
-        padding-top: 20px;
-        display: flex;
-        justify-content: flex-end;
-        gap: 10px;
-      }
+  .openButton, .controls button {
+    width: 100%;
+    max-width: 300px;
+    background-color: #8df0cc;
+    color: #0f1115;
+    font-size: 16px;
+    padding: 10px 20px;
+    border-radius: 10px;
+  }
 
-      .controls button.cancel {
-        background-color: var(--divider);
-        color: #f5f5f5;
-      }
+  .controls {
+    padding-top: 20px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
 
-      .modal-overlay {
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.5);
-        display: flex;
-        justify-content: center;
-        align-items: flex-end;
-        z-index: 1000;
-      }
+  .controls button.cancel {
+    background-color: var(--divider);
+    color: #f5f5f5;
+  }
 
-      .modal-content {
-        border: 1px solid #1d2628;
-        background-color: #0b1011;
-        padding: 20px;
-        width: 100%;
-        max-width: 400px;
-        margin-bottom: 20px;
-        border-radius: 10px;
-        position: relative;
-      }
+  .closeButton {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+  }
 
-      .closeButton {
-        position: absolute;
-        top: 20px;
-        right: 20px;
-      }
+  .title {
+    margin: 0 0 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
 
-      .title {
-        margin: 0 0 20px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-
-      .big {
-        font-size: 16px;
-        margin: 0;
-      }
-    `}</style>
+  .big {
+    font-size: 16px;
+    margin: 0;
+  }
+      `}</style>
   );
 }
