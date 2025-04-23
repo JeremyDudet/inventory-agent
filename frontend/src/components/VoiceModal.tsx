@@ -54,11 +54,11 @@ function Dialog({ close }: { close: () => void }) {
           animate={{ y: 0 }}
           exit={{ y: 100 }}
         >
-          <h2 className="title h3">
+          <h2 className="title h2 font-semibold text-xl text-white">
             <QuestionMarkIcon />
             Confirm
           </h2>
-          <p className="big">
+          <p className="text-base text-gray-300">
             Are you sure you want to receive a load of money?
           </p>
           <div className="controls">
@@ -178,8 +178,8 @@ function StyleSheet() {
   }
 
   .controls button.cancel {
-    background-color: var(--divider);
-    color: #f5f5f5;
+    background-color: #1A1E26;
+    color: #f6f6f6;
   }
 
   .closeButton {
@@ -193,11 +193,6 @@ function StyleSheet() {
     display: flex;
     align-items: center;
     gap: 10px;
-  }
-
-  .big {
-    font-size: 16px;
-    margin: 0;
   }
       `}</style>
   );
