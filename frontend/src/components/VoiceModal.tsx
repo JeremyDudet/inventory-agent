@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { AnimatePresence, motion, MotionConfig } from "motion/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import { useTheme } from "../context/ThemeContext";
 
 export function VoiceModal() {
   const [isOpen, setIsOpen] = useState(false);
+  const { theme } = useTheme();
 
   return (
     <MotionConfig
@@ -22,21 +24,21 @@ export function VoiceModal() {
         </motion.button>
       </motion.div>
       <AnimatePresence>
-        {isOpen && <Dialog close={() => setIsOpen(false)} />}
+        {isOpen && <Dialog close={() => setIsOpen(false)} theme={theme} />}
       </AnimatePresence>
-      <StyleSheet />
+      <StyleSheet theme={theme} />
     </MotionConfig>
   );
 }
 
-function Dialog({ close }: { close: () => void }) {
+function Dialog({ close, theme }: { close: () => void; theme: string }) {
   return (
     <motion.div
       className="modal-overlay"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.2, ease: "linear" }} // Match demo’s overlay
+      transition={{ duration: 0.2, ease: "linear" }}
       onClick={close}
     >
       <motion.div
@@ -45,7 +47,7 @@ function Dialog({ close }: { close: () => void }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        style={{ borderRadius: 30, overflow: "hidden" }} // Prevent skewing
+        style={{ borderRadius: 30, overflow: "hidden" }}
         onClick={(e) => e.stopPropagation()}
       >
         <motion.div
@@ -54,11 +56,11 @@ function Dialog({ close }: { close: () => void }) {
           animate={{ y: 0 }}
           exit={{ y: 100 }}
         >
-          <h2 className="title h2 font-semibold text-xl text-white">
-            <QuestionMarkIcon />
+          <h2 className="title h2 font-semibold text-xl">
+            <QuestionMarkIcon theme={theme} />
             Confirm
           </h2>
-          <p className="text-base text-gray-300">
+          <p className="text-base">
             Are you sure you want to receive a load of money?
           </p>
           <div className="controls">
@@ -87,7 +89,7 @@ function Dialog({ close }: { close: () => void }) {
   );
 }
 
-function QuestionMarkIcon() {
+function QuestionMarkIcon({ theme }: { theme: string }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -95,7 +97,7 @@ function QuestionMarkIcon() {
       height="24"
       viewBox="0 0 24 24"
       fill="none"
-      stroke="#8df0cc"
+      stroke={theme === "dark" ? "#8df0cc" : "#0f766e"}
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -107,16 +109,16 @@ function QuestionMarkIcon() {
   );
 }
 
-function StyleSheet() {
+function StyleSheet({ theme }: { theme: string }) {
   return (
     <style>{`
         :root {
-    --sidebar-width: 256px; /* Matches w-64 in layout.tsx (16rem = 256px) */
+    --sidebar-width: 256px;
   }
 
   @media (max-width: 1024px) {
     :root {
-      --sidebar-width: 0px; /* Sidebar hidden below lg breakpoint */
+      --sidebar-width: 0px;
     }
   }
 
@@ -136,7 +138,9 @@ function StyleSheet() {
     right: 0;
     top: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: ${
+      theme === "dark" ? "rgba(0, 0, 0, 0.5)" : "rgba(0, 0, 0, 0.1)"
+    };
     display: flex;
     justify-content: center;
     align-items: flex-end;
@@ -147,8 +151,8 @@ function StyleSheet() {
     width: 100%;
     max-width: 400px;
     margin-bottom: 20px;
-    border: 1px solid #1d2628;
-    background-color: #0b1011;
+    border: 1px solid ${theme === "dark" ? "#1d2628" : "#e5e7eb"};
+    background-color: ${theme === "dark" ? "#0b1011" : "#ffffff"};
     padding: 20px;
     border-radius: 10px;
     position: relative;
@@ -156,15 +160,15 @@ function StyleSheet() {
 
   @media (max-width: 1024px) {
     .modal-content {
-      max-width: 90%; /* Responsive adjustment for smaller screens */
+      max-width: 90%;
     }
   }
 
   .openButton, .controls button {
     width: 100%;
     max-width: 300px;
-    background-color: #8df0cc;
-    color: #0f1115;
+    background-color: ${theme === "dark" ? "#8df0cc" : "#0f766e"};
+    color: ${theme === "dark" ? "#0f1115" : "#ffffff"};
     font-size: 16px;
     padding: 10px 20px;
     border-radius: 10px;
@@ -178,14 +182,15 @@ function StyleSheet() {
   }
 
   .controls button.cancel {
-    background-color: #1A1E26;
-    color: #f6f6f6;
+    background-color: ${theme === "dark" ? "#1A1E26" : "#f3f4f6"};
+    color: ${theme === "dark" ? "#f6f6f6" : "#374151"};
   }
 
   .closeButton {
     position: absolute;
     top: 20px;
     right: 20px;
+    color: ${theme === "dark" ? "#f6f6f6" : "#374151"};
   }
 
   .title {
@@ -193,6 +198,11 @@ function StyleSheet() {
     display: flex;
     align-items: center;
     gap: 10px;
+    color: ${theme === "dark" ? "#f6f6f6" : "#374151"};
+  }
+
+  .text-base {
+    color: ${theme === "dark" ? "#9ca3af" : "#6b7280"};
   }
       `}</style>
   );
