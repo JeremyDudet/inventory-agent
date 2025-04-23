@@ -1,3 +1,5 @@
+// frontend/src/components/AppLayout.tsx
+import { useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import {
   Dropdown,
@@ -24,7 +26,7 @@ import {
   SidebarSection,
   SidebarSpacer,
 } from "@/components/ui/sidebar";
-import { SidebarLayout } from "@/components/ui/sidebar-layout";
+import { Layout } from "@/components/ui/layout";
 import {
   ArrowRightStartOnRectangleIcon,
   ChevronDownIcon,
@@ -44,8 +46,8 @@ import {
   ClockIcon,
 } from "@heroicons/react/20/solid";
 import { useTheme } from "@/context/ThemeContext";
-import { FloatingActionBar } from "./FloatingActionBar";
 import { useAuth } from "@/context/AuthContext";
+import { VoiceModal } from "./VoiceModal";
 
 function AccountDropdownMenu({
   anchor,
@@ -79,14 +81,14 @@ function AccountDropdownMenu({
 }
 
 export function ApplicationLayout({ children }: { children: React.ReactNode }) {
-  // Handle action buttons clicks
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+
   const handleVoiceClick = () => {
-    // Implement voice input functionality
+    setIsVoiceModalOpen(true);
     console.log("Voice input clicked");
   };
 
   const handleTextClick = () => {
-    // Implement text input functionality
     console.log("Text input clicked");
   };
 
@@ -97,7 +99,7 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <SidebarLayout
+    <Layout
       navbar={
         <Navbar>
           <NavbarSpacer />
@@ -170,7 +172,7 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
                 <DropdownDivider />
                 <DropdownItem href="#">
                   <PlusIcon />
-                  <DropdownLabel>New team&hellip;</DropdownLabel>
+                  <DropdownLabel>New team…</DropdownLabel>
                 </DropdownItem>
               </DropdownMenu>
             </Dropdown>
@@ -245,10 +247,7 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
       }
     >
       {children}
-      <FloatingActionBar
-        onVoiceClick={handleVoiceClick}
-        onTextClick={handleTextClick}
-      />
-    </SidebarLayout>
+      <VoiceModal />
+    </Layout>
   );
 }
