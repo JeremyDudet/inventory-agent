@@ -157,8 +157,8 @@ function StyleSheet({ theme }: { theme: string }) {
   }
 
   .modal-overlay {
-    position: fixed;
-    left: var(--sidebar-width);
+    position: absolute;
+    left: 0;
     right: 0;
     top: 0;
     bottom: 0;
@@ -171,6 +171,7 @@ function StyleSheet({ theme }: { theme: string }) {
     justify-content: center;
     align-items: flex-end;
     z-index: 1001;
+    border-radius: inherit;
   }
 
   .modal-content {
@@ -182,12 +183,6 @@ function StyleSheet({ theme }: { theme: string }) {
     padding: 20px;
     border-radius: 10px;
     position: relative;
-  }
-
-  @media (max-width: 1024px) {
-    .modal-content {
-      max-width: 90%;
-    }
   }
 
   .openButton, .controls button {
