@@ -157,7 +157,7 @@ function StyleSheet({ theme }: { theme: string }) {
   }
 
   .modal-overlay {
-    position: absolute;
+    position: fixed;
     left: 0;
     right: 0;
     top: 0;
@@ -183,6 +183,7 @@ function StyleSheet({ theme }: { theme: string }) {
     padding: 20px;
     border-radius: 10px;
     position: relative;
+    transform: translateY(0);
   }
 
   .openButton, .controls button {
