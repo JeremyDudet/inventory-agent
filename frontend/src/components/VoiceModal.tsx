@@ -88,7 +88,10 @@ function Loader() {
 function Check() {
   return (
     <motion.svg {...svgProps}>
-      <motion.polyline points="4 12 9 17 20 6" {...animations} />
+      <motion.polyline
+        points="4 12 9 17 20 6"
+        {...{ ...animations, transition: { ...springConfig, delay: 0.2 } }}
+      />
     </motion.svg>
   );
 }
