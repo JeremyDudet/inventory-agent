@@ -6,6 +6,7 @@ import {
   useTransform,
 } from "motion/react";
 import { useEffect, useRef, useState } from "react";
+import ReactDOM from "react-dom";
 
 function GradientOverlay({
   size,
@@ -42,7 +43,7 @@ function GradientOverlay({
     <div
       className="gradient-container"
       style={{
-        position: "absolute",
+        position: "fixed",
         top: 0,
         left: 0,
         right: 0,
@@ -163,6 +164,32 @@ function GradientOverlay({
   );
 }
 
+// Create a portal component to render the overlay outside of the transformed content
+const OverlayPortal = ({ children }: { children: React.ReactNode }) => {
+  const [portalElement, setPortalElement] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    // Create or find a portal element that is a direct child of the body
+    let element = document.getElementById("warp-overlay-portal");
+    if (!element) {
+      element = document.createElement("div");
+      element.id = "warp-overlay-portal";
+      document.body.appendChild(element);
+    }
+    setPortalElement(element);
+
+    return () => {
+      // Clean up the portal element if it's empty when component unmounts
+      if (element && element.childNodes.length === 0) {
+        document.body.removeChild(element);
+      }
+    };
+  }, []);
+
+  if (!portalElement) return null;
+  return ReactDOM.createPortal(children, portalElement);
+};
+
 export default function WarpAnimation({
   isActive,
   intensity = 0.1,
@@ -170,7 +197,6 @@ export default function WarpAnimation({
   isActive: boolean;
   intensity?: number;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
@@ -186,10 +212,18 @@ export default function WarpAnimation({
     return () => window.removeEventListener("resize", updateSize);
   }, []);
 
-  const deform = useMotionValue(0);
-
   useEffect(() => {
     if (isActive) {
+      // Disable scrolling
+      const originalOverflow = document.body.style.overflow;
+      const originalHeight = document.body.style.height;
+      const originalPosition = document.body.style.position;
+
+      document.body.style.overflow = "hidden";
+      document.body.style.height = "100%";
+      document.body.style.position = "fixed";
+      document.body.style.width = "100%";
+
       // Apply transformation to HTML or body element directly
       const appContent =
         document.querySelector("#root") ||
@@ -239,6 +273,12 @@ export default function WarpAnimation({
               appContent.style.transition = originalTransition;
               appContent.style.transformOrigin = originalTransformOrigin;
               appContent.style.willChange = originalWillChange;
+
+              // Re-enable scrolling
+              document.body.style.overflow = originalOverflow;
+              document.body.style.height = originalHeight;
+              document.body.style.position = originalPosition;
+              document.body.style.width = "";
             },
           });
         });
@@ -248,16 +288,20 @@ export default function WarpAnimation({
 
   return (
     <AnimatePresence>
-      {isActive && <GradientOverlay size={size} />}
-      <style>
-        {`
-          @supports not (backdrop-filter: blur(2px)) {
-            .gradient-overlay {
-              background: rgba(246, 63, 42, 0.3) !important;
-            }
-          }
-        `}
-      </style>
+      {isActive && (
+        <OverlayPortal>
+          <GradientOverlay size={size} />
+          <style>
+            {`
+              @supports not (backdrop-filter: blur(2px)) {
+                .gradient-overlay {
+                  background: rgba(246, 63, 42, 0.3) !important;
+                }
+              }
+            `}
+          </style>
+        </OverlayPortal>
+      )}
     </AnimatePresence>
   );
 }
