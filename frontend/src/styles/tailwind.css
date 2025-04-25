@@ -8,8 +8,9 @@
 
 /* Base styles */
 body {
-  @apply bg-background text-text;
   font-family: var(--font-sans);
+  background-color: var(--background);
+  color: var(--text);
 }
 
 /* Sidebar navigation styles */
@@ -23,7 +24,7 @@ body {
 }
 
 .sidebar-nav-item a:hover {
-  @apply bg-primary/5;
+  background-color: var(--primary-hover);
 }
 
 .dark .sidebar-nav-item a:hover {
@@ -43,5 +44,6 @@ body {
 
 /* Active link styling */
 .sidebar-nav-item a.active {
-  @apply font-medium text-accent;
+  @apply font-medium;
+  color: var(--accent);
 }

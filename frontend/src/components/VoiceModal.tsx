@@ -37,7 +37,7 @@ export function VoiceModal() {
             layoutId="cta-text"
             className="flex justify-center items-center gap-2"
           >
-            Start Speaking
+            Start Voice Control
             <WaveformIcon className="w-5 h-5" />
           </motion.span>
         </motion.button>
@@ -79,28 +79,27 @@ function Dialog({ close, theme }: { close: () => void; theme: string }) {
             <QuestionMarkIcon theme={theme} />
             Confirm
           </h2>
-          <p className="text-base">
-            Are you sure you want to receive a load of money?
-          </p>
+          <p className="text-base">Activate voice control?</p>
           <div className="controls">
             <button
               onClick={close}
               className="cancel"
               style={{ borderRadius: 50 }}
             >
-              Pause
+              Cancel
             </button>
             <motion.button
               layoutId="cta"
               onClick={close}
-              className="save"
+              className="confirm"
               style={{ borderRadius: 50 }}
             >
               <motion.span
                 layoutId="cta-text"
                 className="flex justify-center items-center gap-2"
               >
-                Stop
+                Start
+                <WaveformIcon className="w-5 h-5" />
               </motion.span>
             </motion.button>
           </div>
@@ -209,8 +208,8 @@ function StyleSheet({ theme }: { theme: string }) {
     color: ${theme === "dark" ? "#f6f6f6" : "#374151"};
   }
 
-  .controls button.save {
-    background-color: ${theme === "dark" ? "#ef4444" : "#dc2626"};
+  .controls button.confirm {
+    background-color: ${theme === "dark" ? "#8df0cc" : "#0f766e"};
     color: ${theme === "dark" ? "#0f1115" : "#ffffff"};
   }
 
