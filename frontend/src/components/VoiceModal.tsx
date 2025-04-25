@@ -483,6 +483,10 @@ function Dialog({
             Confirm
           </h2>
           <p className="text-base">Activate voice control?</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center mt-2">
+            Recommendation: Use headphones with a built-in microphone for best
+            experience.
+          </p>
           <div className="controls">
             <button
               onClick={close}
