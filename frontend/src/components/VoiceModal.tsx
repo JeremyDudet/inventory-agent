@@ -324,10 +324,12 @@ export function VoiceModal() {
       setIsOpen(false);
       setIsWarpActive(true);
       startRecording();
-
-      // Make the animation last longer before disappearing
-      setTimeout(() => setIsWarpActive(false), 3500);
     }
+  };
+
+  const handleWarpClose = () => {
+    setIsWarpActive(false);
+    stopRecording();
   };
 
   const startRecording = async () => {
@@ -407,33 +409,35 @@ export function VoiceModal() {
     <MotionConfig
       transition={{ type: "spring", visualDuration: 0.2, bounce: 0 }}
     >
-      <motion.div layoutId="modal" id="modal-open">
-        <motion.button
-          ref={buttonRef}
-          className={`openButton rounded-xl ${
-            buttonState === "error"
-              ? "bg-red-500 dark:bg-red-400 text-white dark:text-gray-800"
-              : buttonState === "loading"
-              ? "bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-gray-200 outline outline-gray-300 dark:outline-gray-600"
-              : "bg-emerald-600 dark:bg-emerald-400 text-white dark:text-gray-800"
-          }`}
-          onClick={() => setIsOpen(true)}
-          style={{}}
-          data-primary-action
-          layoutId="cta"
-          whileTap={{ scale: 0.95 }}
-          disabled={buttonState === "loading" || buttonState === "error"}
-        >
-          <motion.span
-            layoutId="cta-text"
-            className="flex justify-center items-center gap-2"
-            style={{ gap: 8 }}
+      {!isWarpActive && (
+        <motion.div layoutId="modal" id="modal-open">
+          <motion.button
+            ref={buttonRef}
+            className={`openButton rounded-xl ${
+              buttonState === "error"
+                ? "bg-red-500 dark:bg-red-400 text-white dark:text-gray-800"
+                : buttonState === "loading"
+                ? "bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-gray-200 outline outline-gray-300 dark:outline-gray-600"
+                : "bg-emerald-600 dark:bg-emerald-400 text-white dark:text-gray-800"
+            }`}
+            onClick={() => setIsOpen(true)}
+            style={{}}
+            data-primary-action
+            layoutId="cta"
+            whileTap={{ scale: 0.95 }}
+            disabled={buttonState === "loading" || buttonState === "error"}
           >
-            {STATES[buttonState]}
-            <Icon state={buttonState} />
-          </motion.span>
-        </motion.button>
-      </motion.div>
+            <motion.span
+              layoutId="cta-text"
+              className="flex justify-center items-center gap-2"
+              style={{ gap: 8 }}
+            >
+              {STATES[buttonState]}
+              <Icon state={buttonState} />
+            </motion.span>
+          </motion.button>
+        </motion.div>
+      )}
       <AnimatePresence>
         {isOpen && (
           <Dialog
@@ -444,7 +448,12 @@ export function VoiceModal() {
           />
         )}
       </AnimatePresence>
-      <WarpAnimation isActive={isWarpActive} />
+      <WarpAnimation
+        isActive={isWarpActive}
+        onClose={handleWarpClose}
+        isListening={isListening}
+        feedback={feedback}
+      />
       <StyleSheet theme={theme} />
     </MotionConfig>
   );

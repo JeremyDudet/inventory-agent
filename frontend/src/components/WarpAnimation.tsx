@@ -7,11 +7,18 @@ import {
 } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom";
+import { XMarkIcon, MicrophoneIcon } from "@heroicons/react/24/outline";
 
 function GradientOverlay({
   size,
+  onClose,
+  isListening,
+  feedback,
 }: {
   size: { width: number; height: number };
+  onClose: () => void;
+  isListening: boolean;
+  feedback: string;
 }) {
   const breathe = useMotionValue(0);
 
@@ -37,7 +44,21 @@ function GradientOverlay({
   const enterDuration = 0.75;
   const exitDuration = 0.5;
 
-  const expandingCircleRadius = Math.max(size.width, size.height) * 0.3;
+  // Responsive sizing & opacity adjustments
+  const isLargeScreen = size.width > 1440 || size.height > 900;
+  const isMediumScreen = size.width > 768 || size.height > 600;
+
+  // Adjust size based on screen dimensions
+  const expandingCircleRadius =
+    Math.max(size.width, size.height) * (isLargeScreen ? 0.2 : 0.3);
+
+  // Adjust opacity based on screen size
+  const circleOpacity = isLargeScreen ? 0.6 : isMediumScreen ? 0.8 : 0.9;
+  const overlayOpacity = isLargeScreen ? 0.08 : 0.1;
+
+  // Adjust blur based on screen size
+  const largeBlur = isLargeScreen ? "150px" : isMediumScreen ? "100px" : "80px";
+  const smallBlur = isLargeScreen ? "20px" : "15px";
 
   return (
     <div
@@ -55,6 +76,111 @@ function GradientOverlay({
         zIndex: 9999,
       }}
     >
+      {/* Close button */}
+      <div
+        style={{
+          position: "absolute",
+          top: "20px",
+          right: "20px",
+          zIndex: 10000,
+          pointerEvents: "auto",
+        }}
+      >
+        <button
+          onClick={onClose}
+          className="close-button"
+          style={{
+            backgroundColor: "rgba(255,255,255,0.2)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+            borderRadius: "50%",
+            width: "40px",
+            height: "40px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            border: "none",
+            cursor: "pointer",
+            color: "white",
+          }}
+        >
+          <XMarkIcon width={24} height={24} />
+        </button>
+      </div>
+
+      {/* Feedback display */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: "80px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          textAlign: "center",
+          pointerEvents: "auto",
+          zIndex: 10000,
+        }}
+      >
+        <div
+          style={{
+            backgroundColor: "rgba(0,0,0,0.5)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+            padding: "12px 24px",
+            borderRadius: "24px",
+            color: "white",
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            maxWidth: "80vw",
+          }}
+        >
+          {isListening && (
+            <div
+              className="pulse-container"
+              style={{
+                width: "24px",
+                height: "24px",
+                position: "relative",
+              }}
+            >
+              <MicrophoneIcon
+                width={24}
+                height={24}
+                style={{
+                  position: "relative",
+                  zIndex: 1,
+                  color: "white",
+                }}
+              />
+              <div
+                className="pulse"
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  borderRadius: "50%",
+                  background: "rgba(255, 255, 255, 0.2)",
+                  animation: "pulse 1.5s infinite",
+                }}
+              ></div>
+            </div>
+          )}
+          <p
+            style={{
+              margin: 0,
+              maxWidth: "100%",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {feedback ||
+              (isListening ? "Listening..." : "Voice control activated")}
+          </p>
+        </div>
+      </div>
+
       <motion.div
         className="expanding-circle"
         initial={{
@@ -85,7 +211,7 @@ function GradientOverlay({
           width: expandingCircleRadius,
           height: expandingCircleRadius,
           borderRadius: "50%",
-          filter: "blur(15px)",
+          filter: `blur(${smallBlur})`,
           transformOrigin: "center bottom",
           margin: 0,
           padding: 0,
@@ -96,7 +222,7 @@ function GradientOverlay({
         className="gradient-circle top-left"
         initial={{ opacity: 0 }}
         animate={{
-          opacity: 0.9,
+          opacity: circleOpacity,
           transition: { duration: enterDuration },
         }}
         exit={{
@@ -106,13 +232,13 @@ function GradientOverlay({
         style={{
           position: "absolute",
           scale: breathe,
-          width: size.width * 2,
-          height: size.width * 2,
-          top: -size.width,
-          left: -size.width,
+          width: isLargeScreen ? size.width * 1.5 : size.width * 2,
+          height: isLargeScreen ? size.width * 1.5 : size.width * 2,
+          top: -size.width * (isLargeScreen ? 0.75 : 1),
+          left: -size.width * (isLargeScreen ? 0.75 : 1),
           borderRadius: "50%",
           background: "rgb(246, 63, 42, 0.9)",
-          filter: "blur(100px)",
+          filter: `blur(${largeBlur})`,
         }}
       />
 
@@ -120,7 +246,7 @@ function GradientOverlay({
         className="gradient-circle bottom-right"
         initial={{ opacity: 0 }}
         animate={{
-          opacity: 0.9,
+          opacity: circleOpacity,
           transition: { duration: enterDuration },
         }}
         exit={{
@@ -130,13 +256,13 @@ function GradientOverlay({
         style={{
           position: "absolute",
           scale: breathe,
-          width: size.width * 2,
-          height: size.width * 2,
-          top: size.height - size.width,
+          width: isLargeScreen ? size.width * 1.5 : size.width * 2,
+          height: isLargeScreen ? size.width * 1.5 : size.width * 2,
+          top: size.height - size.width * (isLargeScreen ? 0.75 : 1),
           left: 0,
           borderRadius: "50%",
           background: "rgb(243, 92, 76, 0.9)",
-          filter: "blur(100px)",
+          filter: `blur(${largeBlur})`,
         }}
       />
       <motion.div
@@ -158,7 +284,7 @@ function GradientOverlay({
           bottom: 0,
           width: "100%",
           height: "100%",
-          background: "rgba(246, 63, 42, 0.1)",
+          background: `rgba(246, 63, 42, ${overlayOpacity})`,
           backdropFilter: "blur(2px)",
           WebkitBackdropFilter: "blur(2px)",
         }}
@@ -196,9 +322,15 @@ const OverlayPortal = ({ children }: { children: React.ReactNode }) => {
 export default function WarpAnimation({
   isActive,
   intensity = 0.1,
+  onClose,
+  isListening = false,
+  feedback = "",
 }: {
   isActive: boolean;
   intensity?: number;
+  onClose: () => void;
+  isListening?: boolean;
+  feedback?: string;
 }) {
   const [size, setSize] = useState({ width: 0, height: 0 });
 
@@ -217,6 +349,19 @@ export default function WarpAnimation({
 
   useEffect(() => {
     if (isActive) {
+      // Screen size detection for responsive transformations
+      const isLargeScreen =
+        window.innerWidth > 1440 || window.innerHeight > 900;
+      const isMediumScreen =
+        window.innerWidth > 768 || window.innerHeight > 600;
+
+      // Adjust transformation values based on screen size
+      // Make effects more subtle on larger screens
+      const rotateXValue = isLargeScreen ? -0.8 : isMediumScreen ? -1.2 : -1.5;
+      const skewYValue = isLargeScreen ? -0.1 : isMediumScreen ? -0.15 : -0.2;
+      const scaleYFactor = isLargeScreen ? 0.1 : isMediumScreen ? 0.15 : 0.2;
+      const scaleXFactor = isLargeScreen ? 0.03 : isMediumScreen ? 0.04 : 0.05;
+
       // Disable scrolling
       const originalOverflow = document.body.style.overflow;
       const originalHeight = document.body.style.height;
@@ -249,11 +394,12 @@ export default function WarpAnimation({
           duration: 0.3,
           ease: [0.65, 0, 0.35, 1],
           onUpdate: (value) => {
+            // Use screen size adjusted values
             appContent.style.transform = `perspective(500px) rotateX(${
-              -1.5 * value
-            }deg) skewY(${-0.2 * value}deg) scaleY(${
-              1 + intensity * 0.2 * value
-            }) scaleX(${1 - intensity * 0.05 * value})`;
+              rotateXValue * value
+            }deg) skewY(${skewYValue * value}deg) scaleY(${
+              1 + intensity * scaleYFactor * value
+            }) scaleX(${1 - intensity * scaleXFactor * value})`;
           },
         });
 
@@ -264,11 +410,12 @@ export default function WarpAnimation({
             ease: [0.22, 1, 0.36, 1],
             onUpdate: (latest) => {
               const value = 1 - latest; // Reverse from 1 to 0
+              // Use screen size adjusted values
               appContent.style.transform = `perspective(500px) rotateX(${
-                -1.5 * value
-              }deg) skewY(${-0.2 * value}deg) scaleY(${
-                1 + intensity * 0.2 * value
-              }) scaleX(${1 - intensity * 0.05 * value})`;
+                rotateXValue * value
+              }deg) skewY(${skewYValue * value}deg) scaleY(${
+                1 + intensity * scaleYFactor * value
+              }) scaleX(${1 - intensity * scaleXFactor * value})`;
             },
             onComplete: () => {
               // Restore original styles when animation completes
@@ -293,12 +440,32 @@ export default function WarpAnimation({
     <AnimatePresence>
       {isActive && (
         <OverlayPortal>
-          <GradientOverlay size={size} />
+          <GradientOverlay
+            size={size}
+            onClose={onClose}
+            isListening={isListening}
+            feedback={feedback}
+          />
           <style>
             {`
               @supports not (backdrop-filter: blur(2px)) {
                 .gradient-overlay {
                   background: rgba(246, 63, 42, 0.3) !important;
+                }
+              }
+              
+              @keyframes pulse {
+                0% {
+                  transform: scale(1);
+                  opacity: 0.7;
+                }
+                70% {
+                  transform: scale(1.5);
+                  opacity: 0;
+                }
+                100% {
+                  transform: scale(1);
+                  opacity: 0;
                 }
               }
             `}
