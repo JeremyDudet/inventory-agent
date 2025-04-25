@@ -10,6 +10,7 @@ import {
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/ThemeContext";
 import io from "socket.io-client";
+import WarpAnimation from "./WarpAnimation";
 
 const WaveformIcon = ({ className }: { className?: string }) => (
   <div className={`flex items-center justify-center ${className}`}>
@@ -217,6 +218,7 @@ export function VoiceModal() {
   const [isConnected, setIsConnected] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [isWarpActive, setIsWarpActive] = useState(false);
   const { theme } = useTheme();
   const socketRef = useRef<typeof io.Socket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -320,7 +322,11 @@ export function VoiceModal() {
   const handleStartClick = () => {
     if (isConnected) {
       setIsOpen(false);
+      setIsWarpActive(true);
       startRecording();
+
+      // Make the animation last longer before disappearing
+      setTimeout(() => setIsWarpActive(false), 3500);
     }
   };
 
@@ -438,6 +444,7 @@ export function VoiceModal() {
           />
         )}
       </AnimatePresence>
+      <WarpAnimation isActive={isWarpActive} />
       <StyleSheet theme={theme} />
     </MotionConfig>
   );

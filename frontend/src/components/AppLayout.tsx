@@ -99,56 +99,29 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <Layout
-      navbar={
-        <Navbar>
-          <NavbarSpacer />
-          <NavbarSection>
-            <Dropdown>
-              <DropdownButton as={NavbarItem}>
-                <Avatar src="/users/erica.jpg" square />
-              </DropdownButton>
-              <AccountDropdownMenu
-                anchor="bottom end"
-                onSignOut={handleSignOut}
-              />
-            </Dropdown>
-          </NavbarSection>
-        </Navbar>
-      }
-      sidebar={
-        <Sidebar>
-          <SidebarHeader>
-            <Dropdown>
-              <DropdownButton as={SidebarItem}>
-                {(() => {
-                  const { theme } = useTheme();
-                  return (
-                    <Avatar
-                      src={
-                        theme === "dark"
-                          ? "/teams/logo-light.svg"
-                          : "/teams/logo-black.svg"
-                      }
-                      className="w-14 h-14 text-white"
-                    />
-                  );
-                })()}
-                <SidebarLabel className="dark:text-white text-black">
-                  StockCount
-                </SidebarLabel>
-                <ChevronDownIcon />
-              </DropdownButton>
-              <DropdownMenu
-                className="min-w-80 lg:min-w-64"
-                anchor="bottom start"
-              >
-                <DropdownItem href="/settings">
-                  <Cog8ToothIcon />
-                  <DropdownLabel>Settings</DropdownLabel>
-                </DropdownItem>
-                <DropdownDivider />
-                <DropdownItem href="#">
+    <>
+      <Layout
+        navbar={
+          <Navbar>
+            <NavbarSpacer />
+            <NavbarSection>
+              <Dropdown>
+                <DropdownButton as={NavbarItem}>
+                  <Avatar src="/users/erica.jpg" square />
+                </DropdownButton>
+                <AccountDropdownMenu
+                  anchor="bottom end"
+                  onSignOut={handleSignOut}
+                />
+              </Dropdown>
+            </NavbarSection>
+          </Navbar>
+        }
+        sidebar={
+          <Sidebar>
+            <SidebarHeader>
+              <Dropdown>
+                <DropdownButton as={SidebarItem}>
                   {(() => {
                     const { theme } = useTheme();
                     return (
@@ -158,98 +131,127 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
                             ? "/teams/logo-light.svg"
                             : "/teams/logo-black.svg"
                         }
+                        className="w-14 h-14 text-white"
                       />
                     );
                   })()}
-                  <SidebarLabel>StockCount</SidebarLabel>
-                </DropdownItem>
-                <DropdownItem href="#">
-                  <Avatar
-                    slot="icon"
-                    initials="BE"
-                    className="bg-purple-500 text-white"
-                  />
-                  <DropdownLabel>Big Events</DropdownLabel>
-                </DropdownItem>
-                <DropdownDivider />
-                <DropdownItem href="#">
-                  <PlusIcon />
-                  <DropdownLabel>New team…</DropdownLabel>
-                </DropdownItem>
-              </DropdownMenu>
-            </Dropdown>
-          </SidebarHeader>
+                  <SidebarLabel className="dark:text-white text-black">
+                    StockCount
+                  </SidebarLabel>
+                  <ChevronDownIcon />
+                </DropdownButton>
+                <DropdownMenu
+                  className="min-w-80 lg:min-w-64"
+                  anchor="bottom start"
+                >
+                  <DropdownItem href="/settings">
+                    <Cog8ToothIcon />
+                    <DropdownLabel>Settings</DropdownLabel>
+                  </DropdownItem>
+                  <DropdownDivider />
+                  <DropdownItem href="#">
+                    {(() => {
+                      const { theme } = useTheme();
+                      return (
+                        <Avatar
+                          src={
+                            theme === "dark"
+                              ? "/teams/logo-light.svg"
+                              : "/teams/logo-black.svg"
+                          }
+                        />
+                      );
+                    })()}
+                    <SidebarLabel>StockCount</SidebarLabel>
+                  </DropdownItem>
+                  <DropdownItem href="#">
+                    <Avatar
+                      slot="icon"
+                      initials="BE"
+                      className="bg-purple-500 text-white"
+                    />
+                    <DropdownLabel>Big Events</DropdownLabel>
+                  </DropdownItem>
+                  <DropdownDivider />
+                  <DropdownItem href="#">
+                    <PlusIcon />
+                    <DropdownLabel>New team…</DropdownLabel>
+                  </DropdownItem>
+                </DropdownMenu>
+              </Dropdown>
+            </SidebarHeader>
 
-          <SidebarBody>
-            <SidebarSection>
-              <SidebarItem href="/dashboard">
-                <HomeIcon />
-                <SidebarLabel>Dashboard</SidebarLabel>
-              </SidebarItem>
-              <SidebarItem href="/items">
-                <Square2StackIcon />
-                <SidebarLabel>Items</SidebarLabel>
-              </SidebarItem>
-              <SidebarItem href="/orders">
-                <ClockIcon />
-                <SidebarLabel>History</SidebarLabel>
-              </SidebarItem>
-              <SidebarItem href="/settings">
-                <Cog6ToothIcon />
-                <SidebarLabel>Settings</SidebarLabel>
-              </SidebarItem>
-            </SidebarSection>
+            <SidebarBody>
+              <SidebarSection>
+                <SidebarItem href="/dashboard">
+                  <HomeIcon />
+                  <SidebarLabel>Dashboard</SidebarLabel>
+                </SidebarItem>
+                <SidebarItem href="/items">
+                  <Square2StackIcon />
+                  <SidebarLabel>Items</SidebarLabel>
+                </SidebarItem>
+                <SidebarItem href="/orders">
+                  <ClockIcon />
+                  <SidebarLabel>History</SidebarLabel>
+                </SidebarItem>
+                <SidebarItem href="/settings">
+                  <Cog6ToothIcon />
+                  <SidebarLabel>Settings</SidebarLabel>
+                </SidebarItem>
+              </SidebarSection>
 
-            <SidebarSection className="max-lg:hidden">
-              <SidebarHeading>Upcoming Events</SidebarHeading>
-            </SidebarSection>
+              <SidebarSection className="max-lg:hidden">
+                <SidebarHeading>Upcoming Events</SidebarHeading>
+              </SidebarSection>
 
-            <SidebarSpacer />
+              <SidebarSpacer />
 
-            <SidebarSection>
-              <SidebarItem href="#">
-                <QuestionMarkCircleIcon />
-                <SidebarLabel>Support</SidebarLabel>
-              </SidebarItem>
-              <SidebarItem href="#">
-                <SparklesIcon />
-                <SidebarLabel>Changelog</SidebarLabel>
-              </SidebarItem>
-            </SidebarSection>
-          </SidebarBody>
+              <SidebarSection>
+                <SidebarItem href="#">
+                  <QuestionMarkCircleIcon />
+                  <SidebarLabel>Support</SidebarLabel>
+                </SidebarItem>
+                <SidebarItem href="#">
+                  <SparklesIcon />
+                  <SidebarLabel>Changelog</SidebarLabel>
+                </SidebarItem>
+              </SidebarSection>
+            </SidebarBody>
 
-          <SidebarFooter className="max-lg:hidden">
-            <Dropdown>
-              <DropdownButton as={SidebarItem}>
-                <span className="flex min-w-0 items-center gap-3">
-                  <Avatar
-                    src="/users/erica.jpg"
-                    className="size-10"
-                    square
-                    alt=""
-                  />
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm/5 font-medium text-zinc-950 dark:text-white">
-                      Erica
-                    </span>
-                    <span className="block truncate text-xs/5 font-normal text-zinc-500 dark:text-zinc-400">
-                      erica@example.com
+            <SidebarFooter className="max-lg:hidden">
+              <Dropdown>
+                <DropdownButton as={SidebarItem}>
+                  <span className="flex min-w-0 items-center gap-3">
+                    <Avatar
+                      src="/users/erica.jpg"
+                      className="size-10"
+                      square
+                      alt=""
+                    />
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm/5 font-medium text-zinc-950 dark:text-white">
+                        Erica
+                      </span>
+                      <span className="block truncate text-xs/5 font-normal text-zinc-500 dark:text-zinc-400">
+                        erica@example.com
+                      </span>
                     </span>
                   </span>
-                </span>
-                <ChevronUpIcon />
-              </DropdownButton>
-              <AccountDropdownMenu
-                anchor="top start"
-                onSignOut={handleSignOut}
-              />
-            </Dropdown>
-          </SidebarFooter>
-        </Sidebar>
-      }
-    >
-      {children}
+                  <ChevronUpIcon />
+                </DropdownButton>
+                <AccountDropdownMenu
+                  anchor="top start"
+                  onSignOut={handleSignOut}
+                />
+              </Dropdown>
+            </SidebarFooter>
+          </Sidebar>
+        }
+      >
+        {children}
+      </Layout>
       <VoiceModal />
-    </Layout>
+    </>
   );
 }
