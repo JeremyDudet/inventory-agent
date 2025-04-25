@@ -1,7 +1,15 @@
-import { useState } from "react";
-import { AnimatePresence, motion, MotionConfig } from "motion/react";
+import { useState, useEffect, useRef } from "react";
+import {
+  AnimatePresence,
+  motion,
+  MotionConfig,
+  animate,
+  useTime,
+  useTransform,
+} from "motion/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/ThemeContext";
+import io from "socket.io-client";
 
 const WaveformIcon = ({ className }: { className?: string }) => (
   <div className={`flex items-center justify-center ${className}`}>
@@ -16,9 +24,378 @@ const WaveformIcon = ({ className }: { className?: string }) => (
   </div>
 );
 
+// Define states for the button
+const STATES = {
+  idle: "Start Voice Control",
+  loading: "Connecting",
+  ready: "Start Voice Control",
+  error: "Connection Failed",
+  confirmation: "Start",
+  listening: "Listening",
+} as const;
+
+// Icon components for different states
+const ICON_SIZE = 20;
+const STROKE_WIDTH = 1.5;
+const VIEW_BOX_SIZE = 24;
+
+const svgProps = {
+  width: ICON_SIZE,
+  height: ICON_SIZE,
+  viewBox: `0 0 ${VIEW_BOX_SIZE} ${VIEW_BOX_SIZE}`,
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: STROKE_WIDTH,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+};
+
+const springConfig = {
+  type: "spring",
+  stiffness: 150,
+  damping: 20,
+};
+
+const animations = {
+  initial: { pathLength: 0 },
+  animate: { pathLength: 1 },
+  transition: springConfig,
+};
+
+function Loader() {
+  const time = useTime();
+  const rotate = useTransform(time, [0, 1000], [0, 360], { clamp: false });
+
+  return (
+    <motion.div
+      style={{
+        rotate,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: ICON_SIZE,
+        height: ICON_SIZE,
+      }}
+    >
+      <motion.svg {...svgProps}>
+        <motion.path d="M21 12a9 9 0 1 1-6.219-8.56" {...animations} />
+      </motion.svg>
+    </motion.div>
+  );
+}
+
+function Check() {
+  return (
+    <motion.svg {...svgProps}>
+      <motion.polyline points="4 12 9 17 20 6" {...animations} />
+    </motion.svg>
+  );
+}
+
+function X() {
+  return (
+    <motion.svg {...svgProps}>
+      <motion.line x1="6" y1="6" x2="18" y2="18" {...animations} />
+      <motion.line
+        x1="18"
+        y1="6"
+        x2="6"
+        y2="18"
+        {...{ ...animations, transition: { ...springConfig, delay: 0.1 } }}
+      />
+    </motion.svg>
+  );
+}
+
+function Microphone() {
+  return (
+    <motion.svg {...svgProps}>
+      <motion.path
+        d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"
+        {...animations}
+      />
+      <motion.path
+        d="M19 10v2a7 7 0 0 1-14 0v-2"
+        {...{ ...animations, transition: { ...springConfig, delay: 0.1 } }}
+      />
+      <motion.line
+        x1="12"
+        y1="19"
+        x2="12"
+        y2="23"
+        {...{ ...animations, transition: { ...springConfig, delay: 0.2 } }}
+      />
+      <motion.line
+        x1="8"
+        y1="23"
+        x2="16"
+        y2="23"
+        {...{ ...animations, transition: { ...springConfig, delay: 0.3 } }}
+      />
+    </motion.svg>
+  );
+}
+
+const Icon = ({ state }: { state: keyof typeof STATES }) => {
+  let IconComponent = <></>;
+
+  switch (state) {
+    case "idle":
+      IconComponent = <WaveformIcon className="w-5 h-5" />;
+      break;
+    case "loading":
+      IconComponent = <Loader />;
+      break;
+    case "ready":
+      IconComponent = <WaveformIcon className="w-5 h-5" />;
+      break;
+    case "error":
+      IconComponent = <X />;
+      break;
+    case "listening":
+      IconComponent = <Microphone />;
+      break;
+  }
+
+  return (
+    <>
+      <motion.span
+        style={{
+          height: 20,
+          position: "relative",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+        animate={{
+          width: 20,
+        }}
+        transition={springConfig}
+      >
+        <AnimatePresence>
+          <motion.span
+            key={state}
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+            }}
+            initial={{
+              y: -40,
+              scale: 0.5,
+              filter: "blur(6px)",
+              WebkitFilter: "blur(6px)",
+            }}
+            animate={{
+              y: 0,
+              scale: 1,
+              filter: "blur(0px)",
+              WebkitFilter: "blur(0px)",
+            }}
+            exit={{
+              y: 40,
+              scale: 0.5,
+              filter: "blur(6px)",
+              WebkitFilter: "blur(6px)",
+            }}
+            transition={{
+              duration: 0.15,
+              ease: "easeInOut",
+            }}
+          >
+            {IconComponent}
+          </motion.span>
+        </AnimatePresence>
+      </motion.span>
+    </>
+  );
+};
+
 export function VoiceModal() {
   const [isOpen, setIsOpen] = useState(false);
+  const [buttonState, setButtonState] = useState<keyof typeof STATES>("idle");
+  const [isConnected, setIsConnected] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [feedback, setFeedback] = useState("");
   const { theme } = useTheme();
+  const socketRef = useRef<typeof io.Socket | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!buttonRef.current) return;
+
+    if (buttonState === "error") {
+      animate(
+        buttonRef.current,
+        { x: [0, -6, 6, -6, 0] },
+        {
+          duration: 0.3,
+          ease: "easeInOut",
+          times: [0, 0.25, 0.5, 0.75, 1],
+          repeat: 0,
+          delay: 0.1,
+        }
+      );
+    } else if (buttonState === "ready") {
+      animate(
+        buttonRef.current,
+        {
+          scale: [1, 1.2, 1],
+        },
+        {
+          duration: 0.3,
+          ease: "easeInOut",
+          times: [0, 0.5, 1],
+          repeat: 0,
+        }
+      );
+    }
+  }, [buttonState]);
+
+  useEffect(() => {
+    const SOCKET_URL = "http://localhost:8080/voice";
+    const socket = io(SOCKET_URL, {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 60000,
+      autoConnect: true,
+      path: "/socket.io/",
+    });
+
+    socket.on("connect", () => {
+      setIsConnected(true);
+      setButtonState("ready");
+      setFeedback("Connected to voice server");
+    });
+
+    socket.on("connect_error", (error: Error) => {
+      setIsConnected(false);
+      setButtonState("error");
+      setFeedback(`Connection error: ${error.message}`);
+    });
+
+    socket.on("disconnect", (reason: string) => {
+      setIsConnected(false);
+      setButtonState("error");
+      setFeedback(`Disconnected: ${reason}`);
+    });
+
+    socket.on("error", (data: { message: string }) => {
+      setFeedback(`Error: ${data.message}`);
+      stopRecording();
+    });
+
+    socket.on(
+      "transcription",
+      (data: { text: string; isFinal: boolean; confidence?: number }) => {
+        if (data.isFinal && data.text.trim()) {
+          setFeedback(`Heard: ${data.text}`);
+        }
+      }
+    );
+
+    socketRef.current = socket;
+    setButtonState("loading");
+    socket.connect();
+
+    return () => {
+      socket.disconnect();
+      stopRecording();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isListening) {
+      setButtonState("listening");
+    } else if (isConnected) {
+      setButtonState("ready");
+    }
+  }, [isListening, isConnected]);
+
+  const handleStartClick = () => {
+    if (isConnected) {
+      setIsOpen(false);
+      startRecording();
+    }
+  };
+
+  const startRecording = async () => {
+    if (!socketRef.current || !isConnected) {
+      setFeedback("Not connected to server");
+      return;
+    }
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+      streamRef.current = mediaStream;
+      const mediaRecorder = new MediaRecorder(mediaStream, {
+        mimeType: "audio/webm;codecs=opus",
+      });
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0 && socketRef.current && isConnected) {
+          socketRef.current.emit("voice-stream", event.data);
+        }
+      };
+
+      mediaRecorder.onstart = () => {
+        setIsListening(true);
+        setFeedback("Listening...");
+      };
+
+      mediaRecorder.onstop = () => {
+        setFeedback("Stopped");
+      };
+
+      mediaRecorder.onerror = (event) => {
+        console.error("Recorder error:", event);
+        setFeedback("Recording error");
+        stopRecording();
+      };
+
+      mediaRecorder.start(500);
+    } catch (error) {
+      console.error("Error starting recording:", error);
+      setFeedback("Failed to access microphone");
+      setButtonState("error");
+    }
+  };
+
+  const stopRecording = () => {
+    setIsListening(false);
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state !== "inactive"
+    ) {
+      mediaRecorderRef.current.stop();
+    }
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit("stop-recording");
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+  };
+
+  const toggleRecording = () => {
+    if (isListening) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
 
   return (
     <MotionConfig
@@ -26,31 +403,57 @@ export function VoiceModal() {
     >
       <motion.div layoutId="modal" id="modal-open">
         <motion.button
-          className="openButton"
+          ref={buttonRef}
+          className={`openButton rounded-xl ${
+            buttonState === "error"
+              ? "bg-red-500 dark:bg-red-400 text-white dark:text-gray-800"
+              : buttonState === "loading"
+              ? "bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-gray-200 outline outline-gray-300 dark:outline-gray-600"
+              : "bg-emerald-600 dark:bg-emerald-400 text-white dark:text-gray-800"
+          }`}
           onClick={() => setIsOpen(true)}
-          style={{ borderRadius: 50 }}
+          style={{}}
           data-primary-action
           layoutId="cta"
           whileTap={{ scale: 0.95 }}
+          disabled={buttonState === "loading" || buttonState === "error"}
         >
           <motion.span
             layoutId="cta-text"
             className="flex justify-center items-center gap-2"
+            style={{ gap: 8 }}
           >
-            Start Voice Control
-            <WaveformIcon className="w-5 h-5" />
+            {STATES[buttonState]}
+            <Icon state={buttonState} />
           </motion.span>
         </motion.button>
       </motion.div>
       <AnimatePresence>
-        {isOpen && <Dialog close={() => setIsOpen(false)} theme={theme} />}
+        {isOpen && (
+          <Dialog
+            close={() => setIsOpen(false)}
+            theme={theme}
+            buttonState={buttonState}
+            onStartClick={handleStartClick}
+          />
+        )}
       </AnimatePresence>
       <StyleSheet theme={theme} />
     </MotionConfig>
   );
 }
 
-function Dialog({ close, theme }: { close: () => void; theme: string }) {
+function Dialog({
+  close,
+  theme,
+  buttonState,
+  onStartClick,
+}: {
+  close: () => void;
+  theme: string;
+  buttonState: keyof typeof STATES;
+  onStartClick: () => void;
+}) {
   return (
     <motion.div
       className="modal-overlay"
@@ -61,12 +464,12 @@ function Dialog({ close, theme }: { close: () => void; theme: string }) {
       onClick={close}
     >
       <motion.div
-        className="modal-content"
+        className="modal-content rounded-xl border border-gray-200 dark:border-gray-800"
         layoutId="modal"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        style={{ borderRadius: 30, overflow: "hidden" }}
+        style={{ overflow: "hidden" }}
         onClick={(e) => e.stopPropagation()}
       >
         <motion.div
@@ -83,23 +486,31 @@ function Dialog({ close, theme }: { close: () => void; theme: string }) {
           <div className="controls">
             <button
               onClick={close}
-              className="cancel"
-              style={{ borderRadius: 50 }}
+              className="cancel bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl"
+              style={{}}
             >
               Cancel
             </button>
             <motion.button
               layoutId="cta"
-              onClick={close}
-              className="confirm"
-              style={{ borderRadius: 50 }}
+              onClick={onStartClick}
+              className={`confirm rounded-xl ${
+                buttonState === "error"
+                  ? "bg-red-500 dark:bg-red-400 text-white dark:text-gray-800"
+                  : buttonState === "loading"
+                  ? "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 outline outline-gray-400 dark:outline-gray-600"
+                  : "bg-emerald-600 dark:bg-emerald-400 text-white dark:text-gray-800"
+              }`}
+              style={{}}
+              disabled={buttonState === "loading" || buttonState === "error"}
             >
               <motion.span
                 layoutId="cta-text"
                 className="flex justify-center items-center gap-2"
+                style={{ gap: 8 }}
               >
-                Start
-                <WaveformIcon className="w-5 h-5" />
+                {STATES.confirmation}
+                <Check />
               </motion.span>
             </motion.button>
           </div>
@@ -180,7 +591,6 @@ function StyleSheet({ theme }: { theme: string }) {
     border: 1px solid ${theme === "dark" ? "#1d2628" : "#e5e7eb"};
     background-color: ${theme === "dark" ? "#0b1011" : "#ffffff"};
     padding: 20px;
-    border-radius: 10px;
     position: relative;
     transform: translateY(0);
   }
@@ -188,11 +598,8 @@ function StyleSheet({ theme }: { theme: string }) {
   .openButton, .controls button {
     width: 100%;
     max-width: 300px;
-    background-color: ${theme === "dark" ? "#8df0cc" : "#0f766e"};
-    color: ${theme === "dark" ? "#0f1115" : "#ffffff"};
     font-size: 16px;
     padding: 10px 20px;
-    border-radius: 10px;
     cursor: pointer;
   }
 
@@ -201,16 +608,6 @@ function StyleSheet({ theme }: { theme: string }) {
     display: flex;
     justify-content: flex-end;
     gap: 10px;
-  }
-
-  .controls button.cancel {
-    background-color: ${theme === "dark" ? "#1A1E26" : "#f3f4f6"};
-    color: ${theme === "dark" ? "#f6f6f6" : "#374151"};
-  }
-
-  .controls button.confirm {
-    background-color: ${theme === "dark" ? "#8df0cc" : "#0f766e"};
-    color: ${theme === "dark" ? "#0f1115" : "#ffffff"};
   }
 
   .closeButton {
