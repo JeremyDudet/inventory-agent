@@ -90,7 +90,7 @@ function Check() {
     <motion.svg {...svgProps}>
       <motion.polyline
         points="4 12 9 17 20 6"
-        {...{ ...animations, transition: { ...springConfig, delay: 0.2 } }}
+        {...{ ...animations, transition: { ...springConfig, delay: 0.1 } }}
       />
     </motion.svg>
   );
@@ -222,6 +222,8 @@ export function VoiceModal() {
   const [isListening, setIsListening] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [isWarpActive, setIsWarpActive] = useState(false);
+  const [transcription, setTranscription] = useState("");
+  const [isFinalTranscription, setIsFinalTranscription] = useState(false);
   const { theme } = useTheme();
   const socketRef = useRef<typeof io.Socket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -270,6 +272,7 @@ export function VoiceModal() {
       timeout: 60000,
       autoConnect: true,
       path: "/socket.io/",
+      forceNew: true,
     });
 
     socket.on("connect", () => {
@@ -298,8 +301,15 @@ export function VoiceModal() {
     socket.on(
       "transcription",
       (data: { text: string; isFinal: boolean; confidence?: number }) => {
-        if (data.isFinal && data.text.trim()) {
-          setFeedback(`Heard: ${data.text}`);
+        if (data.text.trim()) {
+          setTranscription(data.text);
+          setIsFinalTranscription(data.isFinal);
+
+          if (data.isFinal) {
+            setFeedback(`Heard: ${data.text}`);
+          } else {
+            setFeedback("Listening...");
+          }
         }
       }
     );
@@ -333,6 +343,9 @@ export function VoiceModal() {
   const handleWarpClose = () => {
     setIsWarpActive(false);
     stopRecording();
+    // Clear transcription when closing
+    setTranscription("");
+    setIsFinalTranscription(false);
   };
 
   const startRecording = async () => {
@@ -340,6 +353,15 @@ export function VoiceModal() {
       setFeedback("Not connected to server");
       return;
     }
+
+    // Check if MediaRecorder is available
+    if (!window.MediaRecorder) {
+      console.error("MediaRecorder is not supported in this browser");
+      setFeedback("Voice recording not supported in this browser");
+      setButtonState("error");
+      return;
+    }
+
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -349,20 +371,46 @@ export function VoiceModal() {
         },
       });
       streamRef.current = mediaStream;
-      const mediaRecorder = new MediaRecorder(mediaStream, {
-        mimeType: "audio/webm;codecs=opus",
-      });
+
+      // Check for supported MIME types
+      const getMimeType = () => {
+        if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+          return "audio/webm;codecs=opus";
+        } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
+          return "audio/mp4"; // Safari often supports this
+        } else if (MediaRecorder.isTypeSupported("audio/mpeg")) {
+          return "audio/mpeg";
+        } else {
+          return ""; // No MIME type specified, will use browser default
+        }
+      };
+
+      const mimeType = getMimeType();
+      const mediaRecorderOptions = mimeType ? { mimeType } : undefined;
+
+      const mediaRecorder = new MediaRecorder(
+        mediaStream,
+        mediaRecorderOptions
+      );
       mediaRecorderRef.current = mediaRecorder;
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0 && socketRef.current && isConnected) {
-          socketRef.current.emit("voice-stream", event.data);
+          try {
+            socketRef.current.emit("voice-stream", event.data);
+          } catch (error) {
+            console.error("Error sending audio data:", error);
+            setFeedback("Error sending audio data");
+          }
         }
       };
 
       mediaRecorder.onstart = () => {
         setIsListening(true);
         setFeedback("Listening...");
+        // Clear any previous transcription
+        setTranscription("");
+        setIsFinalTranscription(false);
       };
 
       mediaRecorder.onstop = () => {
@@ -456,6 +504,8 @@ export function VoiceModal() {
         onClose={handleWarpClose}
         isListening={isListening}
         feedback={feedback}
+        transcription={transcription}
+        isFinalTranscription={isFinalTranscription}
       />
       <StyleSheet theme={theme} />
     </MotionConfig>

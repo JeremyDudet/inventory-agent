@@ -8,17 +8,22 @@ import {
 import { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import { XMarkIcon, MicrophoneIcon } from "@heroicons/react/24/outline";
+import TranscriptionDisplay from "./TranscriptionDisplay";
 
 function GradientOverlay({
   size,
   onClose,
   isListening,
   feedback,
+  transcription,
+  isFinalTranscription,
 }: {
   size: { width: number; height: number };
   onClose: () => void;
   isListening: boolean;
   feedback: string;
+  transcription: string;
+  isFinalTranscription: boolean;
 }) {
   const breathe = useMotionValue(0);
 
@@ -57,8 +62,12 @@ function GradientOverlay({
   const overlayOpacity = isLargeScreen ? 0.08 : 0.1;
 
   // Adjust blur based on screen size
-  const largeBlur = isLargeScreen ? "150px" : isMediumScreen ? "100px" : "80px";
-  const smallBlur = isLargeScreen ? "20px" : "15px";
+  const largeBlur = isLargeScreen
+    ? "250px"
+    : isMediumScreen
+    ? "180px"
+    : "150px";
+  const smallBlur = isLargeScreen ? "40px" : "30px";
 
   return (
     <div
@@ -72,8 +81,12 @@ function GradientOverlay({
         width: "100%",
         height: "100%",
         overflow: "hidden",
-        pointerEvents: "none",
+        pointerEvents: "auto",
         zIndex: 9999,
+        userSelect: "none",
+        WebkitUserSelect: "none",
+        MozUserSelect: "none",
+        msUserSelect: "none",
       }}
     >
       {/* Close button */}
@@ -107,6 +120,28 @@ function GradientOverlay({
           <XMarkIcon width={24} height={24} />
         </button>
       </div>
+
+      {/* Transcription display */}
+      {transcription && (
+        <div
+          style={{
+            position: "absolute",
+            top: "100px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "90%",
+            maxWidth: "800px",
+            textAlign: "center",
+            zIndex: 10000,
+          }}
+        >
+          <TranscriptionDisplay
+            text={transcription}
+            isFinal={isFinalTranscription}
+            className="warp-transcription"
+          />
+        </div>
+      )}
 
       {/* Feedback display */}
       <div
@@ -175,8 +210,7 @@ function GradientOverlay({
               textOverflow: "ellipsis",
             }}
           >
-            {feedback ||
-              (isListening ? "Listening..." : "Voice control activated")}
+            Listening...
           </p>
         </div>
       </div>
@@ -285,8 +319,14 @@ function GradientOverlay({
           width: "100%",
           height: "100%",
           background: `rgba(246, 63, 42, ${overlayOpacity})`,
-          backdropFilter: "blur(2px)",
-          WebkitBackdropFilter: "blur(2px)",
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
+          pointerEvents: "auto",
+          userSelect: "none",
+          WebkitUserSelect: "none",
+          MozUserSelect: "none",
+          msUserSelect: "none",
+          touchAction: "none",
         }}
       />
     </div>
@@ -325,12 +365,16 @@ export default function WarpAnimation({
   onClose,
   isListening = false,
   feedback = "",
+  transcription = "",
+  isFinalTranscription = false,
 }: {
   isActive: boolean;
   intensity?: number;
   onClose: () => void;
   isListening?: boolean;
   feedback?: string;
+  transcription?: string;
+  isFinalTranscription?: boolean;
 }) {
   const [size, setSize] = useState({ width: 0, height: 0 });
 
@@ -346,6 +390,77 @@ export default function WarpAnimation({
     window.addEventListener("resize", updateSize);
     return () => window.removeEventListener("resize", updateSize);
   }, []);
+
+  // Add universal scroll prevention
+  useEffect(() => {
+    if (!isActive) return;
+
+    // Save current scroll position
+    const scrollPos = {
+      x: window.scrollX || window.pageXOffset,
+      y: window.scrollY || window.pageYOffset,
+    };
+
+    // Prevent wheel scrolling
+    const preventDefault = (e: Event) => {
+      e.preventDefault();
+      return false;
+    };
+
+    // Force the scroll position to stay
+    const lockScroll = () => window.scrollTo(scrollPos.x, scrollPos.y);
+
+    // Disable all scroll events
+    window.addEventListener("wheel", preventDefault, { passive: false });
+    window.addEventListener("touchmove", preventDefault, { passive: false });
+    window.addEventListener("scroll", lockScroll);
+
+    // Find all scrollable elements and disable their scrolling
+    const scrollableElements = document.querySelectorAll(
+      '[style*="overflow"], [style*="overflow-y"], [style*="overflow-x"]'
+    );
+    const originalStyles: Map<
+      Element,
+      { overflow?: string; overflowY?: string; overflowX?: string }
+    > = new Map();
+
+    scrollableElements.forEach((element) => {
+      const computedStyle = window.getComputedStyle(element);
+      const htmlElement = element as HTMLElement;
+
+      originalStyles.set(element, {
+        overflow: htmlElement.style.overflow,
+        overflowY: htmlElement.style.overflowY,
+        overflowX: htmlElement.style.overflowX,
+      });
+
+      htmlElement.style.overflow = "hidden";
+      htmlElement.style.overflowY = "hidden";
+      htmlElement.style.overflowX = "hidden";
+    });
+
+    return () => {
+      // Re-enable scrolling when component unmounts or isActive changes
+      window.removeEventListener("wheel", preventDefault);
+      window.removeEventListener("touchmove", preventDefault);
+      window.removeEventListener("scroll", lockScroll);
+
+      // Restore original scroll styles
+      scrollableElements.forEach((element) => {
+        const original = originalStyles.get(element);
+        if (original) {
+          const htmlElement = element as HTMLElement;
+
+          if (original.overflow !== undefined)
+            htmlElement.style.overflow = original.overflow;
+          if (original.overflowY !== undefined)
+            htmlElement.style.overflowY = original.overflowY;
+          if (original.overflowX !== undefined)
+            htmlElement.style.overflowX = original.overflowX;
+        }
+      });
+    };
+  }, [isActive]);
 
   useEffect(() => {
     if (isActive) {
@@ -366,11 +481,19 @@ export default function WarpAnimation({
       const originalOverflow = document.body.style.overflow;
       const originalHeight = document.body.style.height;
       const originalPosition = document.body.style.position;
+      const originalWidth = document.body.style.width;
+      const originalTouchAction = document.body.style.touchAction;
 
+      // Disable all interactions on body and html
       document.body.style.overflow = "hidden";
       document.body.style.height = "100%";
       document.body.style.position = "fixed";
       document.body.style.width = "100%";
+      document.body.style.touchAction = "none"; // Disable touch events like pinch zoom
+
+      document.documentElement.style.overflow = "hidden";
+      document.documentElement.style.height = "100%";
+      document.documentElement.style.touchAction = "none";
 
       // Apply transformation to HTML or body element directly
       const appContent =
@@ -424,11 +547,16 @@ export default function WarpAnimation({
               appContent.style.transformOrigin = originalTransformOrigin;
               appContent.style.willChange = originalWillChange;
 
-              // Re-enable scrolling
+              // Re-enable scrolling and interactions
               document.body.style.overflow = originalOverflow;
               document.body.style.height = originalHeight;
               document.body.style.position = originalPosition;
-              document.body.style.width = "";
+              document.body.style.width = originalWidth || "";
+              document.body.style.touchAction = originalTouchAction || "";
+
+              document.documentElement.style.overflow = "";
+              document.documentElement.style.height = "";
+              document.documentElement.style.touchAction = "";
             },
           });
         });
@@ -445,10 +573,12 @@ export default function WarpAnimation({
             onClose={onClose}
             isListening={isListening}
             feedback={feedback}
+            transcription={transcription}
+            isFinalTranscription={isFinalTranscription}
           />
           <style>
             {`
-              @supports not (backdrop-filter: blur(2px)) {
+              @supports not (backdrop-filter: blur(8px)) {
                 .gradient-overlay {
                   background: rgba(246, 63, 42, 0.3) !important;
                 }
@@ -467,6 +597,36 @@ export default function WarpAnimation({
                   transform: scale(1);
                   opacity: 0;
                 }
+              }
+              
+              .warp-transcription h2 {
+                color: white;
+                font-size: 1.75rem;
+                text-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+                font-weight: 600;
+                width: 100%;
+                max-width: 100%;
+              }
+              
+              @media (max-width: 768px) {
+                .warp-transcription h2 {
+                  font-size: 1.25rem;
+                }
+              }
+              
+              #warp-overlay-portal {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                z-index: 9999;
+                pointer-events: auto;
+                user-select: none;
+                -webkit-user-select: none;
+                -moz-user-select: none;
+                -ms-user-select: none;
+                touch-action: none;
               }
             `}
           </style>
