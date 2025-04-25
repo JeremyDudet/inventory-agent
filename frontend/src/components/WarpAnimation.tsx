@@ -37,7 +37,7 @@ function GradientOverlay({
   const enterDuration = 0.75;
   const exitDuration = 0.5;
 
-  const expandingCircleRadius = size.width / 3;
+  const expandingCircleRadius = Math.max(size.width, size.height) * 0.3;
 
   return (
     <div
@@ -79,13 +79,16 @@ function GradientOverlay({
         }}
         style={{
           position: "absolute",
-          left: "50%",
-          bottom: 0,
+          left: "40%",
+          bottom: "-60px",
           transform: "translateX(-50%)",
           width: expandingCircleRadius,
           height: expandingCircleRadius,
           borderRadius: "50%",
           filter: "blur(15px)",
+          transformOrigin: "center bottom",
+          margin: 0,
+          padding: 0,
         }}
       />
 
@@ -247,10 +250,10 @@ export default function WarpAnimation({
           ease: [0.65, 0, 0.35, 1],
           onUpdate: (value) => {
             appContent.style.transform = `perspective(500px) rotateX(${
-              -5 * value
-            }deg) skewY(${-1.5 * value}deg) scaleY(${
-              1 + intensity * value
-            }) scaleX(${1 - intensity * 0.6 * value})`;
+              -1.5 * value
+            }deg) skewY(${-0.2 * value}deg) scaleY(${
+              1 + intensity * 0.2 * value
+            }) scaleX(${1 - intensity * 0.05 * value})`;
           },
         });
 
@@ -262,10 +265,10 @@ export default function WarpAnimation({
             onUpdate: (latest) => {
               const value = 1 - latest; // Reverse from 1 to 0
               appContent.style.transform = `perspective(500px) rotateX(${
-                -5 * value
-              }deg) skewY(${-1.5 * value}deg) scaleY(${
-                1 + intensity * value
-              }) scaleX(${1 - intensity * 0.6 * value})`;
+                -1.5 * value
+              }deg) skewY(${-0.2 * value}deg) scaleY(${
+                1 + intensity * 0.2 * value
+              }) scaleX(${1 - intensity * 0.05 * value})`;
             },
             onComplete: () => {
               // Restore original styles when animation completes
