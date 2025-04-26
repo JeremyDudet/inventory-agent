@@ -5,11 +5,60 @@ import {
   useMotionValue,
   useTransform,
 } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, ReactNode } from "react";
 import ReactDOM from "react-dom";
 import { XMarkIcon, MicrophoneIcon } from "@heroicons/react/24/outline";
 import TranscriptionDisplay from "./TranscriptionDisplay";
 import NotificationsStack from "./VoiceOverlayNotificationStack";
+
+// Define prop types for TranscriptionDisplay
+interface TranscriptionDisplayProps {
+  text: string;
+  isFinal: boolean;
+  className?: string;
+}
+
+// Define prop types for components
+interface GradientOverlayProps {
+  size: { width: number; height: number };
+  onClose: () => void;
+  isListening: boolean;
+  feedback: string;
+  transcription: string;
+  isFinalTranscription: boolean;
+}
+
+interface OverlayPortalProps {
+  children: ReactNode;
+}
+
+interface WarpAnimationProps {
+  isActive: boolean;
+  intensity?: number;
+  onClose: () => void;
+  isListening?: boolean;
+  feedback?: string;
+  transcription?: string;
+  isFinalTranscription?: boolean;
+}
+
+// Color schemes for light and dark modes
+const colorSchemes = {
+  light: {
+    expandingCircleInitial: "rgb(200, 200, 210)",
+    expandingCircleAnimate: "rgb(150, 150, 170)",
+    gradientTopLeft: "rgb(150, 150, 170, 0.9)",
+    gradientBottomRight: "rgb(120, 120, 140, 0.9)",
+    overlay: "rgba(150, 150, 170, OPACITY_PLACEHOLDER)",
+  },
+  dark: {
+    expandingCircleInitial: "rgb(80, 80, 100)",
+    expandingCircleAnimate: "rgb(60, 60, 80)",
+    gradientTopLeft: "rgb(60, 60, 80, 0.9)",
+    gradientBottomRight: "rgb(40, 40, 60, 0.9)",
+    overlay: "rgba(60, 60, 80, OPACITY_PLACEHOLDER)",
+  },
+};
 
 function GradientOverlay({
   size,
@@ -18,15 +67,29 @@ function GradientOverlay({
   feedback,
   transcription,
   isFinalTranscription,
-}: {
-  size: { width: number; height: number };
-  onClose: () => void;
-  isListening: boolean;
-  feedback: string;
-  transcription: string;
-  isFinalTranscription: boolean;
-}) {
+}: GradientOverlayProps) {
   const breathe = useMotionValue(0);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    // Check for dark mode preference
+    const checkDarkMode = () => {
+      const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      setIsDarkMode(isDark);
+    };
+
+    checkDarkMode();
+
+    // Listen for theme changes
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const listener = (e: MediaQueryListEvent) => setIsDarkMode(e.matches);
+    mediaQuery.addEventListener("change", listener);
+
+    return () => mediaQuery.removeEventListener("change", listener);
+  }, []);
+
+  // Get the current color scheme based on mode
+  const colors = isDarkMode ? colorSchemes.dark : colorSchemes.light;
 
   useEffect(() => {
     async function playBreathingAnimation() {
@@ -136,7 +199,7 @@ function GradientOverlay({
       <div
         style={{
           position: "absolute",
-          top: "80px",
+          top: "260px",
           left: "50%",
           transform: "translateX(-50%)",
           zIndex: 10000,
@@ -154,30 +217,29 @@ function GradientOverlay({
       </div>
 
       {/* Transcription display */}
-      {transcription && (
-        <div
-          style={{
-            position: "absolute",
-            top: "80px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            width: "90%",
-            maxWidth: "800px",
-            textAlign: "center",
-            zIndex: 10000,
-            height: "calc(100% - 240px)",
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "center",
-          }}
-        >
-          <TranscriptionDisplay
-            text={transcription}
-            isFinal={isFinalTranscription}
-            className="warp-transcription"
-          />
-        </div>
-      )}
+      <div
+        style={{
+          position: "absolute",
+          top: "40px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: "90%",
+          maxWidth: "800px",
+          textAlign: "center",
+          zIndex: 10000,
+          height: "200px",
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "center",
+          overflow: "auto",
+        }}
+      >
+        <TranscriptionDisplay
+          text={transcription}
+          isFinal={isFinalTranscription}
+          className="warp-transcription"
+        />
+      </div>
 
       {/* Feedback display */}
       <div
@@ -257,12 +319,12 @@ function GradientOverlay({
         initial={{
           scale: 0,
           opacity: 1,
-          backgroundColor: "rgb(233, 167, 160)",
+          backgroundColor: colors.expandingCircleInitial,
         }}
         animate={{
           scale: 10,
           opacity: 0.2,
-          backgroundColor: "rgb(246, 63, 42)",
+          backgroundColor: colors.expandingCircleAnimate,
           transition: {
             duration: enterDuration,
             opacity: { duration: enterDuration, ease: "easeInOut" },
@@ -271,7 +333,7 @@ function GradientOverlay({
         exit={{
           scale: 0,
           opacity: 1,
-          backgroundColor: "rgb(233, 167, 160)",
+          backgroundColor: colors.expandingCircleInitial,
           transition: { duration: exitDuration },
         }}
         style={{
@@ -308,7 +370,7 @@ function GradientOverlay({
           top: -size.width * (isLargeScreen ? 0.75 : 1),
           left: -size.width * (isLargeScreen ? 0.75 : 1),
           borderRadius: "50%",
-          background: "rgb(246, 63, 42, 0.9)",
+          background: colors.gradientTopLeft,
           filter: `blur(${largeBlur})`,
         }}
       />
@@ -332,7 +394,7 @@ function GradientOverlay({
           top: size.height - size.width * (isLargeScreen ? 0.75 : 1),
           left: 0,
           borderRadius: "50%",
-          background: "rgb(243, 92, 76, 0.9)",
+          background: colors.gradientBottomRight,
           filter: `blur(${largeBlur})`,
         }}
       />
@@ -355,7 +417,10 @@ function GradientOverlay({
           bottom: 0,
           width: "100%",
           height: "100%",
-          background: `rgba(246, 63, 42, ${overlayOpacity})`,
+          background: colors.overlay.replace(
+            "OPACITY_PLACEHOLDER",
+            overlayOpacity.toString()
+          ),
           backdropFilter: "blur(8px)",
           WebkitBackdropFilter: "blur(8px)",
           pointerEvents: "auto",
@@ -371,7 +436,7 @@ function GradientOverlay({
 }
 
 // Create a portal component to render the overlay outside of the transformed content
-const OverlayPortal = ({ children }: { children: React.ReactNode }) => {
+const OverlayPortal = ({ children }: OverlayPortalProps) => {
   const [portalElement, setPortalElement] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -404,15 +469,7 @@ export default function WarpAnimation({
   feedback = "",
   transcription = "",
   isFinalTranscription = false,
-}: {
-  isActive: boolean;
-  intensity?: number;
-  onClose: () => void;
-  isListening?: boolean;
-  feedback?: string;
-  transcription?: string;
-  isFinalTranscription?: boolean;
-}) {
+}: WarpAnimationProps) {
   const [size, setSize] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
@@ -456,10 +513,7 @@ export default function WarpAnimation({
     const scrollableElements = document.querySelectorAll(
       '[style*="overflow"], [style*="overflow-y"], [style*="overflow-x"]'
     );
-    const originalStyles: Map<
-      Element,
-      { overflow?: string; overflowY?: string; overflowX?: string }
-    > = new Map();
+    const originalStyles = new Map();
 
     scrollableElements.forEach((element) => {
       const computedStyle = window.getComputedStyle(element);
@@ -617,7 +671,7 @@ export default function WarpAnimation({
             {`
               @supports not (backdrop-filter: blur(8px)) {
                 .gradient-overlay {
-                  background: rgba(246, 63, 42, 0.3) !important;
+                  background: rgba(150, 150, 170, 0.3) !important;
                 }
               }
               
@@ -636,18 +690,85 @@ export default function WarpAnimation({
                 }
               }
               
+              @keyframes blink {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0; }
+              }
+              
+              .transcription-container {
+                margin: 10px auto;
+                width: 100%;
+                max-width: 90vw;
+                box-sizing: border-box;
+                padding: 0 10px;
+                max-height: 60vh;
+                overflow-y: hidden;
+                text-align: left;
+                /* Add fade effect at the top */
+                mask-image: linear-gradient(
+                  to top,
+                  rgba(0, 0, 0, 1) 60%,
+                  rgba(0, 0, 0, 0) 100%
+                );
+                -webkit-mask-image: linear-gradient(
+                  to top,
+                  rgba(0, 0, 0, 1) 60%,
+                  rgba(0, 0, 0, 0) 100%
+                );
+                /* Limit height to approximately 4 lines */
+                height: 12em;
+                /* Use flexbox to position content at the bottom */
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-end;
+                position: relative;
+              }
+              
+              .transcription-content {
+                display: inline;
+                white-space: normal;
+                text-align: left;
+              }
+              
+              .transcription-text {
+                font-size: 1.6rem;
+                margin: 0;
+                padding: 0;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                font-family: inherit;
+                opacity: 1;
+                white-space: pre-wrap;
+              }
+              
+              .cursor-animation {
+                animation: blink 1.5s infinite;
+                font-weight: normal;
+                display: inline-block;
+                font-size: 1.6rem;
+                color: white;
+                text-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+                line-height: normal;
+              }
+              
+              @media (max-width: 768px) {
+                .transcription-container {
+                  max-width: 95vw;
+                  max-height: 50vh;
+                  height: 10em;
+                }
+                
+                .transcription-text {
+                  font-size: 1.3rem;
+                }
+              }
+              
               .warp-transcription h2 {
                 font-size: 1.75rem;
                 font-weight: 600;
                 width: 100%;
                 max-width: 100%;
                 font-family: inherit;
-              }
-              
-              @media (max-width: 768px) {
-                .warp-transcription h2 {
-                  font-size: 1.25rem;
-                }
               }
               
               @media (max-width: 480px) {
@@ -669,7 +790,7 @@ export default function WarpAnimation({
                 width: 100%;
                 height: 100%;
                 z-index: 9999;
-                pointer-events: auto;
+                pointerEvents: "auto",
                 user-select: none;
                 -webkit-user-select: none;
                 -moz-user-select: none;
