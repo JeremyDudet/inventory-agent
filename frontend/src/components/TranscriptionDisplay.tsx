@@ -266,26 +266,37 @@ export default function TranscriptionDisplay({
           box-sizing: border-box;
           padding: 0 10px;
           max-height: 60vh;
-          overflow-y: auto;
-          scrollbar-width: thin;
+          overflow-y: hidden;
           text-align: left;
           position: fixed;
           bottom: 30px;
           left: 50%;
           transform: translateX(-50%);
+          /* Add fade effect at the top */
+          mask-image: linear-gradient(
+            to top,
+            rgba(0, 0, 0, 1) 60%,
+            rgba(0, 0, 0, 0) 100%
+          );
+          -webkit-mask-image: linear-gradient(
+            to top,
+            rgba(0, 0, 0, 1) 60%,
+            rgba(0, 0, 0, 0) 100%
+          );
+          /* Limit height to approximately 4 lines */
+          height: 12em;
         }
         
         .transcription-container::-webkit-scrollbar {
-          width: 4px;
+          display: none;
         }
         
         .transcription-container::-webkit-scrollbar-track {
-          background: transparent;
+          display: none;
         }
         
         .transcription-container::-webkit-scrollbar-thumb {
-          background-color: rgba(155, 155, 155, 0.5);
-          border-radius: 20px;
+          display: none;
         }
 
         .transcription-content {
@@ -325,6 +336,7 @@ export default function TranscriptionDisplay({
             max-width: 95vw;
             max-height: 50vh;
             bottom: 20px;
+            height: 10em;
           }
           
           .transcription-text {
