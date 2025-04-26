@@ -153,48 +153,6 @@ function GradientOverlay({
         msUserSelect: "none",
       }}
     >
-      {/* Close button */}
-      <div
-        style={{
-          position: "absolute",
-          top: "20px",
-          right: "20px",
-          zIndex: 10000,
-          pointerEvents: "auto",
-        }}
-      >
-        <button
-          onClick={onClose}
-          className="close-button"
-          style={{
-            backgroundColor: "rgba(255,255,255,0.35)",
-            backdropFilter: "blur(8px)",
-            WebkitBackdropFilter: "blur(8px)",
-            borderRadius: "50%",
-            width: "40px",
-            height: "40px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            border: "1px solid rgba(255,255,255,0.5)",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-            cursor: "pointer",
-            color: "white",
-            transition: "all 0.2s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.5)";
-            e.currentTarget.style.transform = "scale(1.05)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.35)";
-            e.currentTarget.style.transform = "scale(1)";
-          }}
-        >
-          <XMarkIcon width={24} height={24} />
-        </button>
-      </div>
-
       {/* Notifications Stack */}
       <div
         style={{
@@ -241,7 +199,7 @@ function GradientOverlay({
         />
       </div>
 
-      {/* Feedback display */}
+      {/* Feedback display with integrated close button */}
       <div
         style={{
           position: "absolute",
@@ -251,6 +209,9 @@ function GradientOverlay({
           textAlign: "center",
           pointerEvents: "auto",
           zIndex: 10000,
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
         }}
       >
         <div
@@ -312,6 +273,46 @@ function GradientOverlay({
             Listening...
           </p>
         </div>
+
+        {/* Close button next to the Listening component */}
+        <button
+          onClick={onClose}
+          className="close-button"
+          style={{
+            backgroundColor: isDarkMode
+              ? "rgba(255,255,255,0.35)"
+              : "rgba(60,60,80,0.8)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+            borderRadius: "50%",
+            width: "40px",
+            height: "40px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            border: isDarkMode
+              ? "1px solid rgba(255,255,255,0.5)"
+              : "1px solid rgba(40,40,60,0.9)",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+            cursor: "pointer",
+            color: isDarkMode ? "white" : "white",
+            transition: "all 0.2s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = isDarkMode
+              ? "rgba(255,255,255,0.5)"
+              : "rgba(40,40,60,0.9)";
+            e.currentTarget.style.transform = "scale(1.05)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = isDarkMode
+              ? "rgba(255,255,255,0.35)"
+              : "rgba(60,60,80,0.8)";
+            e.currentTarget.style.transform = "scale(1)";
+          }}
+        >
+          <XMarkIcon width={24} height={24} />
+        </button>
       </div>
 
       <motion.div
