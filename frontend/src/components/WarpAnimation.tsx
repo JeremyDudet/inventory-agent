@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import { XMarkIcon, MicrophoneIcon } from "@heroicons/react/24/outline";
 import TranscriptionDisplay from "./TranscriptionDisplay";
+import NotificationsStack from "./VoiceOverlayNotificationStack";
 
 function GradientOverlay({
   size,
@@ -103,7 +104,7 @@ function GradientOverlay({
           onClick={onClose}
           className="close-button"
           style={{
-            backgroundColor: "rgba(255,255,255,0.2)",
+            backgroundColor: "rgba(255,255,255,0.35)",
             backdropFilter: "blur(8px)",
             WebkitBackdropFilter: "blur(8px)",
             borderRadius: "50%",
@@ -112,13 +113,44 @@ function GradientOverlay({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            border: "none",
+            border: "1px solid rgba(255,255,255,0.5)",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
             cursor: "pointer",
             color: "white",
+            transition: "all 0.2s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.5)";
+            e.currentTarget.style.transform = "scale(1.05)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.35)";
+            e.currentTarget.style.transform = "scale(1)";
           }}
         >
           <XMarkIcon width={24} height={24} />
         </button>
+      </div>
+
+      {/* Notifications Stack */}
+      <div
+        style={{
+          position: "absolute",
+          top: "80px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 10000,
+          pointerEvents: "auto",
+          width: "90%",
+          maxWidth: "450px",
+          touchAction: "auto",
+          userSelect: "none",
+          WebkitUserSelect: "none",
+          MozUserSelect: "none",
+          msUserSelect: "none",
+        }}
+      >
+        <NotificationsStack />
       </div>
 
       {/* Transcription display */}
@@ -615,6 +647,18 @@ export default function WarpAnimation({
               @media (max-width: 768px) {
                 .warp-transcription h2 {
                   font-size: 1.25rem;
+                }
+              }
+              
+              @media (max-width: 480px) {
+                .warp-transcription h2 {
+                  font-size: 1rem;
+                }
+              }
+              
+              @media (max-width: 320px) {
+                .warp-transcription h2 {
+                  font-size: 0.875rem;
                 }
               }
               
