@@ -179,6 +179,22 @@ export default function TranscriptionDisplay({
     }
   }, [state.displayedText]);
 
+  // Handle window resize to maintain scroll position at bottom
+  useEffect(() => {
+    const handleResize = () => {
+      if (containerRef.current) {
+        containerRef.current.scrollTop = containerRef.current.scrollHeight;
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    // Clean up
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
   // Type characters one by one
   useEffect(() => {
     // Clean up any existing timer
@@ -285,6 +301,10 @@ export default function TranscriptionDisplay({
           );
           /* Limit height to approximately 4 lines */
           height: 12em;
+          /* Use flexbox to position content at the bottom */
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-end;
         }
         
         .transcription-container::-webkit-scrollbar {
