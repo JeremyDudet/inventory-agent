@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import Typewriter from "./TypeWritter";
+import { useState, useEffect, useRef, useReducer, useCallback } from "react";
+import { useTheme } from "../context/ThemeContext";
 
 interface TranscriptionDisplayProps {
   text: string;
@@ -7,74 +7,331 @@ interface TranscriptionDisplayProps {
   className?: string;
 }
 
+// Define the state machine actions and states
+type State = {
+  fullText: string;
+  displayedText: string;
+  pendingText: string | null;
+  isTyping: boolean;
+  processedTexts: Set<string>;
+  lastReceivedText: string | null;
+};
+
+type Action =
+  | { type: "RECEIVE_TEXT"; payload: string }
+  | { type: "TYPE_CHAR"; payload: string }
+  | { type: "FINISH_TYPING" }
+  | { type: "RESET" };
+
+const initialState: State = {
+  fullText: "",
+  displayedText: "",
+  pendingText: null,
+  isTyping: false,
+  processedTexts: new Set<string>(),
+  lastReceivedText: null,
+};
+
+function reducer(state: State, action: Action): State {
+  switch (action.type) {
+    case "RECEIVE_TEXT":
+      // If it's the exact same text as the last one, skip
+      if (state.lastReceivedText === action.payload) {
+        return state;
+      }
+
+      // Handle spacing between transcriptions properly
+      let newFullText = state.fullText;
+
+      if (newFullText && newFullText.trim() !== "") {
+        // Add a space if the current text doesn't end with a space character
+        // or if the new text doesn't start with a space character
+        const needsSpace =
+          !newFullText.endsWith(" ") && !action.payload.startsWith(" ");
+
+        if (needsSpace) {
+          newFullText += " " + action.payload;
+        } else {
+          newFullText += action.payload;
+        }
+
+        // For debugging
+        console.log("Transcript join:", {
+          current: newFullText,
+          new: action.payload,
+          needsSpace,
+        });
+      } else {
+        newFullText = action.payload;
+      }
+
+      // If we're still typing, we'll just update the full text but not start typing yet
+      if (state.isTyping) {
+        return {
+          ...state,
+          fullText: newFullText,
+          lastReceivedText: action.payload,
+        };
+      }
+
+      // Update processedTexts
+      const updatedProcessedTexts = new Set(state.processedTexts);
+      updatedProcessedTexts.add(action.payload);
+
+      return {
+        ...state,
+        fullText: newFullText,
+        pendingText: action.payload,
+        isTyping: true,
+        processedTexts: updatedProcessedTexts,
+        lastReceivedText: action.payload,
+      };
+
+    case "TYPE_CHAR":
+      return {
+        ...state,
+        displayedText: state.displayedText + action.payload,
+      };
+
+    case "FINISH_TYPING":
+      return {
+        ...state,
+        pendingText: null,
+        isTyping: false,
+        // Ensure displayed text matches the full text when typing is complete
+        displayedText: state.fullText,
+        // Reset lastReceivedText to null when typing is finished
+        // This allows a new transcript to be processed
+        lastReceivedText: null,
+      };
+
+    case "RESET":
+      return initialState;
+
+    default:
+      return state;
+  }
+}
+
 export default function TranscriptionDisplay({
   text,
   isFinal,
   className = "",
 }: TranscriptionDisplayProps) {
-  const [displayText, setDisplayText] = useState("");
+  const [state, dispatch] = useReducer(reducer, initialState);
+  const { theme } = useTheme();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const typingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const textProcessingRef = useRef(false);
+  const charIndexRef = useRef(0);
+  const latestTextRef = useRef<string | null>(null);
 
-  // Update display text only when we receive final transcriptions
-  useEffect(() => {
-    if (text && text.trim() && isFinal) {
-      setDisplayText(text);
+  // Memoize text processing to avoid re-triggering
+  const processNewText = useCallback((newText: string) => {
+    // Skip if text is empty
+    if (!newText.trim()) {
+      return;
     }
-  }, [text, isFinal]);
 
-  if (!displayText) return null;
+    // Skip if this is exactly the same as the text we just processed
+    if (latestTextRef.current === newText) {
+      return;
+    }
+
+    // Update our reference to the most recent text
+    latestTextRef.current = newText;
+
+    // Dispatch action to add text to queue
+    dispatch({ type: "RECEIVE_TEXT", payload: newText });
+  }, []);
+
+  // Handle new text input
+  useEffect(() => {
+    // Only process final transcripts with content
+    if (!text || !text.trim() || !isFinal) {
+      return;
+    }
+
+    // Don't process if it's the exact same as the text we just processed
+    if (latestTextRef.current === text) {
+      return;
+    }
+
+    // Process the new text
+    processNewText(text);
+  }, [text, isFinal, processNewText]);
+
+  // Debug logging to help understand state
+  useEffect(() => {
+    console.log("TranscriptionDisplay state:", {
+      isTyping: state.isTyping,
+      pendingText: state.pendingText,
+      lastReceivedText: state.lastReceivedText,
+      fullTextLength: state.fullText.length,
+      displayedTextLength: state.displayedText.length,
+    });
+  }, [state]);
+
+  // Auto-scroll
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    }
+  }, [state.displayedText]);
+
+  // Type characters one by one
+  useEffect(() => {
+    // Clean up any existing timer
+    if (typingTimerRef.current) {
+      clearInterval(typingTimerRef.current);
+      typingTimerRef.current = null;
+    }
+
+    // Only start typing if there's pending text and we're in typing state
+    if (!state.pendingText || !state.isTyping) {
+      return;
+    }
+
+    charIndexRef.current = 0;
+    const pendingTextLength = state.pendingText.length;
+
+    // Start typing
+    typingTimerRef.current = setInterval(() => {
+      if (charIndexRef.current < pendingTextLength) {
+        dispatch({
+          type: "TYPE_CHAR",
+          payload: state.pendingText!.charAt(charIndexRef.current),
+        });
+        charIndexRef.current++;
+      } else {
+        // Clear the interval
+        if (typingTimerRef.current) {
+          clearInterval(typingTimerRef.current);
+          typingTimerRef.current = null;
+        }
+        // Mark typing as complete
+        dispatch({ type: "FINISH_TYPING" });
+      }
+    }, 30);
+
+    // Cleanup
+    return () => {
+      if (typingTimerRef.current) {
+        clearInterval(typingTimerRef.current);
+        typingTimerRef.current = null;
+      }
+    };
+  }, [state.pendingText, state.isTyping]);
+
+  // Clean up all timers on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimerRef.current) {
+        clearInterval(typingTimerRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div
+      ref={containerRef}
       className={`transcription-container ${className}`}
       style={{
         width: "100%",
-        backgroundColor: "rgba(0,0,0,0.5)",
-        backdropFilter: "blur(8px)",
-        WebkitBackdropFilter: "blur(8px)",
         padding: "12px 24px",
         borderRadius: "24px",
-        color: "white",
+        color: theme === "dark" ? "#ffffff" : "#374151",
+        fontFamily: "inherit",
+        textAlign: "left",
       }}
     >
-      <Typewriter
-        text={displayText}
-        duration={0.8}
-        className="transcription-text final"
-      />
-      <StyleSheet />
-    </div>
-  );
-}
-
-function StyleSheet() {
-  return (
-    <style>{`
-      .transcription-container {
-        margin: 10px auto;
-        width: 100%;
-        max-width: 90vw;
-        box-sizing: border-box;
-        padding: 0 10px;
-      }
-
-      .transcription-text {
-        font-size: 1.2rem;
-        margin: 0;
-        padding: 0;
-        width: 100%;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-      }
-
-      .final {
-        opacity: 1;
-      }
-
-      @media (max-width: 768px) {
+      <div className="transcription-content">
+        <p className="transcription-text">
+          {state.displayedText}
+          <span
+            className="cursor-animation"
+            style={{
+              display: "inline-block",
+            }}
+          >
+            |
+          </span>
+        </p>
+      </div>
+      <style>{`
         .transcription-container {
-          max-width: 95vw;
+          margin: 10px auto;
+          width: 100%;
+          max-width: 90vw;
+          box-sizing: border-box;
+          padding: 0 10px;
+          max-height: 60vh;
+          overflow-y: auto;
+          scrollbar-width: thin;
+          text-align: left;
+          position: fixed;
+          bottom: 30px;
+          left: 50%;
+          transform: translateX(-50%);
         }
-      }
-    `}</style>
+        
+        .transcription-container::-webkit-scrollbar {
+          width: 4px;
+        }
+        
+        .transcription-container::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        
+        .transcription-container::-webkit-scrollbar-thumb {
+          background-color: rgba(155, 155, 155, 0.5);
+          border-radius: 20px;
+        }
+
+        .transcription-content {
+          display: inline;
+          white-space: normal;
+          text-align: left;
+        }
+
+        .transcription-text {
+          font-size: 1.6rem;
+          margin: 0;
+          padding: 0;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+          font-family: inherit;
+          text-shadow: ${
+            theme === "dark"
+              ? "0 0 15px rgba(255, 255, 255, 0.3)"
+              : "0 0 15px rgba(0, 0, 0, 0.1)"
+          };
+          opacity: 1;
+          white-space: pre-wrap;
+        }
+
+        @keyframes blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0; }
+        }
+
+        .cursor-animation {
+          animation: blink 1s infinite;
+          font-weight: normal;
+        }
+
+        @media (max-width: 768px) {
+          .transcription-container {
+            max-width: 95vw;
+            max-height: 50vh;
+            bottom: 20px;
+          }
+          
+          .transcription-text {
+            font-size: 1.3rem;
+          }
+        }
+      `}</style>
+    </div>
   );
 }

@@ -126,13 +126,17 @@ function GradientOverlay({
         <div
           style={{
             position: "absolute",
-            top: "100px",
+            top: "80px",
             left: "50%",
             transform: "translateX(-50%)",
             width: "90%",
             maxWidth: "800px",
             textAlign: "center",
             zIndex: 10000,
+            height: "calc(100% - 240px)",
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "center",
           }}
         >
           <TranscriptionDisplay
@@ -157,16 +161,16 @@ function GradientOverlay({
       >
         <div
           style={{
-            backgroundColor: "rgba(0,0,0,0.5)",
+            backgroundColor: "rgba(255,255,255,0.1)",
             backdropFilter: "blur(8px)",
             WebkitBackdropFilter: "blur(8px)",
             padding: "12px 24px",
             borderRadius: "24px",
-            color: "white",
             display: "flex",
             alignItems: "center",
             gap: "12px",
             maxWidth: "80vw",
+            fontFamily: "inherit",
           }}
         >
           {isListening && (
@@ -184,7 +188,7 @@ function GradientOverlay({
                 style={{
                   position: "relative",
                   zIndex: 1,
-                  color: "white",
+                  color: "currentColor",
                 }}
               />
               <div
@@ -208,6 +212,7 @@ function GradientOverlay({
               maxWidth: "100%",
               overflow: "hidden",
               textOverflow: "ellipsis",
+              fontFamily: "inherit",
             }}
           >
             Listening...
@@ -600,12 +605,11 @@ export default function WarpAnimation({
               }
               
               .warp-transcription h2 {
-                color: white;
                 font-size: 1.75rem;
-                text-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
                 font-weight: 600;
                 width: 100%;
                 max-width: 100%;
+                font-family: inherit;
               }
               
               @media (max-width: 768px) {
