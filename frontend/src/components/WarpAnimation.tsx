@@ -107,25 +107,7 @@ function GradientOverlay({
   const smallBlur = isLargeScreen ? "40px" : "30px";
 
   return (
-    <div
-      className="gradient-container"
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        width: "100%",
-        height: "100%",
-        overflow: "hidden",
-        pointerEvents: "auto",
-        zIndex: 9999,
-        userSelect: "none",
-        WebkitUserSelect: "none",
-        MozUserSelect: "none",
-        msUserSelect: "none",
-      }}
-    >
+    <div className="gradient-container fixed inset-0 w-full h-full overflow-hidden pointer-events-auto z-[9999] select-none">
       {/* Flexbox Container for Child Elements */}
       <motion.div
         initial={{ opacity: 0 }}
@@ -133,39 +115,23 @@ function GradientOverlay({
         exit={{ opacity: 0 }}
         transition={{ duration: 0.3, delay: 0.3 }}
         id="warp-overlay-container"
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "2vh",
-          padding: "5vh 2vw",
-          boxSizing: "border-box",
-          zIndex: 10000,
-        }}
+        className="absolute inset-0 h-full max-h-screen flex flex-col w-full items-center justify-center gap-4 p-[5vh_2vw] box-border z-[10000]"
       >
         {/* Main Content (Transcription and Notifications) */}
-        <TranscriptionDisplay
-          text={transcription}
-          isFinal={isFinalTranscription}
-        />
-
-        <NotificationsStack />
+        <div className="flex flex-none items-center justify-center w-full max-w-[900px]">
+          <TranscriptionDisplay
+            text={transcription}
+            isFinal={isFinalTranscription}
+          />
+        </div>
+        <div className="flex flex-col flex-1 justify-start items-center w-full h-full overflow-y-scroll pt-2">
+          <NotificationsStack />
+        </div>
 
         {/* Feedback Display with Close Button */}
         <div
           id="warp-overlay-feedback"
-          style={{
-            marginTop: "auto",
-            display: "flex",
-            alignItems: "center",
-            gap: "12px",
-          }}
+          className="flex-none mt-auto flex items-center gap-3"
         >
           <div
             style={{

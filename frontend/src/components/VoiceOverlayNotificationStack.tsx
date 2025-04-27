@@ -4,7 +4,7 @@ import * as motion from "motion/react-client";
 import { CSSProperties, useState, useRef, useEffect } from "react";
 import { useTheme } from "../context/ThemeContext";
 
-const N_NOTIFICATIONS = 3;
+const N_NOTIFICATIONS = 10;
 
 const NOTIFICATION_HEIGHT = 60;
 const NOTIFICATION_GAP = 8;
