@@ -115,7 +115,7 @@ function GradientOverlay({
         exit={{ opacity: 0 }}
         transition={{ duration: 0.3, delay: 0.3 }}
         id="warp-overlay-container"
-        className="absolute inset-0 h-full max-h-screen flex flex-col w-full items-center justify-center gap-4 p-[5vh_2vw] box-border z-[10000]"
+        className="absolute inset-0 h-full max-h-screen flex flex-col w-full items-center justify-center gap-4 px-4 py-2 md:px-8 md:py-4 box-border z-[10000]"
       >
         {/* Main Content (Transcription and Notifications) */}
         <div className="flex flex-none items-center justify-center w-full max-w-[900px]">
@@ -413,10 +413,22 @@ export default function WarpAnimation({
       y: window.scrollY || window.pageYOffset,
     };
 
-    // Prevent wheel scrolling
+    // Check if event is within the NotificationsStack container
+    const isNotificationStackEvent = (e: Event) => {
+      const target = e.target as Node;
+      const notificationContainer = document.querySelector(
+        "#warp-overlay-container .flex-col"
+      );
+      return notificationContainer?.contains(target);
+    };
+
+    // Prevent wheel scrolling except in NotificationsStack
     const preventDefault = (e: Event) => {
-      e.preventDefault();
-      return false;
+      if (!isNotificationStackEvent(e)) {
+        e.preventDefault();
+        return false;
+      }
+      return true;
     };
 
     // Force the scroll position to stay
@@ -434,6 +446,14 @@ export default function WarpAnimation({
     const originalStyles = new Map();
 
     scrollableElements.forEach((element) => {
+      // Skip if it's the notification container or its child
+      const notificationContainer = document.querySelector(
+        "#warp-overlay-container .flex-col"
+      );
+      if (notificationContainer?.contains(element)) {
+        return;
+      }
+
       const computedStyle = window.getComputedStyle(element);
       const htmlElement = element as HTMLElement;
 

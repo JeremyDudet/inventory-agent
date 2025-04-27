@@ -338,20 +338,26 @@ export default function TranscriptionDisplay({
           animation: blink 1.5s infinite;
           font-weight: normal;
           display: inline-block;
-          font-size: 1.6rem;
+          font-size: 1.3rem;
           color: white;
           text-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
           line-height: normal;
+          
         }
         
-        @media (max-width: 768px) {
+        @media (max-width: 668px) {
           .transcription-container {
-            height: 10em;
-            font-size: 1rem;
+            height: 6em;
+            max-height: 6em;
+            font-size: 1.1rem;
           }
           
           .transcription-text {
-            font-size: 1rem;
+            font-size: 1.1rem;
+          }
+            
+          .cursor-animation {
+            font-size: 1.1rem;
           }
         }
 
@@ -365,7 +371,6 @@ export default function TranscriptionDisplay({
         }
 
         .transcription-text {
-          font-size: 1.6rem;
           margin: 0;
           padding: 0;
           word-wrap: break-word;
