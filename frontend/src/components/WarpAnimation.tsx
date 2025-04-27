@@ -1,23 +1,10 @@
 // frontend/src/components/WarpAnimation.tsx
-import {
-  animate,
-  AnimatePresence,
-  motion,
-  useMotionValue,
-  useTransform,
-} from "motion/react";
-import { useEffect, useRef, useState, ReactNode } from "react";
+import { animate, AnimatePresence, motion, useMotionValue } from "motion/react";
+import { useEffect, useState, ReactNode } from "react";
 import ReactDOM from "react-dom";
 import { XMarkIcon, MicrophoneIcon } from "@heroicons/react/24/outline";
 import TranscriptionDisplay from "./TranscriptionDisplay";
 import NotificationsStack from "./VoiceOverlayNotificationStack";
-
-// Define prop types for TranscriptionDisplay
-interface TranscriptionDisplayProps {
-  text: string;
-  isFinal: boolean;
-  className?: string;
-}
 
 // Define prop types for components
 interface GradientOverlayProps {
@@ -65,7 +52,6 @@ function GradientOverlay({
   size,
   onClose,
   isListening,
-  feedback,
   transcription,
   isFinalTranscription,
 }: GradientOverlayProps) {
