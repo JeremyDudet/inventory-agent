@@ -297,16 +297,20 @@ export default function TranscriptionDisplay({
           max-height: 60vh;
           overflow-y: hidden;
           text-align: left;
-          /* Add fade effect at the top */
+          /* Add fade effect at the top and bottom - match NotificationStack exactly */
           mask-image: linear-gradient(
-            to top,
-            rgba(0, 0, 0, 1) 60%,
-            rgba(0, 0, 0, 0) 100%
+            to bottom,
+            rgba(0, 0, 0, 0),
+            rgba(0, 0, 0, 1) 15%,
+            rgba(0, 0, 0, 1) 85%,
+            rgba(0, 0, 0, 0)
           );
           -webkit-mask-image: linear-gradient(
-            to top,
-            rgba(0, 0, 0, 1) 60%,
-            rgba(0, 0, 0, 0) 100%
+            to bottom,
+            rgba(0, 0, 0, 0),
+            rgba(0, 0, 0, 1) 15%,
+            rgba(0, 0, 0, 1) 85%,
+            rgba(0, 0, 0, 0)
           );
           /* Limit height to approximately 4 lines */
           height: 12em;
@@ -315,6 +319,9 @@ export default function TranscriptionDisplay({
           flex-direction: column;
           justify-content: flex-end;
           position: relative;
+          /* Add padding to ensure text doesn't get cut off at the fade edges */
+          padding-top: 30px;
+          padding-bottom: 30px;
         }
             
         .transcription-content {

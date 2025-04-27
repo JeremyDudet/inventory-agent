@@ -135,7 +135,9 @@ function GradientOverlay({
         >
           <div
             style={{
-              backgroundColor: "rgba(255,255,255,0.1)",
+              backgroundColor: isDarkMode
+                ? "rgba(255,255,255,0.1)"
+                : "rgba(0,0,0,0.15)",
               backdropFilter: "blur(8px)",
               WebkitBackdropFilter: "blur(8px)",
               padding: "12px 24px",
@@ -145,6 +147,10 @@ function GradientOverlay({
               gap: "12px",
               maxWidth: "80vw",
               fontFamily: "inherit",
+              color: isDarkMode ? "inherit" : "rgba(0,0,0,0.85)",
+              boxShadow: isDarkMode
+                ? "none"
+                : "0 2px 8px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.05)",
             }}
           >
             {isListening && (
@@ -174,7 +180,9 @@ function GradientOverlay({
                     right: 0,
                     bottom: 0,
                     borderRadius: "50%",
-                    background: "rgba(255, 255, 255, 0.2)",
+                    background: isDarkMode
+                      ? "rgba(255, 255, 255, 0.2)"
+                      : "rgba(0, 0, 0, 0.15)",
                     animation: "pulse 1.5s infinite",
                   }}
                 ></div>
@@ -187,6 +195,7 @@ function GradientOverlay({
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 fontFamily: "inherit",
+                fontWeight: isDarkMode ? "normal" : "500",
               }}
             >
               Listening...
