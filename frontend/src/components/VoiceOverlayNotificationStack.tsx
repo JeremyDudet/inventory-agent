@@ -1,6 +1,13 @@
 // frontend/src/components/VoiceOverlayNotificationStack.tsx
 import type { Variants } from "motion/react";
 import * as motion from "motion/react-client";
+import {
+  animate,
+  useMotionValue,
+  useMotionValueEvent,
+  useScroll,
+  MotionValue,
+} from "motion/react";
 import { CSSProperties, useState, useRef, useEffect } from "react";
 import { useTheme } from "../context/ThemeContext";
 
@@ -15,6 +22,10 @@ export default function NotificationsStack() {
   const isDark = theme === "dark";
   const expandButtonRef = useRef<HTMLButtonElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Add scroll progress tracking
+  const { scrollYProgress } = useScroll({ container: scrollContainerRef });
+  const maskImage = useScrollOverflowMask(scrollYProgress);
 
   const stackVariants: Variants = {
     open: {
@@ -40,6 +51,8 @@ export default function NotificationsStack() {
   const dynamicScrollContainerStyle: CSSProperties = {
     ...scrollContainerStyle,
     overflowY: isOpen ? "auto" : "hidden", // Only allow scrolling when open
+    maskImage: isOpen ? maskImage.get() : "none",
+    WebkitMaskImage: isOpen ? maskImage.get() : "none",
   };
 
   const handleNotificationClick = (index: number) => {
@@ -102,12 +115,48 @@ export default function NotificationsStack() {
             ))}
           </motion.div>
         </motion.div>
-
-        {/* Blur overlay for bottom fade effect - only visible when open */}
-        {isOpen && <div style={blurOverlayStyle(isDark)} />}
       </div>
     </motion.div>
   );
+}
+
+// Scroll mask hook with blur on both top and bottom
+const top = `0%`;
+const bottom = `100%`;
+const topInset = `15%`;
+const bottomInset = `85%`;
+const transparent = `rgba(0,0,0,0)`;
+const opaque = `rgba(0,0,0,1)`;
+
+function useScrollOverflowMask(scrollYProgress: MotionValue<number>) {
+  // Always have blur effect on both top and bottom
+  const maskImage = useMotionValue(
+    `linear-gradient(to bottom, ${transparent}, ${opaque} ${topInset}, ${opaque} ${bottomInset}, ${transparent})`
+  );
+
+  useMotionValueEvent(scrollYProgress, "change", (value) => {
+    if (value === 0) {
+      // At the top - stronger blur at bottom
+      animate(
+        maskImage,
+        `linear-gradient(to bottom, ${transparent}, ${opaque} ${topInset}, ${opaque} ${bottomInset}, ${transparent})`
+      );
+    } else if (value === 1) {
+      // At the bottom - stronger blur at top
+      animate(
+        maskImage,
+        `linear-gradient(to bottom, ${transparent}, ${opaque} ${topInset}, ${opaque} ${bottomInset}, ${transparent})`
+      );
+    } else {
+      // In the middle - equal blur at both ends
+      animate(
+        maskImage,
+        `linear-gradient(to bottom, ${transparent}, ${opaque} ${topInset}, ${opaque} ${bottomInset}, ${transparent})`
+      );
+    }
+  });
+
+  return maskImage;
 }
 
 const Header = ({
@@ -272,8 +321,11 @@ const scrollContainerStyle: CSSProperties = {
   width: "100%",
   overflowX: "hidden", // Prevent horizontal scrolling
   height: "100%", // Take full height
-  paddingTop: "10px", // Add some padding at the top
+  paddingTop: "30px", // Increased padding at the top for better blur effect
   paddingBottom: "60px", // Add extra padding at bottom to account for blur overlay
+  borderRadius: "16px",
+  scrollbarWidth: "thin",
+  scrollbarColor: "var(--accent) rgba(255,255,255,0.2)",
 };
 
 const stackStyle: CSSProperties = {
@@ -348,21 +400,3 @@ function getNotificationStyle(index: number, isDark: boolean): CSSProperties {
     }`,
   };
 }
-
-// Function to generate blur overlay style based on theme
-const blurOverlayStyle = (isDark: boolean): CSSProperties => ({
-  position: "absolute",
-  bottom: 0,
-  left: 0,
-  width: "100%",
-  height: "120px", // Height of the blur effect
-  background:
-    "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.1) 100%)",
-  backdropFilter: "blur(6px)",
-  WebkitBackdropFilter: "blur(6px)",
-  // Increasing blur intensity from top to bottom
-  maskImage: "linear-gradient(to bottom, transparent 0%, black 100%)",
-  WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 100%)",
-  pointerEvents: "none", // Make sure it doesn't interfere with clicking
-  zIndex: N_NOTIFICATIONS + 1, // Above notifications but below header
-});
