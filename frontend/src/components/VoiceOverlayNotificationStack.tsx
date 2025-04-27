@@ -1,3 +1,4 @@
+// frontend/src/components/VoiceOverlayNotificationStack.tsx
 import type { Variants } from "motion/react";
 import * as motion from "motion/react-client";
 import { CSSProperties, useState, useRef, useEffect } from "react";
@@ -214,6 +215,7 @@ const stackStyle: CSSProperties = {
   flexDirection: "column",
   gap: NOTIFICATION_GAP,
   width: "100%",
+  maxWidth: "500px",
   pointerEvents: "auto", // Ensure pointer events are enabled
 };
 

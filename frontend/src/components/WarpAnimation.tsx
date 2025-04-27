@@ -1,3 +1,4 @@
+// frontend/src/components/WarpAnimation.tsx
 import {
   animate,
   AnimatePresence,
@@ -71,24 +72,19 @@ function GradientOverlay({
   const breathe = useMotionValue(0);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
+  // Existing dark mode and animation setup (unchanged)
   useEffect(() => {
-    // Check for dark mode preference
     const checkDarkMode = () => {
       const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
       setIsDarkMode(isDark);
     };
-
     checkDarkMode();
-
-    // Listen for theme changes
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const listener = (e: MediaQueryListEvent) => setIsDarkMode(e.matches);
     mediaQuery.addEventListener("change", listener);
-
     return () => mediaQuery.removeEventListener("change", listener);
   }, []);
 
-  // Get the current color scheme based on mode
   const colors = isDarkMode ? colorSchemes.dark : colorSchemes.light;
 
   useEffect(() => {
@@ -98,7 +94,6 @@ function GradientOverlay({
         delay: 0.35,
         ease: [0, 0.55, 0.45, 1],
       });
-
       animate(breathe, [null, 0.7, 1], {
         duration: 15,
         repeat: Infinity,
@@ -106,26 +101,18 @@ function GradientOverlay({
         ease: "easeInOut",
       });
     }
-
     playBreathingAnimation();
   }, [breathe]);
 
   const enterDuration = 0.75;
   const exitDuration = 0.5;
 
-  // Responsive sizing & opacity adjustments
   const isLargeScreen = size.width > 1440 || size.height > 900;
   const isMediumScreen = size.width > 768 || size.height > 600;
-
-  // Adjust size based on screen dimensions
   const expandingCircleRadius =
     Math.max(size.width, size.height) * (isLargeScreen ? 0.2 : 0.3);
-
-  // Adjust opacity based on screen size
   const circleOpacity = isLargeScreen ? 0.6 : isMediumScreen ? 0.8 : 0.9;
   const overlayOpacity = isLargeScreen ? 0.08 : 0.1;
-
-  // Adjust blur based on screen size
   const largeBlur = isLargeScreen
     ? "250px"
     : isMediumScreen
@@ -153,168 +140,148 @@ function GradientOverlay({
         msUserSelect: "none",
       }}
     >
-      {/* Notifications Stack */}
-      <div
+      {/* Flexbox Container for Child Elements */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.3, delay: 0.3 }}
+        id="warp-overlay-container"
         style={{
           position: "absolute",
-          top: "260px",
-          left: "50%",
-          transform: "translateX(-50%)",
-          zIndex: 10000,
-          pointerEvents: "auto",
-          width: "90%",
-          maxWidth: "450px",
-          touchAction: "auto",
-          userSelect: "none",
-          WebkitUserSelect: "none",
-          MozUserSelect: "none",
-          msUserSelect: "none",
-        }}
-      >
-        <NotificationsStack />
-      </div>
-
-      {/* Transcription display */}
-      <div
-        style={{
-          position: "absolute",
-          top: "40px",
-          left: "50%",
-          transform: "translateX(-50%)",
-          width: "90%",
-          maxWidth: "800px",
-          textAlign: "center",
-          zIndex: 10000,
-          height: "200px",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
           display: "flex",
-          alignItems: "flex-start",
+          flexDirection: "column",
+          alignItems: "center",
           justifyContent: "center",
-          overflow: "auto",
+          gap: "2vh",
+          padding: "5vh 2vw",
+          boxSizing: "border-box",
+          zIndex: 10000,
         }}
       >
+        {/* Main Content (Transcription and Notifications) */}
         <TranscriptionDisplay
           text={transcription}
           isFinal={isFinalTranscription}
-          className="warp-transcription"
         />
-      </div>
 
-      {/* Feedback display with integrated close button */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: "80px",
-          left: "50%",
-          transform: "translateX(-50%)",
-          textAlign: "center",
-          pointerEvents: "auto",
-          zIndex: 10000,
-          display: "flex",
-          alignItems: "center",
-          gap: "12px",
-        }}
-      >
+        <NotificationsStack />
+
+        {/* Feedback Display with Close Button */}
         <div
+          id="warp-overlay-feedback"
           style={{
-            backgroundColor: "rgba(255,255,255,0.1)",
-            backdropFilter: "blur(8px)",
-            WebkitBackdropFilter: "blur(8px)",
-            padding: "12px 24px",
-            borderRadius: "24px",
+            marginTop: "auto",
             display: "flex",
             alignItems: "center",
             gap: "12px",
-            maxWidth: "80vw",
-            fontFamily: "inherit",
           }}
         >
-          {isListening && (
-            <div
-              className="pulse-container"
-              style={{
-                width: "24px",
-                height: "24px",
-                position: "relative",
-              }}
-            >
-              <MicrophoneIcon
-                width={24}
-                height={24}
-                style={{
-                  position: "relative",
-                  zIndex: 1,
-                  color: "currentColor",
-                }}
-              />
-              <div
-                className="pulse"
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  borderRadius: "50%",
-                  background: "rgba(255, 255, 255, 0.2)",
-                  animation: "pulse 1.5s infinite",
-                }}
-              ></div>
-            </div>
-          )}
-          <p
+          <div
             style={{
-              margin: 0,
-              maxWidth: "100%",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
+              backgroundColor: "rgba(255,255,255,0.1)",
+              backdropFilter: "blur(8px)",
+              WebkitBackdropFilter: "blur(8px)",
+              padding: "12px 24px",
+              borderRadius: "24px",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              maxWidth: "80vw",
               fontFamily: "inherit",
             }}
           >
-            Listening...
-          </p>
+            {isListening && (
+              <div
+                className="pulse-container"
+                style={{
+                  width: "24px",
+                  height: "24px",
+                  position: "relative",
+                }}
+              >
+                <MicrophoneIcon
+                  width={24}
+                  height={24}
+                  style={{
+                    position: "relative",
+                    zIndex: 1,
+                    color: "currentColor",
+                  }}
+                />
+                <div
+                  className="pulse"
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    borderRadius: "50%",
+                    background: "rgba(255, 255, 255, 0.2)",
+                    animation: "pulse 1.5s infinite",
+                  }}
+                ></div>
+              </div>
+            )}
+            <p
+              style={{
+                margin: 0,
+                maxWidth: "100%",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                fontFamily: "inherit",
+              }}
+            >
+              Listening...
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="close-button"
+            style={{
+              backgroundColor: isDarkMode
+                ? "rgba(255,255,255,0.35)"
+                : "rgba(60,60,80,0.8)",
+              backdropFilter: "blur(8px)",
+              WebkitBackdropFilter: "blur(8px)",
+              borderRadius: "50%",
+              width: "40px",
+              height: "40px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              border: isDarkMode
+                ? "1px solid rgba(255,255,255,0.5)"
+                : "1px solid rgba(40,40,60,0.9)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+              cursor: "pointer",
+              color: isDarkMode ? "white" : "white",
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = isDarkMode
+                ? "rgba(255,255,255,0.5)"
+                : "rgba(40,40,60,0.9)";
+              e.currentTarget.style.transform = "scale(1.05)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = isDarkMode
+                ? "rgba(255,255,255,0.35)"
+                : "rgba(60,60,80,0.8)";
+              e.currentTarget.style.transform = "scale(1)";
+            }}
+          >
+            <XMarkIcon width={24} height={24} />
+          </button>
         </div>
+      </motion.div>
 
-        {/* Close button next to the Listening component */}
-        <button
-          onClick={onClose}
-          className="close-button"
-          style={{
-            backgroundColor: isDarkMode
-              ? "rgba(255,255,255,0.35)"
-              : "rgba(60,60,80,0.8)",
-            backdropFilter: "blur(8px)",
-            WebkitBackdropFilter: "blur(8px)",
-            borderRadius: "50%",
-            width: "40px",
-            height: "40px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            border: isDarkMode
-              ? "1px solid rgba(255,255,255,0.5)"
-              : "1px solid rgba(40,40,60,0.9)",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-            cursor: "pointer",
-            color: isDarkMode ? "white" : "white",
-            transition: "all 0.2s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = isDarkMode
-              ? "rgba(255,255,255,0.5)"
-              : "rgba(40,40,60,0.9)";
-            e.currentTarget.style.transform = "scale(1.05)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = isDarkMode
-              ? "rgba(255,255,255,0.35)"
-              : "rgba(60,60,80,0.8)";
-            e.currentTarget.style.transform = "scale(1)";
-          }}
-        >
-          <XMarkIcon width={24} height={24} />
-        </button>
-      </div>
-
+      {/* Existing Animated Gradient Elements*/}
       <motion.div
         className="expanding-circle"
         initial={{
@@ -351,7 +318,6 @@ function GradientOverlay({
           padding: 0,
         }}
       />
-
       <motion.div
         className="gradient-circle top-left"
         initial={{ opacity: 0 }}
@@ -375,7 +341,6 @@ function GradientOverlay({
           filter: `blur(${largeBlur})`,
         }}
       />
-
       <motion.div
         className="gradient-circle bottom-right"
         initial={{ opacity: 0 }}
@@ -564,8 +529,8 @@ export default function WarpAnimation({
 
       // Adjust transformation values based on screen size
       // Make effects more subtle on larger screens
-      const rotateXValue = isLargeScreen ? -0.8 : isMediumScreen ? -1.2 : -1.5;
-      const skewYValue = isLargeScreen ? -0.1 : isMediumScreen ? -0.15 : -0.2;
+      const rotateXValue = isLargeScreen ? -0.8 : isMediumScreen ? -1.2 : -1.8;
+      const skewYValue = isLargeScreen ? -0.1 : isMediumScreen ? -0.15 : -0.25;
       const scaleYFactor = isLargeScreen ? 0.1 : isMediumScreen ? 0.15 : 0.2;
       const scaleXFactor = isLargeScreen ? 0.03 : isMediumScreen ? 0.04 : 0.05;
 
@@ -688,99 +653,6 @@ export default function WarpAnimation({
                 100% {
                   transform: scale(1);
                   opacity: 0;
-                }
-              }
-              
-              @keyframes blink {
-                0%, 100% { opacity: 1; }
-                50% { opacity: 0; }
-              }
-              
-              .transcription-container {
-                margin: 10px auto;
-                width: 100%;
-                max-width: 90vw;
-                box-sizing: border-box;
-                padding: 0 10px;
-                max-height: 60vh;
-                overflow-y: hidden;
-                text-align: left;
-                /* Add fade effect at the top */
-                mask-image: linear-gradient(
-                  to top,
-                  rgba(0, 0, 0, 1) 60%,
-                  rgba(0, 0, 0, 0) 100%
-                );
-                -webkit-mask-image: linear-gradient(
-                  to top,
-                  rgba(0, 0, 0, 1) 60%,
-                  rgba(0, 0, 0, 0) 100%
-                );
-                /* Limit height to approximately 4 lines */
-                height: 12em;
-                /* Use flexbox to position content at the bottom */
-                display: flex;
-                flex-direction: column;
-                justify-content: flex-end;
-                position: relative;
-              }
-              
-              .transcription-content {
-                display: inline;
-                white-space: normal;
-                text-align: left;
-              }
-              
-              .transcription-text {
-                font-size: 1.6rem;
-                margin: 0;
-                padding: 0;
-                word-wrap: break-word;
-                overflow-wrap: break-word;
-                font-family: inherit;
-                opacity: 1;
-                white-space: pre-wrap;
-              }
-              
-              .cursor-animation {
-                animation: blink 1.5s infinite;
-                font-weight: normal;
-                display: inline-block;
-                font-size: 1.6rem;
-                color: white;
-                text-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
-                line-height: normal;
-              }
-              
-              @media (max-width: 768px) {
-                .transcription-container {
-                  max-width: 95vw;
-                  max-height: 50vh;
-                  height: 10em;
-                }
-                
-                .transcription-text {
-                  font-size: 1.3rem;
-                }
-              }
-              
-              .warp-transcription h2 {
-                font-size: 1.75rem;
-                font-weight: 600;
-                width: 100%;
-                max-width: 100%;
-                font-family: inherit;
-              }
-              
-              @media (max-width: 480px) {
-                .warp-transcription h2 {
-                  font-size: 1rem;
-                }
-              }
-              
-              @media (max-width: 320px) {
-                .warp-transcription h2 {
-                  font-size: 0.875rem;
                 }
               }
               

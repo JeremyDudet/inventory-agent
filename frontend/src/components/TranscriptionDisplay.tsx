@@ -1,3 +1,4 @@
+// frontend/src/components/TranscriptionDisplay.tsx
 import { useState, useEffect, useRef, useReducer, useCallback } from "react";
 import { useTheme } from "../context/ThemeContext";
 
@@ -254,7 +255,8 @@ export default function TranscriptionDisplay({
       className={`transcription-container ${className}`}
       style={{
         width: "100%",
-        padding: "12px 24px",
+        maxWidth: "700px",
+        padding: "12px",
         borderRadius: "24px",
         color: theme === "dark" ? "#ffffff" : "#374151",
         fontFamily: "inherit",
@@ -274,20 +276,27 @@ export default function TranscriptionDisplay({
           </span>
         </p>
       </div>
-      <style>{`
+      <style>
+        {`
+        .transcription-container::-webkit-scrollbar {
+          display: none;
+        }
+        
+        .transcription-container::-webkit-scrollbar-track {
+          display: none;
+        }
+        
+        .transcription-container::-webkit-scrollbar-thumb {
+          display: none;
+        }
+
         .transcription-container {
-          margin: 10px auto;
           width: 100%;
           max-width: 90vw;
           box-sizing: border-box;
-          padding: 0 10px;
           max-height: 60vh;
           overflow-y: hidden;
           text-align: left;
-          position: fixed;
-          bottom: 30px;
-          left: 50%;
-          transform: translateX(-50%);
           /* Add fade effect at the top */
           mask-image: linear-gradient(
             to top,
@@ -305,24 +314,54 @@ export default function TranscriptionDisplay({
           display: flex;
           flex-direction: column;
           justify-content: flex-end;
+          position: relative;
+        }
+            
+        .transcription-content {
+          display: inline;
+          white-space: normal;
+          text-align: left;
+        }
+            
+        .transcription-text {
+          font-size: 1.6rem;
+          margin: 0;
+          padding: 0;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+          font-family: inherit;
+          opacity: 1;
+          white-space: pre-wrap;
         }
         
-        .transcription-container::-webkit-scrollbar {
-          display: none;
+        .cursor-animation {
+          animation: blink 1.5s infinite;
+          font-weight: normal;
+          display: inline-block;
+          font-size: 1.6rem;
+          color: white;
+          text-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+          line-height: normal;
         }
         
-        .transcription-container::-webkit-scrollbar-track {
-          display: none;
-        }
-        
-        .transcription-container::-webkit-scrollbar-thumb {
-          display: none;
+        @media (max-width: 768px) {
+          .transcription-container {
+            height: 10em;
+            font-size: 1rem;
+          }
+          
+          .transcription-text {
+            font-size: 1rem;
+          }
         }
 
         .transcription-content {
           display: inline;
           white-space: normal;
           text-align: left;
+          width: 100%;
+          max-width: 100%;
+          min-width: 100%;
         }
 
         .transcription-text {
@@ -351,19 +390,12 @@ export default function TranscriptionDisplay({
           font-weight: normal;
         }
 
-        @media (max-width: 768px) {
-          .transcription-container {
-            max-width: 95vw;
-            max-height: 50vh;
-            bottom: 20px;
-            height: 10em;
-          }
-          
-          .transcription-text {
-            font-size: 1.3rem;
-          }
+        @keyframes blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0; }
         }
-      `}</style>
+      `}
+      </style>
     </div>
   );
 }
