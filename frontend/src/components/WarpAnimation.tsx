@@ -33,18 +33,18 @@ interface WarpAnimationProps {
 // Color schemes for light and dark modes
 const colorSchemes = {
   light: {
-    expandingCircleInitial: "rgb(230, 230, 240)",
-    expandingCircleAnimate: "rgb(210, 210, 230)",
-    gradientTopLeft: "rgb(230, 230, 240, 0.9)",
-    gradientBottomRight: "rgb(210, 210, 230, 0.9)",
-    overlay: "rgba(230, 230, 240, OPACITY_PLACEHOLDER)",
+    expandingCircleInitial: "rgb(188, 188, 191)",
+    expandingCircleAnimate: "rgb(168, 168, 171)",
+    gradientTopLeft: "rgb(188, 188, 191, 0.9)",
+    gradientBottomRight: "rgb(168, 168, 171, 0.9)",
+    overlay: "rgba(228, 228, 231, OPACITY_PLACEHOLDER)",
   },
   dark: {
-    expandingCircleInitial: "rgb(40, 40, 50)",
-    expandingCircleAnimate: "rgb(25, 25, 35)",
-    gradientTopLeft: "rgb(30, 30, 40, 0.9)",
-    gradientBottomRight: "rgb(15, 15, 25, 0.9)",
-    overlay: "rgba(20, 20, 30, OPACITY_PLACEHOLDER)",
+    expandingCircleInitial: "rgb(39, 39, 42)",
+    expandingCircleAnimate: "rgb(24, 24, 27)",
+    gradientTopLeft: "rgb(39, 39, 42, 0.9)",
+    gradientBottomRight: "rgb(24, 24, 27, 0.9)",
+    overlay: "rgba(24, 24, 27, OPACITY_PLACEHOLDER)",
   },
 };
 
@@ -87,10 +87,10 @@ function GradientOverlay({
         ease: "easeInOut",
       });
     }
-    playBreathingAnimation();
+    // playBreathingAnimation();
   }, [breathe]);
 
-  const enterDuration = 0.75;
+  const enterDuration = 1;
   const exitDuration = 0.5;
 
   const isLargeScreen = size.width > 1440 || size.height > 900;
@@ -98,7 +98,7 @@ function GradientOverlay({
   const expandingCircleRadius =
     Math.max(size.width, size.height) * (isLargeScreen ? 0.2 : 0.3);
   const circleOpacity = isLargeScreen ? 0.9 : isMediumScreen ? 0.95 : 0.99;
-  const overlayOpacity = isLargeScreen ? 0.4 : 0.5;
+  const overlayOpacity = isLargeScreen ? 0.95 : 0.95;
   const largeBlur = isLargeScreen
     ? "250px"
     : isMediumScreen

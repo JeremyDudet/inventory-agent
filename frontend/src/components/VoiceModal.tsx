@@ -466,10 +466,10 @@ export function VoiceModal() {
             ref={buttonRef}
             className={`openButton rounded-xl ${
               buttonState === "error"
-                ? "bg-red-500 dark:bg-red-400 text-white dark:text-gray-800"
+                ? "bg-zinc-400 dark:bg-zinc-700 text-white dark:text-zinc-200"
                 : buttonState === "loading"
                 ? "bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-gray-200 outline outline-gray-300 dark:outline-gray-600"
-                : "bg-emerald-600 dark:bg-emerald-400 text-white dark:text-gray-800"
+                : "bg-zinc-500 dark:bg-zinc-700 text-white dark:text-zinc-200"
             }`}
             onClick={() => setIsOpen(true)}
             style={{}}
@@ -559,7 +559,7 @@ function Dialog({
           <div className="controls">
             <button
               onClick={close}
-              className="cancel bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl"
+              className="cancel bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl"
               style={{}}
             >
               Cancel
@@ -569,10 +569,10 @@ function Dialog({
               onClick={onStartClick}
               className={`confirm rounded-xl ${
                 buttonState === "error"
-                  ? "bg-red-500 dark:bg-red-400 text-white dark:text-gray-800"
+                  ? "bg-zinc-400 dark:bg-zinc-700 text-white dark:text-zinc-200"
                   : buttonState === "loading"
                   ? "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 outline outline-gray-400 dark:outline-gray-600"
-                  : "bg-emerald-600 dark:bg-emerald-400 text-white dark:text-gray-800"
+                  : "bg-zinc-500 dark:bg-zinc-700 text-white dark:text-zinc-200"
               }`}
               style={{}}
               disabled={buttonState === "loading" || buttonState === "error"}
@@ -604,7 +604,7 @@ function QuestionMarkIcon({ theme }: { theme: string }) {
       height="24"
       viewBox="0 0 24 24"
       fill="none"
-      stroke={theme === "dark" ? "#8df0cc" : "#0f766e"}
+      stroke={theme === "dark" ? "#a3b8ef" : "#4b6bab"}
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -661,8 +661,8 @@ function StyleSheet({ theme }: { theme: string }) {
     width: 100%;
     max-width: 400px;
     margin-bottom: 20px;
-    border: 1px solid ${theme === "dark" ? "#1d2628" : "#e5e7eb"};
-    background-color: ${theme === "dark" ? "#0b1011" : "#ffffff"};
+    border: 1px solid ${theme === "dark" ? "#262b36" : "#e5e7eb"};
+    background-color: ${theme === "dark" ? "#1a1f2b" : "#ffffff"};
     padding: 20px;
     position: relative;
     transform: translateY(0);
