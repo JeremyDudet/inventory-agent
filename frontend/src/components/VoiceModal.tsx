@@ -468,8 +468,8 @@ export function VoiceModal() {
               buttonState === "error"
                 ? "bg-zinc-400 dark:bg-zinc-700 text-white dark:text-zinc-200"
                 : buttonState === "loading"
-                ? "bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-gray-200 outline outline-gray-300 dark:outline-gray-600"
-                : "bg-zinc-500 dark:bg-zinc-700 text-white dark:text-zinc-200"
+                ? "bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-gray-200 "
+                : "bg-zinc-500 dark:bg-zinc-700 text-white dark:text-zinc-200 outline outline-zinc-400 dark:outline-zinc-500"
             }`}
             onClick={() => setIsOpen(true)}
             style={{}}
@@ -636,7 +636,7 @@ function StyleSheet({ theme }: { theme: string }) {
     right: 0;
     display: flex;
     justify-content: center;
-    z-index: 1000;
+    z-index: 50;
   }
 
   .modal-overlay {
@@ -653,7 +653,7 @@ function StyleSheet({ theme }: { theme: string }) {
     display: flex;
     justify-content: center;
     align-items: flex-end;
-    z-index: 1001;
+    z-index: 100;
     border-radius: inherit;
   }
 
