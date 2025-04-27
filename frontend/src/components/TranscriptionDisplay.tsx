@@ -346,8 +346,10 @@ export default function TranscriptionDisplay({
           font-weight: normal;
           display: inline-block;
           font-size: 1.3rem;
-          color: white;
-          text-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+          color: ${theme === "dark" ? "white" : "#374151"};
+          text-shadow: 0 0 15px ${
+            theme === "dark" ? "rgba(255, 255, 255, 0.3)" : "rgba(0, 0, 0, 0.3)"
+          };
           line-height: normal;
           
         }
@@ -400,6 +402,10 @@ export default function TranscriptionDisplay({
         .cursor-animation {
           animation: blink 1s infinite;
           font-weight: normal;
+          color: ${theme === "dark" ? "white" : "#374151"};
+          text-shadow: 0 0 15px ${
+            theme === "dark" ? "rgba(255, 255, 255, 0.3)" : "rgba(0, 0, 0, 0.3)"
+          };
         }
 
         @keyframes blink {
