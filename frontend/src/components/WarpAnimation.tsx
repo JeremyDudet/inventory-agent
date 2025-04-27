@@ -33,18 +33,18 @@ interface WarpAnimationProps {
 // Color schemes for light and dark modes
 const colorSchemes = {
   light: {
-    expandingCircleInitial: "rgb(200, 200, 210)",
-    expandingCircleAnimate: "rgb(150, 150, 170)",
-    gradientTopLeft: "rgb(150, 150, 170, 0.9)",
-    gradientBottomRight: "rgb(120, 120, 140, 0.9)",
-    overlay: "rgba(150, 150, 170, OPACITY_PLACEHOLDER)",
+    expandingCircleInitial: "rgb(230, 230, 240)",
+    expandingCircleAnimate: "rgb(210, 210, 230)",
+    gradientTopLeft: "rgb(230, 230, 240, 0.9)",
+    gradientBottomRight: "rgb(210, 210, 230, 0.9)",
+    overlay: "rgba(230, 230, 240, OPACITY_PLACEHOLDER)",
   },
   dark: {
-    expandingCircleInitial: "rgb(80, 80, 100)",
-    expandingCircleAnimate: "rgb(60, 60, 80)",
-    gradientTopLeft: "rgb(60, 60, 80, 0.9)",
-    gradientBottomRight: "rgb(40, 40, 60, 0.9)",
-    overlay: "rgba(60, 60, 80, OPACITY_PLACEHOLDER)",
+    expandingCircleInitial: "rgb(40, 40, 50)",
+    expandingCircleAnimate: "rgb(25, 25, 35)",
+    gradientTopLeft: "rgb(30, 30, 40, 0.9)",
+    gradientBottomRight: "rgb(15, 15, 25, 0.9)",
+    overlay: "rgba(20, 20, 30, OPACITY_PLACEHOLDER)",
   },
 };
 
@@ -97,8 +97,8 @@ function GradientOverlay({
   const isMediumScreen = size.width > 768 || size.height > 600;
   const expandingCircleRadius =
     Math.max(size.width, size.height) * (isLargeScreen ? 0.2 : 0.3);
-  const circleOpacity = isLargeScreen ? 0.6 : isMediumScreen ? 0.8 : 0.9;
-  const overlayOpacity = isLargeScreen ? 0.08 : 0.1;
+  const circleOpacity = isLargeScreen ? 0.9 : isMediumScreen ? 0.95 : 0.99;
+  const overlayOpacity = isLargeScreen ? 0.4 : 0.5;
   const largeBlur = isLargeScreen
     ? "250px"
     : isMediumScreen
