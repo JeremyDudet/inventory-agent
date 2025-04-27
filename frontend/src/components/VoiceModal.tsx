@@ -1,3 +1,4 @@
+//frontend/src/components/VoiceModal.tsx
 import { useState, useEffect, useRef } from "react";
 import {
   AnimatePresence,
@@ -469,7 +470,7 @@ export function VoiceModal() {
                 ? "bg-zinc-400 dark:bg-zinc-700 text-white dark:text-zinc-200"
                 : buttonState === "loading"
                 ? "bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-gray-200 "
-                : "bg-zinc-500 dark:bg-zinc-700 text-white dark:text-zinc-200 outline outline-zinc-400 dark:outline-zinc-500"
+                : "bg-zinc-500 dark:bg-zinc-700 text-white dark:text-zinc-200 "
             }`}
             onClick={() => setIsOpen(true)}
             style={{}}
