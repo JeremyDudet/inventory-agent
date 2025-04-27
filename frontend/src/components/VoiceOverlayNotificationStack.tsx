@@ -17,7 +17,7 @@ export default function NotificationsStack() {
 
   const stackVariants: Variants = {
     open: {
-      y: 20,
+      y: 0,
       scale: 0.9,
       cursor: "default",
     },
@@ -28,6 +28,12 @@ export default function NotificationsStack() {
     },
   };
 
+  // Dynamic scroll container style based on isOpen state
+  const dynamicScrollContainerStyle: CSSProperties = {
+    ...scrollContainerStyle,
+    overflowY: isOpen ? "auto" : "hidden", // Only allow scrolling when open
+  };
+
   const handleNotificationClick = (index: number) => {
     // Individual notification click handler
     console.log(`Notification ${index} clicked`);
@@ -35,33 +41,7 @@ export default function NotificationsStack() {
   };
 
   return (
-    <motion.div
-      style={stackStyle}
-      variants={stackVariants}
-      initial={false}
-      animate={isOpen ? "open" : "closed"}
-      transition={{
-        type: "spring",
-        mass: 0.7,
-      }}
-    >
-      {/* Hidden button for expanding the stack */}
-      <button
-        ref={expandButtonRef}
-        data-stack-expand="true"
-        onClick={() => setIsOpen(true)}
-        style={{
-          position: "absolute",
-          opacity: 0,
-          pointerEvents: "none",
-          height: 0,
-          width: 0,
-          padding: 0,
-          margin: 0,
-          border: "none",
-        }}
-      />
-
+    <motion.div style={containerStyle} initial={false}>
       <Header
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
@@ -69,16 +49,49 @@ export default function NotificationsStack() {
         isDark={isDark}
       />
 
-      {Array.from({ length: N_NOTIFICATIONS }).map((_, i) => (
-        <Notification
-          key={i}
-          index={i}
-          onClick={() => handleNotificationClick(i)}
-          isStackOpen={isOpen}
-          isDark={isDark}
-          onExpand={() => setIsOpen(true)}
-        />
-      ))}
+      <motion.div
+        style={dynamicScrollContainerStyle}
+        className="notifications-scroll-container"
+      >
+        <motion.div
+          style={stackStyle}
+          variants={stackVariants}
+          initial={false}
+          animate={isOpen ? "open" : "closed"}
+          transition={{
+            type: "spring",
+            mass: 0.7,
+          }}
+        >
+          {/* Hidden button for expanding the stack */}
+          <button
+            ref={expandButtonRef}
+            data-stack-expand="true"
+            onClick={() => setIsOpen(true)}
+            style={{
+              position: "absolute",
+              opacity: 0,
+              pointerEvents: "none",
+              height: 0,
+              width: 0,
+              padding: 0,
+              margin: 0,
+              border: "none",
+            }}
+          />
+
+          {Array.from({ length: N_NOTIFICATIONS }).map((_, i) => (
+            <Notification
+              key={i}
+              index={i}
+              onClick={() => handleNotificationClick(i)}
+              isStackOpen={isOpen}
+              isDark={isDark}
+              onExpand={() => setIsOpen(true)}
+            />
+          ))}
+        </motion.div>
+      </motion.div>
     </motion.div>
   );
 }
@@ -96,14 +109,10 @@ const Header = ({
 }) => {
   const variants: Variants = {
     open: {
-      y: 0,
-      scale: 1,
       opacity: 1,
     },
     closed: {
-      y: 60,
-      scale: 0.8,
-      opacity: 0,
+      opacity: 1, // Always visible
     },
   };
 
@@ -111,11 +120,12 @@ const Header = ({
     <motion.div
       style={headerStyle}
       variants={variants}
+      initial={false}
+      animate={isOpen ? "open" : "closed"}
       transition={{
         type: "spring",
         stiffness: 600,
         damping: 50,
-        delay: isOpen ? 0.2 : 0,
       }}
     >
       <motion.h2
@@ -123,20 +133,37 @@ const Header = ({
       >
         Notifications
       </motion.h2>
-      <motion.button
-        style={{
-          ...headerCloseStyle,
-          backgroundColor: isDark ? "#333333" : "#f5f5f5",
-          color: isDark ? "#f5f5f5" : "#0f1115",
-        }}
-        whileHover={{
-          backgroundColor: isDark ? "#444444" : "#e5e5e5",
-          color: isDark ? "#ffffff" : "#000000",
-        }}
-        onClick={onClose}
-      >
-        Collapse
-      </motion.button>
+      {isOpen ? (
+        <motion.button
+          style={{
+            ...headerCloseStyle,
+            backgroundColor: isDark ? "#333333" : "#f5f5f5",
+            color: isDark ? "#f5f5f5" : "#0f1115",
+          }}
+          whileHover={{
+            backgroundColor: isDark ? "#444444" : "#e5e5e5",
+            color: isDark ? "#ffffff" : "#000000",
+          }}
+          onClick={onClose}
+        >
+          Collapse
+        </motion.button>
+      ) : (
+        <motion.button
+          style={{
+            ...headerCloseStyle,
+            backgroundColor: isDark ? "#333333" : "#f5f5f5",
+            color: isDark ? "#f5f5f5" : "#0f1115",
+          }}
+          whileHover={{
+            backgroundColor: isDark ? "#444444" : "#e5e5e5",
+            color: isDark ? "#ffffff" : "#000000",
+          }}
+          onClick={onOpen}
+        >
+          Expand
+        </motion.button>
+      )}
     </motion.div>
   );
 };
@@ -209,27 +236,48 @@ const Notification = ({
 /**
  * ==============   Styles   ================
  */
+const containerStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  width: "100%",
+  maxWidth: "500px",
+  position: "relative",
+  height: "100%", // Take full height of parent
+  overflow: "hidden", // Hide any overflow
+};
+
+const scrollContainerStyle: CSSProperties = {
+  position: "relative",
+  width: "100%",
+  overflowY: "auto", // Enable vertical scrolling
+  overflowX: "hidden", // Prevent horizontal scrolling
+  marginTop: "46px", // Add space for the header
+  height: "calc(100% - 46px)", // Take remaining height
+  paddingTop: "10px", // Add some padding at the top
+};
+
 const stackStyle: CSSProperties = {
   position: "relative",
   display: "flex",
   flexDirection: "column",
   gap: NOTIFICATION_GAP,
   width: "100%",
-  maxWidth: "500px",
   pointerEvents: "auto", // Ensure pointer events are enabled
 };
 
 const headerStyle: CSSProperties = {
   position: "absolute",
-  top: -40,
+  top: 0,
   left: 0,
-  height: 28,
+  height: 40,
   width: "100%",
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  transformOrigin: "bottom center",
-  pointerEvents: "none",
+  zIndex: N_NOTIFICATIONS + 1, // Ensure header stays on top
+  pointerEvents: "auto",
+  padding: "6px 0",
+  backgroundColor: "transparent", // Make background transparent
 };
 
 const headerTitleStyle: CSSProperties = {

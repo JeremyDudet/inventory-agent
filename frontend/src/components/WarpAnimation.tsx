@@ -115,7 +115,7 @@ function GradientOverlay({
         exit={{ opacity: 0 }}
         transition={{ duration: 0.3, delay: 0.3 }}
         id="warp-overlay-container"
-        className="absolute inset-0 h-full max-h-screen flex flex-col w-full items-center justify-center gap-4 px-4 py-2 md:px-8 md:py-4 box-border z-[10000]"
+        className="absolute inset-0 h-full max-h-screen flex flex-col w-full items-center justify-center gap-4 px-4 pt-2 pb-6 md:px-8 md:pt-4 md:pb-8 box-border z-[10000]"
       >
         {/* Main Content (Transcription and Notifications) */}
         <div className="flex flex-none items-center justify-center w-full max-w-[900px]">
@@ -124,7 +124,7 @@ function GradientOverlay({
             isFinal={isFinalTranscription}
           />
         </div>
-        <div className="flex flex-col flex-1 justify-start items-center w-full h-full overflow-y-scroll pt-2">
+        <div className="flex flex-col flex-1 justify-start items-center w-full h-full overflow-y-hidden pt-2">
           <NotificationsStack />
         </div>
 
