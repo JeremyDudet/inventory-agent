@@ -14,6 +14,7 @@ export default function NotificationsStack() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const expandButtonRef = useRef<HTMLButtonElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const stackVariants: Variants = {
     open: {
@@ -27,6 +28,13 @@ export default function NotificationsStack() {
       cursor: "default",
     },
   };
+
+  // Reset scroll position when collapsing
+  useEffect(() => {
+    if (!isOpen && scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [isOpen]);
 
   // Dynamic scroll container style based on isOpen state
   const dynamicScrollContainerStyle: CSSProperties = {
@@ -49,49 +57,55 @@ export default function NotificationsStack() {
         isDark={isDark}
       />
 
-      <motion.div
-        style={dynamicScrollContainerStyle}
-        className="notifications-scroll-container"
-      >
+      <div style={scrollWrapperStyle}>
         <motion.div
-          style={stackStyle}
-          variants={stackVariants}
-          initial={false}
-          animate={isOpen ? "open" : "closed"}
-          transition={{
-            type: "spring",
-            mass: 0.7,
-          }}
+          ref={scrollContainerRef}
+          style={dynamicScrollContainerStyle}
+          className="notifications-scroll-container"
         >
-          {/* Hidden button for expanding the stack */}
-          <button
-            ref={expandButtonRef}
-            data-stack-expand="true"
-            onClick={() => setIsOpen(true)}
-            style={{
-              position: "absolute",
-              opacity: 0,
-              pointerEvents: "none",
-              height: 0,
-              width: 0,
-              padding: 0,
-              margin: 0,
-              border: "none",
+          <motion.div
+            style={stackStyle}
+            variants={stackVariants}
+            initial={false}
+            animate={isOpen ? "open" : "closed"}
+            transition={{
+              type: "spring",
+              mass: 0.7,
             }}
-          />
-
-          {Array.from({ length: N_NOTIFICATIONS }).map((_, i) => (
-            <Notification
-              key={i}
-              index={i}
-              onClick={() => handleNotificationClick(i)}
-              isStackOpen={isOpen}
-              isDark={isDark}
-              onExpand={() => setIsOpen(true)}
+          >
+            {/* Hidden button for expanding the stack */}
+            <button
+              ref={expandButtonRef}
+              data-stack-expand="true"
+              onClick={() => setIsOpen(true)}
+              style={{
+                position: "absolute",
+                opacity: 0,
+                pointerEvents: "none",
+                height: 0,
+                width: 0,
+                padding: 0,
+                margin: 0,
+                border: "none",
+              }}
             />
-          ))}
+
+            {Array.from({ length: N_NOTIFICATIONS }).map((_, i) => (
+              <Notification
+                key={i}
+                index={i}
+                onClick={() => handleNotificationClick(i)}
+                isStackOpen={isOpen}
+                isDark={isDark}
+                onExpand={() => setIsOpen(true)}
+              />
+            ))}
+          </motion.div>
         </motion.div>
-      </motion.div>
+
+        {/* Blur overlay for bottom fade effect - only visible when open */}
+        {isOpen && <div style={blurOverlayStyle(isDark)} />}
+      </div>
     </motion.div>
   );
 }
@@ -246,14 +260,20 @@ const containerStyle: CSSProperties = {
   overflow: "hidden", // Hide any overflow
 };
 
+const scrollWrapperStyle: CSSProperties = {
+  position: "relative",
+  width: "100%",
+  height: "calc(100% - 46px)",
+  marginTop: "46px",
+};
+
 const scrollContainerStyle: CSSProperties = {
   position: "relative",
   width: "100%",
-  overflowY: "auto", // Enable vertical scrolling
   overflowX: "hidden", // Prevent horizontal scrolling
-  marginTop: "46px", // Add space for the header
-  height: "calc(100% - 46px)", // Take remaining height
+  height: "100%", // Take full height
   paddingTop: "10px", // Add some padding at the top
+  paddingBottom: "60px", // Add extra padding at bottom to account for blur overlay
 };
 
 const stackStyle: CSSProperties = {
@@ -328,3 +348,21 @@ function getNotificationStyle(index: number, isDark: boolean): CSSProperties {
     }`,
   };
 }
+
+// Function to generate blur overlay style based on theme
+const blurOverlayStyle = (isDark: boolean): CSSProperties => ({
+  position: "absolute",
+  bottom: 0,
+  left: 0,
+  width: "100%",
+  height: "120px", // Height of the blur effect
+  background:
+    "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.1) 100%)",
+  backdropFilter: "blur(6px)",
+  WebkitBackdropFilter: "blur(6px)",
+  // Increasing blur intensity from top to bottom
+  maskImage: "linear-gradient(to bottom, transparent 0%, black 100%)",
+  WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 100%)",
+  pointerEvents: "none", // Make sure it doesn't interfere with clicking
+  zIndex: N_NOTIFICATIONS + 1, // Above notifications but below header
+});
