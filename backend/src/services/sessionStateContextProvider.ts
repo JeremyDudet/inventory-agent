@@ -1,3 +1,4 @@
+// backend/src/services/sessionStateContextProvider.ts
 import { ContextProvider } from "../types/context";
 import { RecentCommand } from "../types/session";
 import { SessionStateService } from "./sessionStateService";
@@ -7,21 +8,24 @@ import { SessionStateService } from "./sessionStateService";
  */
 export class SessionStateContextProvider implements ContextProvider {
   constructor(private sessionStateService: SessionStateService) {}
-  
+
   /**
    * Get the conversation history from the session state
    */
-  getConversationHistory(): Array<{ role: "user" | "assistant"; content: string }> {
+  getConversationHistory(): Array<{
+    role: "user" | "assistant";
+    content: string;
+  }> {
     return this.sessionStateService.getState().conversationHistory;
   }
-  
+
   /**
    * Get the recent commands from the session state
    */
   getRecentCommands(): Array<RecentCommand> {
     return this.sessionStateService.getRecentCommands();
   }
-  
+
   /**
    * Add a user message to the conversation history
    */
@@ -32,7 +36,7 @@ export class SessionStateContextProvider implements ContextProvider {
       this.sessionStateService.addAssistantMessage(content);
     }
   }
-  
+
   /**
    * Add a command to the recent commands
    */

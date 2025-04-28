@@ -12,6 +12,7 @@ import { NotificationProvider } from "./context/NotificationContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import Dashboard from "./pages/Dashboard";
+import Items from "./pages/Items";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -77,7 +78,7 @@ const AppRoutes = () => {
         <Route element={<ProtectedLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/settings" element={<Settings />} />
-          <Route path="/items" element={<div>Items Page</div>} />
+          <Route path="/items" element={<Items />} />
           <Route path="/orders" element={<div>Orders Page</div>} />
         </Route>
       </Route>

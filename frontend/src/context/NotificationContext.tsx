@@ -1,10 +1,22 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import Notification from '../components/Notification';
-import { ApiError } from '../services/api';
-import ReactDOM from 'react-dom';
+// frontend/src/context/NotificationContext.tsx
+import React, {
+  createContext,
+  useContext,
+  useState,
+  ReactNode,
+  useEffect,
+} from "react";
+import Notification from "../components/Notification";
+import { ApiError } from "../services/api";
+import ReactDOM from "react-dom";
 
 // Define notification type
-export type NotificationType = 'success' | 'error' | 'info' | 'warning' | 'auth-error';
+export type NotificationType =
+  | "success"
+  | "error"
+  | "info"
+  | "warning"
+  | "auth-error";
 
 // Define notification interface
 interface NotificationData {
@@ -18,8 +30,16 @@ interface NotificationData {
 // Define context interface
 interface NotificationContextType {
   notifications: NotificationData[];
-  addNotification: (type: NotificationType, message: string, duration?: number) => void;
-  showApiError: (error: Error | ApiError, fallbackMessage?: string, duration?: number) => void;
+  addNotification: (
+    type: NotificationType,
+    message: string,
+    duration?: number
+  ) => void;
+  showApiError: (
+    error: Error | ApiError,
+    fallbackMessage?: string,
+    duration?: number
+  ) => void;
   removeNotification: (id: string) => void;
 }
 
@@ -35,40 +55,56 @@ const NotificationContext = createContext<NotificationContextType>({
 export const useNotification = () => useContext(NotificationContext);
 
 // Provider component
-export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const NotificationProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
-  const [desktopSidebarEl, setDesktopSidebarEl] = useState<HTMLElement | null>(null);
-  const [mobileSidebarEl, setMobileSidebarEl] = useState<HTMLElement | null>(null);
+  const [desktopSidebarEl, setDesktopSidebarEl] = useState<HTMLElement | null>(
+    null
+  );
+  const [mobileSidebarEl, setMobileSidebarEl] = useState<HTMLElement | null>(
+    null
+  );
   const [mobileTopEl, setMobileTopEl] = useState<HTMLElement | null>(null);
 
   // Check if notification areas are ready
   useEffect(() => {
     const checkElements = () => {
       // For desktop sidebar notification area
-      const desktopSidebarNotificationsEl = document.getElementById('sidebar-notifications');
-      
+      const desktopSidebarNotificationsEl = document.getElementById(
+        "sidebar-notifications"
+      );
+
       // For mobile sidebar notification area
-      const mobileSidebarNotificationsEl = document.getElementById('sidebar-notifications-mobile');
-      
+      const mobileSidebarNotificationsEl = document.getElementById(
+        "sidebar-notifications-mobile"
+      );
+
       // For mobile top notifications (below search bar)
-      let mobileTopNotificationsEl = document.getElementById('mobile-notifications-container');
-      
+      let mobileTopNotificationsEl = document.getElementById(
+        "mobile-notifications-container"
+      );
+
       if (!mobileTopNotificationsEl) {
         // If the container doesn't exist, create it
-        mobileTopNotificationsEl = document.createElement('div');
-        mobileTopNotificationsEl.id = 'mobile-notifications-container';
-        mobileTopNotificationsEl.className = 'fixed top-16 z-40 left-0 right-0 px-4 py-1 lg:hidden';
-        
+        mobileTopNotificationsEl = document.createElement("div");
+        mobileTopNotificationsEl.id = "mobile-notifications-container";
+        mobileTopNotificationsEl.className =
+          "fixed top-16 z-40 left-0 right-0 px-4 py-1 lg:hidden";
+
         // Find the main element to insert before
-        const mainElement = document.querySelector('main');
+        const mainElement = document.querySelector("main");
         if (mainElement && mainElement.parentNode) {
-          mainElement.parentNode.insertBefore(mobileTopNotificationsEl, mainElement);
+          mainElement.parentNode.insertBefore(
+            mobileTopNotificationsEl,
+            mainElement
+          );
         } else {
           // Fallback if we can't find the main element
           document.body.appendChild(mobileTopNotificationsEl);
         }
       }
-      
+
       setDesktopSidebarEl(desktopSidebarNotificationsEl);
       setMobileSidebarEl(mobileSidebarNotificationsEl);
       setMobileTopEl(mobileTopNotificationsEl);
@@ -77,12 +113,12 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     // Check immediately and then with a slight delay to ensure DOM is ready
     checkElements();
     const timer = setTimeout(checkElements, 500);
-    
+
     // Also add a mutation observer to catch when the elements are added to the DOM
     const observer = new MutationObserver(() => {
       checkElements();
     });
-    
+
     observer.observe(document.body, { childList: true, subtree: true });
 
     return () => {
@@ -92,23 +128,35 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   }, []);
 
   // Add a new notification
-  const addNotification = (type: NotificationType, message: string, duration = 5000) => {
-    const id = Date.now().toString() + '-' + Math.random().toString(36).substr(2, 9);
-    
+  const addNotification = (
+    type: NotificationType,
+    message: string,
+    duration = 5000
+  ) => {
+    const id =
+      Date.now().toString() + "-" + Math.random().toString(36).substr(2, 9);
+
     // Limit to maximum 3 notifications at once
     setNotifications((prev) => {
-      const newNotifications = [...prev, { id, type, message, duration, visible: true }];
+      const newNotifications = [
+        ...prev,
+        { id, type, message, duration, visible: true },
+      ];
       // If more than 3, remove the oldest one
-      return newNotifications.length > 3 ? newNotifications.slice(-3) : newNotifications;
+      return newNotifications.length > 3
+        ? newNotifications.slice(-3)
+        : newNotifications;
     });
-    
+
     // Auto-remove notification after duration
     if (duration !== 0) {
       setTimeout(() => {
         // First set visible to false to trigger animation
-        setNotifications(prev => 
-          prev.map(notification => 
-            notification.id === id ? { ...notification, visible: false } : notification
+        setNotifications((prev) =>
+          prev.map((notification) =>
+            notification.id === id
+              ? { ...notification, visible: false }
+              : notification
           )
         );
       }, duration);
@@ -117,31 +165,38 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   // Remove a notification by ID
   const removeNotification = (id: string) => {
-    setNotifications((prev) => prev.filter((notification) => notification.id !== id));
+    setNotifications((prev) =>
+      prev.filter((notification) => notification.id !== id)
+    );
   };
 
   // Show API error with appropriate styling based on error type
-  const showApiError = (error: Error | ApiError, fallbackMessage = 'An error occurred', duration = 6000) => {
+  const showApiError = (
+    error: Error | ApiError,
+    fallbackMessage = "An error occurred",
+    duration = 6000
+  ) => {
     const apiError = error as ApiError;
-    
+
     // Determine if this is an auth/permission error
-    const isAuthError = apiError.isAuthError || 
-      apiError.status === 401 || 
+    const isAuthError =
+      apiError.isAuthError ||
+      apiError.status === 401 ||
       apiError.status === 403;
-    
+
     // Get the error message
     const errorMessage = error.message || fallbackMessage;
-    
+
     // Add notification with appropriate type
     addNotification(
-      isAuthError ? 'auth-error' : 'error',
+      isAuthError ? "auth-error" : "error",
       errorMessage,
       duration
     );
-    
+
     // If it's an auth error, handle potential redirection
     if (isAuthError) {
-      console.warn('Authentication error:', error);
+      console.warn("Authentication error:", error);
       // You could trigger auth-related actions here if needed
       // such as showing a login modal or redirecting to login page
     }
@@ -199,19 +254,32 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   );
 
   return (
-    <NotificationContext.Provider value={{ notifications, addNotification, showApiError, removeNotification }}>
+    <NotificationContext.Provider
+      value={{
+        notifications,
+        addNotification,
+        showApiError,
+        removeNotification,
+      }}
+    >
       {children}
-      
+
       {/* Desktop sidebar notifications */}
-      {desktopSidebarEl && ReactDOM.createPortal(desktopNotificationContent, desktopSidebarEl)}
-      
+      {desktopSidebarEl &&
+        ReactDOM.createPortal(desktopNotificationContent, desktopSidebarEl)}
+
       {/* Mobile sidebar notifications */}
-      {mobileSidebarEl && ReactDOM.createPortal(mobileSidebarNotificationContent, mobileSidebarEl)}
-      
+      {mobileSidebarEl &&
+        ReactDOM.createPortal(
+          mobileSidebarNotificationContent,
+          mobileSidebarEl
+        )}
+
       {/* Mobile notifications below search bar - only visible on small screens */}
-      {mobileTopEl && ReactDOM.createPortal(mobileTopNotificationContent, mobileTopEl)}
+      {mobileTopEl &&
+        ReactDOM.createPortal(mobileTopNotificationContent, mobileTopEl)}
     </NotificationContext.Provider>
   );
 };
 
-export default NotificationProvider; 
+export default NotificationProvider;

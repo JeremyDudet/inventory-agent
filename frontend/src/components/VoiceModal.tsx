@@ -662,6 +662,8 @@ function StyleSheet({ theme }: { theme: string }) {
     width: 100%;
     max-width: 400px;
     margin-bottom: 20px;
+    margin-left: 8px;
+    margin-right: 8px;
     border: 1px solid ${theme === "dark" ? "#262b36" : "#e5e7eb"};
     background-color: ${theme === "dark" ? "#1a1f2b" : "#ffffff"};
     padding: 20px;
