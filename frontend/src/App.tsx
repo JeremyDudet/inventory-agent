@@ -17,7 +17,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import Landing from "./pages/Landing";
-import LoadingSpinner from "./components/LoadingSpinner";
+import LoadingSpinner from "./components/ui/LoadingSpinner";
 import Settings from "./pages/Settings";
 import { ApplicationLayout } from "./components/AppLayout";
 

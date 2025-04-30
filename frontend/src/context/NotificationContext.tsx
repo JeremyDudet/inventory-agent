@@ -6,7 +6,6 @@ import React, {
   ReactNode,
   useEffect,
 } from "react";
-import Notification from "../components/Notification";
 import { ApiError } from "../services/api";
 import ReactDOM from "react-dom";
 
@@ -202,57 +201,6 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
-  // Notification content for desktop sidebar
-  const desktopNotificationContent = (
-    <div className="px-1">
-      <div className="flex flex-col gap-1.5">
-        {notifications.map((notification) => (
-          <Notification
-            key={notification.id}
-            type={notification.type}
-            message={notification.message}
-            isVisible={notification.visible}
-            onClose={() => removeNotification(notification.id)}
-          />
-        ))}
-      </div>
-    </div>
-  );
-
-  // Notification content for mobile sidebar
-  const mobileSidebarNotificationContent = (
-    <div className="px-1">
-      <div className="flex flex-col gap-1.5">
-        {notifications.map((notification) => (
-          <Notification
-            key={notification.id}
-            type={notification.type}
-            message={notification.message}
-            isVisible={notification.visible}
-            onClose={() => removeNotification(notification.id)}
-          />
-        ))}
-      </div>
-    </div>
-  );
-
-  // Notification content for mobile top area (below search)
-  const mobileTopNotificationContent = (
-    <div className="px-2 py-1">
-      <div className="flex flex-col gap-2 mx-auto">
-        {notifications.map((notification) => (
-          <Notification
-            key={notification.id}
-            type={notification.type}
-            message={notification.message}
-            isVisible={notification.visible}
-            onClose={() => removeNotification(notification.id)}
-          />
-        ))}
-      </div>
-    </div>
-  );
-
   return (
     <NotificationContext.Provider
       value={{
@@ -263,21 +211,6 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({
       }}
     >
       {children}
-
-      {/* Desktop sidebar notifications */}
-      {desktopSidebarEl &&
-        ReactDOM.createPortal(desktopNotificationContent, desktopSidebarEl)}
-
-      {/* Mobile sidebar notifications */}
-      {mobileSidebarEl &&
-        ReactDOM.createPortal(
-          mobileSidebarNotificationContent,
-          mobileSidebarEl
-        )}
-
-      {/* Mobile notifications below search bar - only visible on small screens */}
-      {mobileTopEl &&
-        ReactDOM.createPortal(mobileTopNotificationContent, mobileTopEl)}
     </NotificationContext.Provider>
   );
 };

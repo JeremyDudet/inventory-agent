@@ -1,8 +1,16 @@
-import React from 'react';
+import React from "react";
 
 interface LoadingSpinnerProps {
-  size?: 'xs' | 'sm' | 'md' | 'lg';
-  color?: 'primary' | 'secondary' | 'accent' | 'neutral' | 'info' | 'success' | 'warning' | 'error';
+  size?: "xs" | "sm" | "md" | "lg";
+  color?:
+    | "primary"
+    | "secondary"
+    | "accent"
+    | "neutral"
+    | "info"
+    | "success"
+    | "warning"
+    | "error";
   fullScreen?: boolean;
   text?: string;
   className?: string;
@@ -13,24 +21,30 @@ interface LoadingSpinnerProps {
  * with customizable size, color, and text
  */
 const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
-  size = 'md',
-  color = 'primary',
+  size = "md",
+  color = "primary",
   fullScreen = false,
   text,
-  className = ''
+  className = "",
 }) => {
   // Map size to Tailwind classes
   const sizeClasses = {
-    xs: 'loading-xs',
-    sm: 'loading-sm',
-    md: 'loading-md',
-    lg: 'loading-lg'
+    xs: "loading-xs",
+    sm: "loading-sm",
+    md: "loading-md",
+    lg: "loading-lg",
   };
 
   // Create the spinner element
   const spinner = (
-    <div className={`flex flex-col items-center justify-center ${fullScreen ? 'h-screen' : ''} ${className}`}>
-      <span className={`loading loading-spinner ${sizeClasses[size]} text-${color}`}></span>
+    <div
+      className={`flex flex-col items-center justify-center ${
+        fullScreen ? "h-screen" : ""
+      } ${className}`}
+    >
+      <span
+        className={`loading loading-spinner ${sizeClasses[size]} text-${color}`}
+      ></span>
       {text && <p className="mt-4 text-base-content/70">{text}</p>}
     </div>
   );
@@ -47,4 +61,4 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   return spinner;
 };
 
-export default LoadingSpinner; 
+export default LoadingSpinner;

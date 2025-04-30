@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
-import LoadingSpinner from "../components/LoadingSpinner";
+import LoadingSpinner from "../components/ui/LoadingSpinner";
 import { AuthLayout } from "../components/ui/auth-layout";
 import { Avatar } from "@/components/ui/avatar";
 import { useTheme } from "@/context/ThemeContext";

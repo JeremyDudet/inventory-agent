@@ -3,8 +3,8 @@ import { animate, AnimatePresence, motion, useMotionValue } from "motion/react";
 import { useEffect, useState, ReactNode } from "react";
 import ReactDOM from "react-dom";
 import { XMarkIcon, MicrophoneIcon } from "@heroicons/react/24/outline";
-import TranscriptionDisplay from "./TranscriptionDisplay";
-import NotificationsStack from "./VoiceOverlayNotificationStack";
+import VoiceOverlayTranscriptionDisplay from "./VoiceOverlayTranscriptionDisplay";
+import VoiceOverlayNotificationStack from "./VoiceOverlayNotificationStack";
 
 // Define prop types for components
 interface GradientOverlayProps {
@@ -119,13 +119,13 @@ function GradientOverlay({
       >
         {/* Main Content (Transcription and Notifications) */}
         <div className="flex flex-none items-center justify-center w-full max-w-[900px]">
-          <TranscriptionDisplay
+          <VoiceOverlayTranscriptionDisplay
             text={transcription}
             isFinal={isFinalTranscription}
           />
         </div>
         <div className="flex flex-col flex-1 justify-start items-center w-full h-full overflow-y-hidden pt-2">
-          <NotificationsStack />
+          <VoiceOverlayNotificationStack />
         </div>
 
         {/* Feedback Display with Close Button */}
@@ -388,7 +388,7 @@ const OverlayPortal = ({ children }: OverlayPortalProps) => {
   return ReactDOM.createPortal(children, portalElement);
 };
 
-export default function WarpAnimation({
+export default function VoiceOverlay({
   isActive,
   intensity = 0.1,
   onClose,

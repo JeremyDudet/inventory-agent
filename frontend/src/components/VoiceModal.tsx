@@ -11,7 +11,7 @@ import {
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { useTheme } from "../context/ThemeContext";
 import io from "socket.io-client";
-import WarpAnimation from "./WarpAnimation";
+import VoiceOverlay from "./VoiceOverlay";
 
 const WaveformIcon = ({ className }: { className?: string }) => (
   <div className={`flex items-center justify-center ${className}`}>
@@ -500,7 +500,7 @@ export function VoiceModal() {
           />
         )}
       </AnimatePresence>
-      <WarpAnimation
+      <VoiceOverlay
         isActive={isWarpActive}
         onClose={handleWarpClose}
         isListening={isListening}
