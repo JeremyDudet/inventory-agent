@@ -256,7 +256,7 @@ export default function TranscriptionDisplay({
       style={{
         width: "100%",
         maxWidth: "700px",
-        padding: "12px",
+        padding: "4px",
         borderRadius: "24px",
         color: theme === "dark" ? "#ffffff" : "#374151",
         fontFamily: "inherit",
@@ -294,7 +294,7 @@ export default function TranscriptionDisplay({
           width: 100%;
           max-width: 90vw;
           box-sizing: border-box;
-          max-height: 60vh;
+          max-height: 100%;
           overflow-y: hidden;
           text-align: left;
           /* Add fade effect at the top and bottom - match NotificationStack exactly */
@@ -312,64 +312,17 @@ export default function TranscriptionDisplay({
             rgba(0, 0, 0, 1) 85%,
             rgba(0, 0, 0, 0)
           );
-          /* Limit height to approximately 4 lines */
-          height: 12em;
+          height: 8em;
           /* Use flexbox to position content at the bottom */
           display: flex;
           flex-direction: column;
           justify-content: flex-end;
           position: relative;
           /* Add padding to ensure text doesn't get cut off at the fade edges */
-          padding-top: 30px;
-          padding-bottom: 30px;
-        }
-            
-        .transcription-content {
-          display: inline;
-          white-space: normal;
-          text-align: left;
-        }
-            
-        .transcription-text {
-          font-size: 1.6rem;
-          margin: 0;
-          padding: 0;
-          word-wrap: break-word;
-          overflow-wrap: break-word;
-          font-family: inherit;
-          opacity: 1;
-          white-space: pre-wrap;
-        }
-        
-        .cursor-animation {
-          animation: blink 1.5s infinite;
-          font-weight: normal;
-          display: inline-block;
-          font-size: 1.3rem;
-          color: ${theme === "dark" ? "white" : "#374151"};
-          text-shadow: 0 0 15px ${
-            theme === "dark" ? "rgba(255, 255, 255, 0.3)" : "rgba(0, 0, 0, 0.3)"
-          };
-          line-height: normal;
-          
-        }
-        
-        @media (max-width: 668px) {
-          .transcription-container {
-            height: 6em;
-            max-height: 6em;
-            font-size: 1.1rem;
-          }
-          
-          .transcription-text {
-            font-size: 1.1rem;
-          }
-            
-          .cursor-animation {
-            font-size: 1.1rem;
-          }
-        }
-
+          padding-top: 32px;
+          padding-bottom: 32px;
+        }   
+           
         .transcription-content {
           display: inline;
           white-space: normal;
@@ -380,6 +333,7 @@ export default function TranscriptionDisplay({
         }
 
         .transcription-text {
+          font-size: 1.2rem;
           margin: 0;
           padding: 0;
           word-wrap: break-word;
@@ -411,6 +365,23 @@ export default function TranscriptionDisplay({
         @keyframes blink {
           0%, 100% { opacity: 1; }
           50% { opacity: 0; }
+        }
+
+        @media (max-width: 668px) {
+          .transcription-container {
+            height: 5em;
+            max-height: 5em;
+            font-size: 1.1rem;
+            padding: 0px;
+          }
+          
+          .transcription-text {
+            font-size: 1.1rem;
+          }
+            
+          .cursor-animation {
+            font-size: 1.1rem;
+          }
         }
       `}
       </style>
