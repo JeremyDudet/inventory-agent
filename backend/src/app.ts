@@ -4,23 +4,30 @@ import http from "http";
 import { Server, Socket } from "socket.io";
 import dotenv from "dotenv";
 import cors from "cors";
+
 import authRoutes from "./routes/auth";
 import inventoryRoutes from "./routes/inventory";
-import sessionLogsRoutes from "./routes/sessionLogs";
-import speechService from "./services/speechService";
-import { NlpService } from "./services/nlpService";
-import inventoryService from "./services/inventoryService";
-import confirmationService from "./services/confirmationService";
-import speechFeedbackService from "./services/speechFeedbackService";
-import { logTranscript, logSystemAction } from "./services/sessionLogsService";
-import TranscriptionBuffer from "./services/transcriptionBuffer";
+
 import { errorHandler } from "./middleware/errorHandler";
-import { SessionStateService } from "./services/sessionStateService";
-import { SessionStateContextProvider } from "./services/sessionStateContextProvider";
+
+import websocketService from "./services/websocketService";
+import confirmationService from "./services/confirmationService";
+import inventoryService from "./services/inventoryService";
+import speechService from "./services/speech/speechService";
+import { NlpService } from "./services/speech/nlpService";
+import speechFeedbackService from "./services/speech/speechFeedbackService";
+import TranscriptionBuffer from "./services/speech/transcriptionBuffer";
+import {
+  logTranscript,
+  logSystemAction,
+} from "./services/session/sessionLogsService";
+import { SessionStateService } from "./services/session/sessionStateService";
+import { SessionStateContextProvider } from "./services/session/sessionStateContextProvider";
+
 import { ActionLog } from "./types/actionLog";
 import type { NlpResult } from "./types/nlp";
+
 import { ValidationError } from "./errors";
-import websocketService from "./services/websocketService";
 
 dotenv.config();
 
@@ -427,7 +434,6 @@ app.use(
 app.use(express.json());
 
 // Routes
-app.use("/api/session-logs", sessionLogsRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/auth", authRoutes); // Register auth routes
 
