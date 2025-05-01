@@ -230,7 +230,7 @@ function SearchBar() {
         id="search"
         name="search"
         type="search"
-        placeholder="Search..."
+        placeholder="Search item..."
         aria-label="Search"
       />
     </div>
