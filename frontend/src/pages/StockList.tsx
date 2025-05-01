@@ -50,8 +50,8 @@ const filters = [
   },
 ];
 const activeFilters = [
-  { value: "objects", label: "Objects" },
-  { value: "objects", label: "Objects" },
+  { value: "object1", label: "Object 1" },
+  { value: "object2", label: "Object 2" },
 ];
 
 export default function StockList() {
@@ -73,7 +73,7 @@ function InventoryListWithStickyHeader({ items }: { items: InventoryItem[] }) {
             Stock List
           </h1>
           <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
-            Manually update counts.
+            Manually input how much we have in stock.
           </p>
         </div>
 

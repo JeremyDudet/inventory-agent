@@ -1,3 +1,4 @@
+// frontend/src/components/ui/navbar.tsx
 import * as Headless from "@headlessui/react";
 import clsx from "clsx";
 import { LayoutGroup, motion } from "framer-motion";
@@ -97,7 +98,10 @@ export const NavbarItem = forwardRef(function NavbarItem(
       )}
       {"href" in props ? (
         <Link
-          {...props}
+          {...(props as Omit<
+            React.ComponentPropsWithoutRef<typeof Link>,
+            "className"
+          >)}
           className={classes}
           data-current={current ? "true" : undefined}
           ref={ref as React.ForwardedRef<HTMLAnchorElement>}
@@ -106,10 +110,10 @@ export const NavbarItem = forwardRef(function NavbarItem(
         </Link>
       ) : (
         <Headless.Button
-          {...props}
+          {...(props as Omit<Headless.ButtonProps, "as" | "className">)}
           className={clsx("cursor-default", classes)}
           data-current={current ? "true" : undefined}
-          ref={ref}
+          ref={ref as React.ForwardedRef<HTMLButtonElement>}
         >
           <TouchTarget>{children}</TouchTarget>
         </Headless.Button>

@@ -6,7 +6,6 @@ import {
   Route,
   Navigate,
   Outlet,
-  useLocation,
 } from "react-router-dom";
 import { NotificationProvider } from "./context/NotificationContext";
 import { ThemeProvider } from "./context/ThemeContext";
@@ -23,6 +22,7 @@ import LoadingSpinner from "./components/ui/LoadingSpinner";
 import { ApplicationLayout } from "./components/AppLayout";
 import { useInventoryStore } from "./stores/inventoryStore";
 import StockList from "./pages/StockList";
+
 // Protected route component that uses Supabase auth
 const ProtectedRoute = () => {
   const { user, isLoading } = useAuth();
