@@ -1,9 +1,7 @@
 // frontend/src/pages/StockList.tsx
-// Purpose: Allow users to manually update stock levels.
 import { useState } from "react";
 import { useInventoryStore } from "../stores/inventoryStore";
 import type { InventoryItem } from "../stores/inventoryStore";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -12,10 +10,6 @@ import {
   Disclosure,
   DisclosureButton,
   DisclosurePanel,
-  Menu,
-  MenuButton,
-  MenuItem,
-  MenuItems,
   Popover,
   PopoverButton,
   PopoverGroup,
@@ -23,6 +17,7 @@ import {
 } from "@headlessui/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
+import { motion } from "framer-motion";
 
 const filters = [
   {
@@ -71,7 +66,7 @@ export default function StockList() {
 function InventoryListWithStickyHeader({ items }: { items: InventoryItem[] }) {
   return (
     <>
-      <div className="sm:flex-auto fl">
+      <div className="sm:flex-auto">
         {/* Header */}
         <div>
           <h1 className="font-bold text-zinc-900 dark:text-zinc-200">
@@ -83,7 +78,7 @@ function InventoryListWithStickyHeader({ items }: { items: InventoryItem[] }) {
         </div>
 
         {/* Search and filter */}
-        <div className="flex flex-col gap-2 mt-10 sm:mt-8 w-full justify-center">
+        <div className="flex flex-col gap-2 mt-12 w-full justify-center">
           <div className="flex gap-2">
             <SearchBar />
             <CategoryFilter />
@@ -107,7 +102,7 @@ function InventoryListWithStickyHeader({ items }: { items: InventoryItem[] }) {
                   {activeFilters.map((activeFilter) => (
                     <span
                       key={activeFilter.value}
-                      className="m-1 inline-flex items-center rounded-full border border-zinc-200 dark:border-zinc-700  py-1.5 pl-3 pr-2 text-sm font-medium text-zinc-900 dark:text-zinc-200"
+                      className="m-1 inline-flex items-center rounded-full border border-zinc-200 dark:border-zinc-700 py-1.5 pl-3 pr-2 text-sm font-medium text-zinc-900 dark:text-zinc-200"
                     >
                       <span>{activeFilter.label}</span>
                       <button
@@ -138,18 +133,10 @@ function InventoryListWithStickyHeader({ items }: { items: InventoryItem[] }) {
           </div>
         </div>
       </div>
-      {/* <div className="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
-          <button
-            type="button"
-            className="block rounded-md bg-indigo-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-          >
-            Add Item
-          </button>
-        </div> */}
 
       {/* Table */}
-      <div className="-mx-4 mt-10 sm:mt-8 sm:-mx-0 overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
-        <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-700 overflow-x-hidden ">
+      <div className="-mx-4 mt-12 sm:-mx-0 overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+        <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-700 overflow-x-hidden">
           <thead>
             <tr>
               <th
@@ -160,7 +147,7 @@ function InventoryListWithStickyHeader({ items }: { items: InventoryItem[] }) {
               </th>
               <th
                 scope="col"
-                className="hidden px-3 py-3.5 text-left text-sm  font-medium text-zinc-500 dark:text-zinc-400 sm:table-cell"
+                className="hidden px-3 py-3.5 text-left text-sm font-medium text-zinc-500 dark:text-zinc-400 sm:table-cell"
               >
                 Quantity
               </th>
@@ -245,23 +232,10 @@ function SearchBar() {
         type="search"
         placeholder="Search..."
         aria-label="Search"
-        // className="block w-full rounded-md bg-white dark:bg-zinc-800 px-3 py-1.5 text-base text-gray-900 dark:text-gray-100 outline outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-600 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-zinc-600 dark:focus:outline-zinc-400 sm:text-sm/6"
       />
     </div>
   );
 }
-
-// function CategoryFilter() {
-//   return (
-//     <Button>
-//       <span className="sm:inline hidden">Filter</span>
-//       {/* <FunnelIcon
-//         aria-hidden="true"
-//         className="mr-2 size-5 flex-none text-zinc-200 group-hover:text-zinc-200"
-//       /> */}
-//     </Button>
-//   );
-// }
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(" ");
@@ -321,51 +295,63 @@ function CategoryFilter() {
                       className="absolute right-0 z-10 mt-2 origin-top-right rounded-md bg-white dark:bg-zinc-800 p-4 shadow-2xl ring-1 ring-black/5 dark:ring-white/5 transition focus:outline-none data-[closed]:scale-95 data-[closed]:transform data-[closed]:opacity-0 data-[enter]:duration-100 data-[leave]:duration-75 data-[enter]:ease-out data-[leave]:ease-in"
                     >
                       <form className="space-y-4">
-                        {section.options.map((option, optionIdx) => (
-                          <div
-                            key={option.value}
-                            className="flex items-center gap-3"
-                          >
-                            <div className="flex h-5 shrink-0 items-center">
-                              <div className="group grid size-4 grid-cols-1">
-                                <input
-                                  defaultValue={option.value}
-                                  defaultChecked={option.checked}
-                                  id={`filter-${section.id}-${optionIdx}`}
-                                  name={`${section.id}[]`}
-                                  type="checkbox"
-                                  className="col-start-1 row-start-1 appearance-none rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 checked:border-zinc-600 dark:checked:border-zinc-400 checked:bg-zinc-600 dark:checked:bg-zinc-400 indeterminate:border-zinc-600 dark:indeterminate:border-zinc-400 indeterminate:bg-zinc-600 dark:indeterminate:bg-zinc-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-600 dark:focus-visible:outline-zinc-400 disabled:border-zinc-300 dark:disabled:border-zinc-600 disabled:bg-zinc-100 dark:disabled:bg-zinc-900 disabled:checked:bg-zinc-100 dark:disabled:checked:bg-zinc-900 forced-colors:appearance-auto"
-                                />
-                                <svg
-                                  fill="none"
-                                  viewBox="0 0 14 14"
-                                  className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white dark:stroke-zinc-900 group-has-[:disabled]:stroke-zinc-950/25 dark:group-has-[:disabled]:stroke-zinc-50/25"
-                                >
-                                  <path
-                                    d="M3 8L6 11L11 3.5"
-                                    strokeWidth={2}
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    className="opacity-0 group-has-[:checked]:opacity-100"
-                                  />
-                                  <path
-                                    d="M3 7H11"
-                                    strokeWidth={2}
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    className="opacity-0 group-has-[:indeterminate]:opacity-100"
-                                  />
-                                </svg>
-                              </div>
-                            </div>
-                            <label
-                              htmlFor={`filter-${section.id}-${optionIdx}`}
-                              className="flex items-center whitespace-nowrap pr-6 text-sm font-medium text-zinc-900 dark:text-zinc-100"
+                        {section.options.map((option, optionIdx) => {
+                          const [isChecked, setIsChecked] = useState(
+                            option.checked
+                          );
+                          return (
+                            <div
+                              key={option.value}
+                              className="flex items-center gap-3"
                             >
-                              {option.label}
-                            </label>
-                          </div>
-                        ))}
+                              <div className="flex h-5 shrink-0 items-center">
+                                <div className="group grid size-4 grid-cols-1">
+                                  <input
+                                    value={option.value}
+                                    checked={isChecked}
+                                    onChange={(e) =>
+                                      setIsChecked(e.target.checked)
+                                    }
+                                    id={`filter-${section.id}-${optionIdx}`}
+                                    name={`${section.id}[]`}
+                                    type="checkbox"
+                                    className="col-start-1 row-start-1 appearance-none rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 checked:border-zinc-600 dark:checked:border-zinc-400 checked:bg-zinc-600 dark:checked:bg-zinc-400 indeterminate:border-zinc-600 dark:indeterminate:border-zinc-400 indeterminate:bg-zinc-600 dark:indeterminate:bg-zinc-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-600 dark:focus-visible:outline-zinc-400 disabled:border-zinc-300 dark:disabled:border-zinc-600 disabled:bg-zinc-100 dark:disabled:bg-zinc-900 disabled:checked:bg-zinc-100 dark:disabled:checked:bg-zinc-900 forced-colors:appearance-auto"
+                                  />
+                                  <svg
+                                    fill="none"
+                                    viewBox="0 0 14 14"
+                                    className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white dark:stroke-zinc-900 group-has-[:disabled]:stroke-zinc-950/25 dark:group-has-[:disabled]:stroke-zinc-50/25"
+                                  >
+                                    <motion.path
+                                      d="M3 8L6 11L11 3.5"
+                                      strokeWidth={2}
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      initial={{ pathLength: 0 }}
+                                      animate={{
+                                        pathLength: isChecked ? 1 : 0,
+                                      }}
+                                      transition={{ duration: 0.3 }}
+                                    />
+                                    <path
+                                      d="M3 7H11"
+                                      strokeWidth={2}
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      className="opacity-0 group-has-[:indeterminate]:opacity-100"
+                                    />
+                                  </svg>
+                                </div>
+                              </div>
+                              <label
+                                htmlFor={`filter-${section.id}-${optionIdx}`}
+                                className="flex items-center whitespace-nowrap pr-6 text-sm font-medium text-zinc-900 dark:text-zinc-100"
+                              >
+                                {option.label}
+                              </label>
+                            </div>
+                          );
+                        })}
                       </form>
                     </PopoverPanel>
                   </Popover>
@@ -441,48 +427,58 @@ function MobileCategoryFilter({
                   </h3>
                   <DisclosurePanel className="pt-6">
                     <div className="space-y-6">
-                      {section.options.map((option, optionIdx) => (
-                        <div key={option.value} className="flex gap-3">
-                          <div className="flex h-5 shrink-0 items-center">
-                            <div className="group grid size-4 grid-cols-1">
-                              <input
-                                defaultValue={option.value}
-                                defaultChecked={option.checked}
-                                id={`filter-mobile-${section.id}-${optionIdx}`}
-                                name={`${section.id}[]`}
-                                type="checkbox"
-                                className="col-start-1 row-start-1 appearance-none rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 checked:border-zinc-600 dark:checked:border-zinc-400 checked:bg-zinc-600 dark:checked:bg-zinc-400 indeterminate:border-zinc-600 dark:indeterminate:border-zinc-400 indeterminate:bg-zinc-600 dark:indeterminate:bg-zinc-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-600 dark:focus-visible:outline-zinc-400 disabled:border-zinc-300 dark:disabled:border-zinc-600 disabled:bg-zinc-100 dark:disabled:bg-zinc-900 disabled:checked:bg-zinc-100 dark:disabled:checked:bg-zinc-900 forced-colors:appearance-auto"
-                              />
-                              <svg
-                                fill="none"
-                                viewBox="0 0 14 14"
-                                className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white dark:stroke-zinc-900 group-has-[:disabled]:stroke-zinc-950/25 dark:group-has-[:disabled]:stroke-zinc-50/25"
-                              >
-                                <path
-                                  d="M3 8L6 11L11 3.5"
-                                  strokeWidth={2}
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  className="opacity-0 group-has-[:checked]:opacity-100"
+                      {section.options.map((option, optionIdx) => {
+                        const [isChecked, setIsChecked] = useState(
+                          option.checked
+                        );
+                        return (
+                          <div key={option.value} className="flex gap-3">
+                            <div className="flex h-5 shrink-0 items-center">
+                              <div className="group grid size-4 grid-cols-1">
+                                <input
+                                  value={option.value}
+                                  checked={isChecked}
+                                  onChange={(e) =>
+                                    setIsChecked(e.target.checked)
+                                  }
+                                  id={`filter-mobile-${section.id}-${optionIdx}`}
+                                  name={`${section.id}[]`}
+                                  type="checkbox"
+                                  className="col-start-1 row-start-1 appearance-none rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 checked:border-zinc-600 dark:checked:border-zinc-400 checked:bg-zinc-600 dark:checked:bg-zinc-400 indeterminate:border-zinc-600 dark:indeterminate:border-zinc-400 indeterminate:bg-zinc-600 dark:indeterminate:bg-zinc-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-600 dark:focus-visible:outline-zinc-400 disabled:border-zinc-300 dark:disabled:border-zinc-600 disabled:bg-zinc-100 dark:disabled:bg-zinc-900 disabled:checked:bg-zinc-100 dark:disabled:checked:bg-zinc-900 forced-colors:appearance-auto"
                                 />
-                                <path
-                                  d="M3 7H11"
-                                  strokeWidth={2}
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  className="opacity-0 group-has-[:indeterminate]:opacity-100"
-                                />
-                              </svg>
+                                <svg
+                                  fill="none"
+                                  viewBox="0 0 14 14"
+                                  className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white dark:stroke-zinc-900 group-has-[:disabled]:stroke-zinc-950/25 dark:group-has-[:disabled]:stroke-zinc-50/25"
+                                >
+                                  <motion.path
+                                    d="M3 8L6 11L11 3.5"
+                                    strokeWidth={2}
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    initial={{ pathLength: 0 }}
+                                    animate={{ pathLength: isChecked ? 1 : 0 }}
+                                    transition={{ duration: 0.3 }}
+                                  />
+                                  <path
+                                    d="M3 7H11"
+                                    strokeWidth={2}
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="opacity-0 group-has-[:indeterminate]:opacity-100"
+                                  />
+                                </svg>
+                              </div>
                             </div>
+                            <label
+                              htmlFor={`filter-mobile-${section.id}-${optionIdx}`}
+                              className="text-sm text-zinc-900 dark:text-zinc-100"
+                            >
+                              {option.label}
+                            </label>
                           </div>
-                          <label
-                            htmlFor={`filter-mobile-${section.id}-${optionIdx}`}
-                            className="text-sm text-zinc-900 dark:text-zinc-100"
-                          >
-                            {option.label}
-                          </label>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </DisclosurePanel>
                 </Disclosure>
