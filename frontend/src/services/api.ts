@@ -3,7 +3,7 @@
  */
 
 // API base URL using Vite environment variables
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 // Types
 interface LoginCredentials {
@@ -37,9 +37,9 @@ interface InventoryItem {
 }
 
 interface InventoryUpdateRequest {
-  item?: string;      // Item name (when using voice commands)
-  itemId?: string;    // Item ID (when using direct selection)
-  action: 'add' | 'remove' | 'set';
+  item?: string; // Item name (when using voice commands)
+  itemId?: string; // Item ID (when using direct selection)
+  action: "add" | "remove" | "set";
   quantity: number;
   unit: string;
 }
@@ -47,16 +47,16 @@ interface InventoryUpdateRequest {
 // Helper function for making API requests
 const apiRequest = async <T>(
   endpoint: string,
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
+  method: "GET" | "POST" | "PUT" | "DELETE" = "GET",
   data?: any,
   token?: string
 ): Promise<T> => {
   const headers: HeadersInit = {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   };
 
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    headers["Authorization"] = `Bearer ${token}`;
   }
 
   const config: RequestInit = {
@@ -73,32 +73,33 @@ const apiRequest = async <T>(
 
       // Create a custom error object
       const apiError = new Error(
-        errorData.error?.message || errorData.message || `API request failed with status ${response.status}`
+        errorData.error?.message ||
+          errorData.message ||
+          `API request failed with status ${response.status}`
       ) as ApiError;
-      
+
       // Add additional error properties
       apiError.status = response.status;
-      apiError.code = errorData.error?.code || 'API_ERROR';
+      apiError.code = errorData.error?.code || "API_ERROR";
       apiError.details = errorData.error?.details || errorData.details;
-      
+
       // Mark auth-related errors
-      apiError.isAuthError = (
-        response.status === 401 || 
-        response.status === 403 || 
-        apiError.code === 'UNAUTHORIZED' || 
-        apiError.code === 'FORBIDDEN' || 
-        apiError.code === 'MISSING_TOKEN' || 
-        apiError.code === 'INVALID_TOKEN' ||
-        apiError.message?.includes('Authentication Error') ||
-        apiError.message?.includes('Authorization Error')
-      );
-      
+      apiError.isAuthError =
+        response.status === 401 ||
+        response.status === 403 ||
+        apiError.code === "UNAUTHORIZED" ||
+        apiError.code === "FORBIDDEN" ||
+        apiError.code === "MISSING_TOKEN" ||
+        apiError.code === "INVALID_TOKEN" ||
+        apiError.message?.includes("Authentication Error") ||
+        apiError.message?.includes("Authorization Error");
+
       throw apiError;
     }
 
     return await response.json();
   } catch (error) {
-    console.error('API request error:', error);
+    console.error("API request error:", error);
     throw error;
   }
 };
@@ -107,22 +108,35 @@ const apiRequest = async <T>(
 export const api = {
   // Auth
   login: async (credentials: LoginCredentials): Promise<LoginResponse> => {
-    return apiRequest<LoginResponse>('/api/login', 'POST', credentials);
+    return apiRequest<LoginResponse>("/api/login", "POST", credentials);
   },
 
   // Inventory
   getInventory: async (token: string): Promise<InventoryItem[]> => {
-    return apiRequest<InventoryItem[]>('/api/inventory', 'GET', undefined, token);
+    return apiRequest<InventoryItem[]>(
+      "/api/inventory",
+      "GET",
+      undefined,
+      token
+    );
   },
 
-  updateInventory: async (update: InventoryUpdateRequest, token: string): Promise<InventoryItem> => {
-    return apiRequest<InventoryItem>('/api/inventory/update', 'POST', update, token);
+  updateInventory: async (
+    update: InventoryUpdateRequest,
+    token: string
+  ): Promise<InventoryItem> => {
+    return apiRequest<InventoryItem>(
+      "/api/inventory/update",
+      "POST",
+      update,
+      token
+    );
   },
 
   // Health check
   healthCheck: async (): Promise<{ status: string }> => {
-    return apiRequest<{ status: string }>('/health');
+    return apiRequest<{ status: string }>("/health");
   },
 };
 
-export default api; 
+export default api;

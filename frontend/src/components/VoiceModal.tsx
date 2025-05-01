@@ -479,7 +479,7 @@ export function VoiceModal() {
               buttonState === "error"
                 ? "bg-zinc-400 dark:bg-zinc-700 text-white dark:text-zinc-200"
                 : buttonState === "loading"
-                ? "bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-gray-200 "
+                ? "bg-zinc-300 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 "
                 : "bg-zinc-500 dark:bg-zinc-700 text-white dark:text-zinc-200 "
             }`}
             onClick={() => setIsOpen(true)}
@@ -544,7 +544,7 @@ function Dialog({
       onClick={close}
     >
       <motion.div
-        className="modal-content rounded-xl border border-gray-200 dark:border-gray-800"
+        className="modal-content rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"
         layoutId="modal"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -558,14 +558,13 @@ function Dialog({
           animate={{ y: 0 }}
           exit={{ y: 100 }}
         >
-          <h2 className="title h2 font-semibold text-xl">
+          <h2 className="title h2 font-semibold text-xl text-zinc-900 dark:text-zinc-100">
             <QuestionMarkIcon theme={theme} />
             Confirm
           </h2>
           <p className="text-base">Activate voice control?</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center mt-2">
-            Recommendation: Use headphones with a built-in microphone for best
-            experience.
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 flex items-center mt-2">
+            Use headphones with a built-in microphone for best experience.
           </p>
           <div className="controls">
             <button
@@ -582,7 +581,7 @@ function Dialog({
                 buttonState === "error"
                   ? "bg-zinc-400 dark:bg-zinc-700 text-white dark:text-zinc-200"
                   : buttonState === "loading"
-                  ? "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 outline outline-gray-400 dark:outline-gray-600"
+                  ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 outline outline-zinc-400 dark:outline-zinc-600"
                   : "bg-zinc-500 dark:bg-zinc-700 text-white dark:text-zinc-200"
               }`}
               style={{}}
@@ -675,7 +674,6 @@ function StyleSheet({ theme }: { theme: string }) {
     margin-left: 8px;
     margin-right: 8px;
     border: 1px solid ${theme === "dark" ? "#262b36" : "#e5e7eb"};
-    background-color: ${theme === "dark" ? "#1a1f2b" : "#ffffff"};
     padding: 20px;
     position: relative;
     transform: translateY(0);
@@ -708,7 +706,6 @@ function StyleSheet({ theme }: { theme: string }) {
     display: flex;
     align-items: center;
     gap: 10px;
-    color: ${theme === "dark" ? "#f6f6f6" : "#374151"};
   }
 
   .text-base {

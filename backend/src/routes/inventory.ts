@@ -38,14 +38,11 @@ router.get("/", async (req, res, next) => {
       });
     }
 
-    // Query parameters for filtering
     const { category, search, limit = 100, page = 1 } = req.query;
     const offset = (Number(page) - 1) * Number(limit);
 
-    // Get paginated results
     const items = await inventoryService.fetchInventory();
 
-    // Apply filters if provided
     let filteredItems = items;
     if (category) {
       filteredItems = filteredItems.filter(
@@ -72,7 +69,32 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-// Get a specific inventory item
+// Get all categories (MOVED BEFORE /:id)
+router.get("/categories", async (req, res, next) => {
+  try {
+    if (!isSupabaseConfigured()) {
+      console.warn("Supabase not configured, using mock data");
+      const categories = Array.from(
+        new Set(mockInventory.map((item) => item.category))
+      );
+      return res.status(200).json({
+        categories,
+        source: "mock",
+      });
+    }
+
+    const categories = await inventoryService.getCategories();
+
+    res.status(200).json({
+      categories,
+      source: "database",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get a specific inventory item (MOVED AFTER /categories)
 router.get("/:id", async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -123,7 +145,6 @@ router.post(
         unit,
       });
 
-      // Find the updated item to get its current state
       let updatedItem;
       try {
         updatedItem = await inventoryService.findBestMatch(item);
@@ -131,7 +152,6 @@ router.post(
         console.log("Could not find updated item for WebSocket message", error);
       }
 
-      // Send success message via WebSocket if the item was found
       if (updatedItem) {
         const successMessage = {
           type: "stockUpdate",
@@ -187,32 +207,6 @@ router.post(
     }
   }
 );
-
-// Get all categories
-router.get("/categories", async (req, res, next) => {
-  try {
-    if (!isSupabaseConfigured()) {
-      console.warn("Supabase not configured, using mock data");
-      // Get unique categories from mock data
-      const categories = Array.from(
-        new Set(mockInventory.map((item) => item.category))
-      );
-      return res.status(200).json({
-        categories,
-        source: "mock",
-      });
-    }
-
-    const categories = await inventoryService.getCategories();
-
-    res.status(200).json({
-      categories,
-      source: "database",
-    });
-  } catch (error) {
-    next(error);
-  }
-});
 
 // Delete an inventory item
 router.delete(

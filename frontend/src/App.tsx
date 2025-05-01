@@ -94,7 +94,7 @@ const AppRoutes = () => {
 
 const App: React.FC = () => {
   const setItems = useInventoryStore((state) => state.setItems);
-
+  const setCategories = useInventoryStore((state) => state.setCategories);
   useEffect(() => {
     const fetchInventory = async () => {
       try {
@@ -106,8 +106,22 @@ const App: React.FC = () => {
         console.error("Failed to fetch inventory:", error);
       }
     };
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch(
+          "http://localhost:8080/api/inventory/categories"
+        );
+        if (!response.ok) throw new Error("Failed to fetch categories");
+        const data = await response.json();
+        setCategories(data.categories);
+      } catch (error) {
+        console.error("Failed to fetch categories:", error);
+      }
+    };
+
     fetchInventory();
-  }, [setItems]);
+    fetchCategories();
+  }, [setItems, setCategories]);
 
   return (
     <ThemeProvider>
