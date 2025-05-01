@@ -1,4 +1,3 @@
-//frontend/src/components/VoiceModal.tsx
 import { useState, useEffect, useRef } from "react";
 import {
   AnimatePresence,
@@ -479,8 +478,8 @@ export function VoiceModal() {
               buttonState === "error"
                 ? "bg-zinc-400 dark:bg-zinc-700 text-white dark:text-zinc-200"
                 : buttonState === "loading"
-                ? "bg-zinc-300 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 "
-                : "bg-zinc-500 dark:bg-zinc-700 text-white dark:text-zinc-200 "
+                ? "bg-zinc-500 dark:bg-zinc-600 text-zinc-800 dark:text-zinc-200 "
+                : "bg-zinc-500 dark:bg-zinc-600 text-white dark:text-zinc-200 "
             }`}
             onClick={() => setIsOpen(true)}
             style={{}}
@@ -494,7 +493,7 @@ export function VoiceModal() {
               className="flex justify-center items-center gap-2"
               style={{ gap: 8 }}
             >
-              {STATES[buttonState]}
+              <span className="button-text">{STATES[buttonState]}</span>
               <Icon state={buttonState} />
             </motion.span>
           </motion.button>
@@ -710,6 +709,22 @@ function StyleSheet({ theme }: { theme: string }) {
 
   .text-base {
     color: ${theme === "dark" ? "#9ca3af" : "#6b7280"};
+  }
+
+  @media (max-width: 1023px) {
+    #modal-open {
+      justify-content: flex-end;
+      padding-right: 20px;
+    }
+    .openButton {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      padding: 0;
+    }
+    .openButton .button-text {
+      display: none;
+    }
   }
       `}</style>
   );
