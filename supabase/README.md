@@ -5,6 +5,7 @@ This directory contains the Supabase configuration and migration files for the I
 ## Setup
 
 The Supabase CLI has been installed and configured for this project. The CLI allows you to:
+
 - Run migrations
 - Start a local Supabase instance
 - Link to a remote Supabase project
@@ -24,32 +25,37 @@ The database schema includes the following tables:
 3. **items**: Inventory items with quantities
 4. **categories**: Item categories
 5. **inventory_items**: Detailed inventory items with embeddings
-6. **inventory_updates**: History of inventory changes
+6. **stock_updates**: History of inventory changes
 7. **session_logs**: Logs of user sessions and actions
 
 ## Using Supabase CLI
 
 ### Check Installation
+
 ```bash
 supabase --version
 ```
 
 ### Initialize a Project
+
 ```bash
 supabase init
 ```
 
 ### Start Local Development
+
 ```bash
 supabase start
 ```
 
 ### Run Migrations
+
 ```bash
 supabase migration up
 ```
 
 ### Link to Remote Project
+
 ```bash
 export SUPABASE_ACCESS_TOKEN=your_access_token
 supabase link --project-ref your_project_ref

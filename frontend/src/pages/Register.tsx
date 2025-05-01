@@ -79,19 +79,24 @@ const Register: React.FC = () => {
         onSubmit={handleSubmit}
         className="grid w-full max-w-sm grid-cols-1 gap-8"
       >
-        <div className="flex items-center gap-3">
-          <Avatar
-            src={
-              theme === "dark"
-                ? "/teams/logo-light.svg"
-                : "/teams/logo-black.svg"
-            }
-            className="w-8 h-8"
-          />
-          <span className="text-lg font-semibold text-zinc-950 dark:text-white">
-            StockCount
-          </span>
-        </div>
+        <Link
+          to="/"
+          className="text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50"
+        >
+          <div className="flex items-center gap-3">
+            <Avatar
+              src={
+                theme === "dark"
+                  ? "/teams/logo-light.svg"
+                  : "/teams/logo-black.svg"
+              }
+              className="w-8 h-8"
+            />
+            <span className="text-lg font-semibold text-zinc-950 dark:text-white">
+              StockCount
+            </span>
+          </div>
+        </Link>
         <h1 className="text-2xl font-semibold tracking-tight">
           Create your account
         </h1>

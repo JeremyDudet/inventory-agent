@@ -10,6 +10,7 @@ import InventoryGrid, { InventoryItem } from "../components/InventoryGrid";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import supabase from "../config/supabase";
 import io from "socket.io-client";
+import { useInventoryStore } from "../stores/inventoryStore";
 
 interface User {
   email: string;
@@ -113,12 +114,7 @@ const Items: React.FC = () => {
   return (
     <div className="py-6">
       <div className="px-4 sm:px-6 lg:px-8">
-        <InventoryGrid
-          items={inventory}
-          onItemSelect={() => {}}
-          filterCategory={undefined}
-          searchTerm=""
-        />
+        <InventoryGrid />
       </div>
     </div>
   );

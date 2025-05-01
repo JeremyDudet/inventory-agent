@@ -187,6 +187,10 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
                   <HomeIcon />
                   <SidebarLabel>Dashboard</SidebarLabel>
                 </SidebarItem>
+                <SidebarItem href="/stocklist">
+                  <Square2StackIcon />
+                  <SidebarLabel>Stock List</SidebarLabel>
+                </SidebarItem>
                 <SidebarItem href="/items">
                   <Square2StackIcon />
                   <SidebarLabel>Items</SidebarLabel>

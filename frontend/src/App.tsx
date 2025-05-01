@@ -1,5 +1,5 @@
 // frontend/src/App.tsx
-import React from "react";
+import React, { useEffect } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -17,10 +17,12 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import Landing from "./pages/Landing";
-import LoadingSpinner from "./components/ui/LoadingSpinner";
 import Settings from "./pages/Settings";
+import { WebsocketListener } from "./components/WebsocketListener";
+import LoadingSpinner from "./components/ui/LoadingSpinner";
 import { ApplicationLayout } from "./components/AppLayout";
-
+import { useInventoryStore } from "./stores/inventoryStore";
+import StockList from "./pages/StockList";
 // Protected route component that uses Supabase auth
 const ProtectedRoute = () => {
   const { user, isLoading } = useAuth();
@@ -77,9 +79,10 @@ const AppRoutes = () => {
       <Route element={<ProtectedRoute />}>
         <Route element={<ProtectedLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/settings" element={<Settings />} />
+          <Route path="/stocklist" element={<StockList />} />
           <Route path="/items" element={<Items />} />
           <Route path="/orders" element={<div>Orders Page</div>} />
+          <Route path="/settings" element={<Settings />} />
         </Route>
       </Route>
 
@@ -90,11 +93,28 @@ const AppRoutes = () => {
 };
 
 const App: React.FC = () => {
+  const setItems = useInventoryStore((state) => state.setItems);
+
+  useEffect(() => {
+    const fetchInventory = async () => {
+      try {
+        const response = await fetch("http://localhost:8080/api/inventory");
+        if (!response.ok) throw new Error("Failed to fetch inventory");
+        const data = await response.json();
+        setItems(data.items); // Extract the items array from the response
+      } catch (error) {
+        console.error("Failed to fetch inventory:", error);
+      }
+    };
+    fetchInventory();
+  }, [setItems]);
+
   return (
     <ThemeProvider>
       <Router>
         <NotificationProvider>
           <AuthProvider>
+            <WebsocketListener />
             <AppRoutes />
           </AuthProvider>
         </NotificationProvider>

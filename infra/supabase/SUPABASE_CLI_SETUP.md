@@ -45,21 +45,25 @@ The migration files include:
 The database schema includes the following tables:
 
 ### User Management Tables
+
 - `profiles`: User profile information
 - `user_roles`: Role-based permissions
 
 ### Inventory Tables
+
 - `inventory_items`: Detailed inventory items with embeddings
 - `items`: Inventory items with quantities
 - `categories`: Item categories
 
 ### Tracking and Logging Tables
-- `inventory_updates`: History of inventory changes
+
+- `stock_updates`: History of inventory changes
 - `session_logs`: Logs of user sessions and actions
 
 ## Documentation Updates
 
 The README.md file in `infra/supabase/` was updated to include:
+
 - Instructions for installing and using the Supabase CLI
 - Detailed database schema information
 - Troubleshooting tips for migrations

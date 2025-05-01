@@ -5,12 +5,14 @@ This document provides instructions for setting up and using Supabase in the Inv
 ## Overview
 
 Inventory Agent uses Supabase for:
+
 - Authentication and user management
 - Database storage for inventory items
 - Row-level security for data access
 - Real-time updates
 
 The system includes:
+
 - Email/password authentication
 - User profiles with roles
 - Password reset functionality
@@ -29,12 +31,14 @@ The system includes:
 Add the following environment variables to your project:
 
 **Frontend (.env file):**
+
 ```
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
 **Backend (.env file):**
+
 ```
 SUPABASE_URL=your_supabase_url
 SUPABASE_KEY=your_supabase_service_role_key
@@ -76,12 +80,14 @@ supabase migration up
 ### User Registration
 
 Users can register with email and password. Upon registration:
+
 - A verification email is sent to the user
 - A profile record is automatically created with default role 'staff'
 
 ### User Roles
 
 The system supports the following roles:
+
 - `owner`: Full access to all features
 - `manager`: Access to inventory management and limited user management
 - `staff`: Access to inventory management only
@@ -101,6 +107,7 @@ The database schema includes the following tables:
 ### User Management Tables
 
 #### profiles
+
 - `id`: UUID (Primary Key, references auth.users)
 - `name`: TEXT (User's display name)
 - `email`: TEXT
@@ -112,6 +119,7 @@ The database schema includes the following tables:
 - `updated_at`: TIMESTAMP WITH TIME ZONE
 
 #### user_roles
+
 - `id`: UUID (Primary Key)
 - `name`: TEXT
 - `permissions`: JSONB
@@ -121,6 +129,7 @@ The database schema includes the following tables:
 ### Inventory Tables
 
 #### inventory_items
+
 - `id`: UUID (Primary Key)
 - `name`: TEXT
 - `description`: TEXT
@@ -134,6 +143,7 @@ The database schema includes the following tables:
 - `lastupdated`: TIMESTAMP WITH TIME ZONE
 
 #### items
+
 - `id`: BIGINT (Primary Key)
 - `name`: TEXT
 - `description`: TEXT
@@ -145,12 +155,14 @@ The database schema includes the following tables:
 - `last_edited_by`: UUID
 
 #### categories
+
 - `id`: UUID (Primary Key)
 - `name`: TEXT
 
 ### Tracking and Logging Tables
 
-#### inventory_updates
+#### stock_updates
+
 - `id`: UUID (Primary Key)
 - `itemid`: UUID
 - `action`: TEXT
@@ -163,6 +175,7 @@ The database schema includes the following tables:
 - `createdat`: TIMESTAMP WITH TIME ZONE
 
 #### session_logs
+
 - `id`: UUID (Primary Key)
 - `session_id`: TEXT
 - `user_id`: UUID
@@ -178,6 +191,7 @@ The database schema includes the following tables:
 ## Row-Level Security
 
 Row-level security policies ensure users can only access appropriate data:
+
 - Users can view and update their own profiles
 - Admins (owners and managers) can view all profiles
 
@@ -197,7 +211,8 @@ A database trigger automatically creates a profile when a new user registers.
 ### Debugging
 
 To debug issues:
+
 1. Check browser console for errors
 2. Verify network requests to Supabase endpoints
 3. Check Supabase dashboard logs for authentication events
-4. Use `supabase status` to check the status of your local Supabase instance    
+4. Use `supabase status` to check the status of your local Supabase instance

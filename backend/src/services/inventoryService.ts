@@ -1,5 +1,4 @@
 // backend/src/services/inventoryService.ts
-import stringSimilarity from "string-similarity";
 import { logSystemAction } from "./session/sessionLogsService";
 import { InventoryRepository } from "../repositories/InventoryRepository";
 import { InventoryItem, InventoryItemInsert } from "../models/InventoryItem";

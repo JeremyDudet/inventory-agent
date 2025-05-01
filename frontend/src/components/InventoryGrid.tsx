@@ -1,6 +1,6 @@
 // frontend/src/components/InventoryGrid.tsx
-import React, { useState } from 'react';
-import InventoryCard from './InventoryCard';
+import React from "react";
+import { useInventoryStore } from "../stores/inventoryStore";
 
 // Define the inventory item type
 export interface InventoryItem {
@@ -13,68 +13,24 @@ export interface InventoryItem {
   lastupdated: string;
 }
 
-interface InventoryGridProps {
-  items: InventoryItem[];
-  onItemSelect: (id: string) => void;
-  onItemUpdate?: (id: string) => void;
-  filterCategory?: string;
-  searchTerm?: string;
-}
+interface InventoryGridProps {}
 
-/**
- * InventoryGrid component displays a responsive grid of inventory items
- * with filtering and search capabilities
- */
-const InventoryGrid: React.FC<InventoryGridProps> = ({
-  items,
-  onItemSelect,
-  onItemUpdate,
-  filterCategory,
-  searchTerm = ''
-}) => {
-  // Filter items based on category and search term
-  const filteredItems = items.filter(item => {
-    const matchesCategory = !filterCategory || item.category === filterCategory;
-    const matchesSearch = !searchTerm || 
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    return matchesCategory && matchesSearch;
-  });
-
-  // Handle item selection
-  const handleSelect = (id: string) => {
-    onItemSelect(id);
-  };
+const InventoryGrid: React.FC<InventoryGridProps> = () => {
+  const items = useInventoryStore((state) => state.items);
 
   return (
-    <div className="w-full">
-      {filteredItems.length === 0 ? (
-        <div className="text-center py-10">
-          <h3 className="text-lg font-medium">No inventory items found</h3>
-          <p className="text-base-content/70 mt-2">
-            Try adjusting your filters or search terms
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredItems.map(item => (
-            <InventoryCard
-              key={item.id}
-              id={item.id}
-              name={item.name}
-              quantity={item.quantity}
-              unit={item.unit}
-              category={item.category}
-              threshold={item.threshold}
-              lastupdated={item.lastupdated}
-              onSelect={handleSelect}
-            />
-          ))}
-        </div>
-      )}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      {items.map((item) => {
+        return (
+          <div key={item.id}>
+            <p>{item.name}</p>
+            <p>{item.quantity}</p>
+            <p>{item.unit}</p>
+          </div>
+        );
+      })}
     </div>
   );
 };
 
-export default InventoryGrid; 
+export default InventoryGrid;
