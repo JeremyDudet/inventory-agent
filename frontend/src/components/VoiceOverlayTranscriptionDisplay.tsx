@@ -162,17 +162,6 @@ export default function TranscriptionDisplay({
     processNewText(text);
   }, [text, isFinal, processNewText]);
 
-  // Debug logging to help understand state
-  useEffect(() => {
-    console.log("TranscriptionDisplay state:", {
-      isTyping: state.isTyping,
-      pendingText: state.pendingText,
-      lastReceivedText: state.lastReceivedText,
-      fullTextLength: state.fullText.length,
-      displayedTextLength: state.displayedText.length,
-    });
-  }, [state]);
-
   // Auto-scroll
   useEffect(() => {
     if (containerRef.current) {

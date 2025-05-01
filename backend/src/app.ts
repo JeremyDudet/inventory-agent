@@ -1,4 +1,3 @@
-// backend/src/app.ts
 import express from "express";
 import http from "http";
 import { Server, Socket } from "socket.io";
@@ -36,7 +35,7 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: "*" },
   path: "/socket.io/",
-  pingTimeout: 60000, // Increase timeout to reduce premature disconnects
+  pingTimeout: 60000,
   pingInterval: 25000,
 });
 
@@ -49,8 +48,9 @@ const voiceNamespace = io.of("/voice");
 
 // Add session action logs storage
 const sessionActionLogs = new Map<string, ActionLog[]>();
+// Store connectionId per socket
+const socketConnectionIds = new Map<string, string>();
 
-// Inside voiceNamespace.on('connection', ...)
 voiceNamespace.on("connection", (socket: Socket) => {
   console.log("🔊 Client connected:", socket.id);
 
@@ -59,12 +59,12 @@ voiceNamespace.on("connection", (socket: Socket) => {
 
   const userInfo = {
     userId: socket.id,
-    role: "standard", // Default role, can be changed based on authentication
+    role: "standard",
     previousConfirmations: {
       correct: 0,
       total: 0,
     },
-    sessionItems: [] as string[], // Track items processed in this session
+    sessionItems: [] as string[],
   };
 
   // Initialize services
@@ -74,7 +74,61 @@ voiceNamespace.on("connection", (socket: Socket) => {
   nlpService.setContextProvider(contextProvider);
   const transcriptionBuffer = new TranscriptionBuffer(nlpService, sessionState);
 
-  // Add event handlers for the transcriptionBuffer
+  // Deepgram connection options
+  const deepgramOptions = {
+    sampleRate: 48000,
+    channels: 1,
+    language: "en-US",
+    model: "nova-2",
+    vad_events: true,
+    no_delay: true,
+    vad_turnoff: 500,
+  };
+
+  // Transcription callbacks
+  const callbacks = {
+    onTranscript: async (
+      transcript: string,
+      isFinal: boolean,
+      confidence: number
+    ) => {
+      const timestamp = new Date().toISOString();
+      console.log(
+        `[${timestamp}] Transcript: "${transcript}", isFinal: ${isFinal}, confidence: ${confidence}`
+      );
+      socket.emit("transcription", { text: transcript, isFinal, confidence });
+
+      if (isFinal && transcript.trim()) {
+        try {
+          await logTranscript(transcript, true, confidence, userInfo.userId);
+          await transcriptionBuffer.addTranscription(transcript);
+        } catch (error) {
+          console.error("Error handling transcription:", error);
+        }
+      }
+    },
+    onError: (error: any) => {
+      console.error("🔊 Transcription error:", error);
+      socket.emit("error", { message: "Speech recognition error" });
+      sessionState.setProcessingVoiceCommand(false);
+    },
+  };
+
+  // Create initial Deepgram connection
+  const createNewConnection = () => {
+    const connectionId = speechService.createLiveConnection(
+      deepgramOptions,
+      callbacks
+    );
+    socketConnectionIds.set(socket.id, connectionId);
+    console.log(
+      `🔊 Created new Deepgram connection for ${socket.id}: ${connectionId}`
+    );
+    return connectionId;
+  };
+
+  let connectionId = createNewConnection();
+
   transcriptionBuffer.on(
     "completeCommand",
     async (nlpResults: NlpResult[], originalTranscription: string) => {
@@ -88,18 +142,15 @@ voiceNamespace.on("connection", (socket: Socket) => {
           if (nlpResult.isComplete && nlpResult.action !== "unknown") {
             sessionState.setStateType("normal");
 
-            // create action log
             const actionLog: ActionLog = {
               type: nlpResult.action as "add" | "remove" | "set",
               itemId: nlpResult.item,
               quantity: nlpResult.quantity,
-              previousQuantity: undefined, // Add previous quantity for 'set' actions
+              previousQuantity: undefined,
             };
 
-            // store action log
             sessionActionLogs.get(socket.id)?.push(actionLog);
 
-            // Emit to client
             socket.emit("command-processed", {
               command: nlpResult,
               actionLog,
@@ -108,7 +159,6 @@ voiceNamespace.on("connection", (socket: Socket) => {
             if (nlpResult.action === "undo") {
               // TODO: undo last action
             } else {
-              // update inventory count
               try {
                 await inventoryService.updateInventoryCount({
                   action: nlpResult.action,
@@ -120,7 +170,6 @@ voiceNamespace.on("connection", (socket: Socket) => {
                   `📝 Updated inventory: ${nlpResult.item} ${nlpResult.quantity} ${nlpResult.unit}`
                 );
 
-                // Generate and add assistant response to history
                 const feedback = speechFeedbackService.generateSuccessFeedback(
                   nlpResult.action,
                   nlpResult.quantity || 0,
@@ -133,7 +182,6 @@ voiceNamespace.on("connection", (socket: Socket) => {
                 }
               } catch (error: unknown) {
                 if (error instanceof ValidationError) {
-                  // Handle ambiguous matches by emitting a clarification event
                   socket.emit("clarification-needed", {
                     message: error.message,
                     originalCommand: {
@@ -155,19 +203,16 @@ voiceNamespace.on("connection", (socket: Socket) => {
           }
         }
 
-        // If we have a valid command, determine confirmation type
         if (nlpResults.some((result) => result.isComplete)) {
           const firstCompleteResult = nlpResults.find(
             (result) => result.isComplete
           );
           if (firstCompleteResult) {
             try {
-              // Get current item details if possible
               let currentQuantity: number | undefined;
               let threshold: number | undefined;
               let similarItems: string[] | undefined;
 
-              // Determine confirmation type using the first complete result
               const confirmationResult =
                 confirmationService.determineConfirmationType({
                   confidence: firstCompleteResult.confidence,
@@ -185,7 +230,6 @@ voiceNamespace.on("connection", (socket: Socket) => {
 
               console.log(`🔊 Confirmation result:`, confirmationResult);
 
-              // Generate speech feedback if applicable
               const speechFeedback =
                 speechFeedbackService.generateCommandFeedback(
                   firstCompleteResult.action,
@@ -195,7 +239,6 @@ voiceNamespace.on("connection", (socket: Socket) => {
                   confirmationResult.feedbackMode
                 );
 
-              // If this requires voice confirmation, store the pending command
               if (confirmationResult.type === "voice") {
                 sessionState.setPendingConfirmation({
                   command: {
@@ -213,7 +256,6 @@ voiceNamespace.on("connection", (socket: Socket) => {
                 });
               }
 
-              // Send the NLP response with confirmation details to the client
               socket.emit("nlp-response", {
                 ...firstCompleteResult,
                 confirmationType: confirmationResult.type,
@@ -224,12 +266,10 @@ voiceNamespace.on("connection", (socket: Socket) => {
                 speechFeedback: speechFeedback?.text,
               });
 
-              // If this was an implicit confirmation, track the item for session context
               if (confirmationResult.type === "implicit") {
                 userInfo.sessionItems.push(firstCompleteResult.item);
-                // Keep the session items list manageable
                 if (userInfo.sessionItems.length > 10) {
-                  userInfo.sessionItems.shift(); // Remove oldest item
+                  userInfo.sessionItems.shift();
                 }
               }
             } catch (error) {
@@ -256,44 +296,19 @@ voiceNamespace.on("connection", (socket: Socket) => {
     sessionState.setProcessingVoiceCommand(false);
   });
 
-  // Add timeout tracking for command continuation
-  let lastTranscriptionTime = 0;
-  const COMMAND_CONTINUATION_TIMEOUT = 3000; // 3 seconds timeout to consider continuations
-
-  const callbacks = {
-    onTranscript: async (
-      transcript: string,
-      isFinal: boolean,
-      confidence: number
-    ) => {
-      socket.emit("transcription", { text: transcript, isFinal, confidence });
-
-      // Log the transcript to the database
-      if (isFinal) {
-        try {
-          // log transcript
-          await logTranscript(transcript, true, confidence, userInfo.userId);
-          // add to buffer instead of processing directly
-          await transcriptionBuffer.addTranscription(transcript);
-        } catch (error) {
-          console.error("Error handling transcription:", error);
-        }
-      }
-    },
-    onError: (error: any) => {
-      console.error("🔊 Transcription error:", error);
-      socket.emit("error", { message: "Speech recognition error" });
-      sessionState.setProcessingVoiceCommand(false);
-    },
-  };
-
-  const connectionId = speechService.createLiveConnection(
-    { sampleRate: 48000, channels: 1, language: "en-US", model: "nova-2" },
-    callbacks
-  );
+  socket.on("start-recording", () => {
+    console.log(`🔊 Starting recording for ${socket.id}`);
+    // Close existing connection if any
+    const oldConnId = socketConnectionIds.get(socket.id);
+    if (oldConnId) {
+      speechService.closeLiveConnection(oldConnId);
+      socketConnectionIds.delete(socket.id);
+    }
+    // Create new connection
+    connectionId = createNewConnection();
+  });
 
   socket.on("voice-stream", async (audioChunk: any) => {
-    // console.log(`🔊 Received audio chunk for ${socket.id}, size:`, audioChunk?.size || audioChunk?.length || 'unknown');
     try {
       let buffer: Buffer;
       if (audioChunk instanceof Buffer) buffer = audioChunk;
@@ -306,6 +321,10 @@ voiceNamespace.on("connection", (socket: Socket) => {
         console.error(`🔊 Unsupported audio chunk format:`, audioChunk);
         return;
       }
+      const timestamp = new Date().toISOString();
+      console.log(
+        `[${timestamp}] 🔊 Audio chunk received for ${socket.id}, size: ${buffer.length} bytes`
+      );
       const success = speechService.sendAudioChunk(connectionId, buffer);
       if (!success)
         console.warn(`🔊 Failed to send audio chunk for ${socket.id}`);
@@ -314,23 +333,28 @@ voiceNamespace.on("connection", (socket: Socket) => {
     }
   });
 
-  // Handle user confirmation via button click
+  socket.on("stop-recording", () => {
+    console.log(`🔊 Stopping recording for ${socket.id}`);
+    const connId = socketConnectionIds.get(socket.id);
+    if (connId) {
+      speechService.closeLiveConnection(connId);
+      socketConnectionIds.delete(socket.id);
+    }
+  });
+
   socket.on("confirm-command", async (command) => {
     console.log(`🔊 User confirmed command via UI: ${JSON.stringify(command)}`);
 
-    // Record a successful confirmation
     if (userInfo.previousConfirmations) {
       userInfo.previousConfirmations.correct++;
       userInfo.previousConfirmations.total++;
     }
 
-    // Add to session items for context
     userInfo.sessionItems.push(command.item);
     if (userInfo.sessionItems.length > 10) {
-      userInfo.sessionItems.shift(); // Remove oldest item
+      userInfo.sessionItems.shift();
     }
 
-    // Log the confirmation to the database
     try {
       await logSystemAction(
         "Command",
@@ -343,20 +367,16 @@ voiceNamespace.on("connection", (socket: Socket) => {
       console.error("Error logging command confirmation:", error);
     }
 
-    // Clear pending confirmation
     sessionState.setPendingConfirmation(null);
   });
 
-  // Handle user rejection via button click
   socket.on("reject-command", async (command) => {
     console.log(`🔊 User rejected command via UI: ${JSON.stringify(command)}`);
 
-    // Record a rejection
     if (userInfo.previousConfirmations) {
       userInfo.previousConfirmations.total++;
     }
 
-    // Log the rejection to the database
     try {
       await logSystemAction(
         "Command",
@@ -369,11 +389,9 @@ voiceNamespace.on("connection", (socket: Socket) => {
       console.error("Error logging command rejection:", error);
     }
 
-    // Clear pending confirmation
     sessionState.setPendingConfirmation(null);
   });
 
-  // Handle command correction
   socket.on(
     "correct-command",
     (originalCommand, correctedCommand, mistakeType) => {
@@ -383,29 +401,21 @@ voiceNamespace.on("connection", (socket: Socket) => {
         )} -> ${JSON.stringify(correctedCommand)}`
       );
 
-      // Record the correction detail
-      confirmationService.recordConfirmationResult(
-        socket.id,
-        false, // Not correct
-        {
-          originalCommand,
-          correctedCommand,
-          mistakeType,
-        }
-      );
+      confirmationService.recordConfirmationResult(socket.id, false, {
+        originalCommand,
+        correctedCommand,
+        mistakeType,
+      });
 
-      // Add corrected item to session context
       userInfo.sessionItems.push(correctedCommand.item);
       if (userInfo.sessionItems.length > 10) {
         userInfo.sessionItems.shift();
       }
 
-      // Clear pending confirmation
       sessionState.setPendingConfirmation(null);
     }
   );
 
-  // Handle undo command
   socket.on("undo", () => {
     const actionLogs = sessionActionLogs.get(socket.id);
     if (actionLogs && actionLogs.length > 0) {
@@ -418,11 +428,14 @@ voiceNamespace.on("connection", (socket: Socket) => {
 
   socket.on("disconnect", (reason) => {
     console.log(`🔊 Client ${socket.id} disconnected, reason:`, reason);
-    speechService.closeLiveConnection(connectionId);
+    const connId = socketConnectionIds.get(socket.id);
+    if (connId) {
+      speechService.closeLiveConnection(connId);
+      socketConnectionIds.delete(socket.id);
+    }
   });
 });
 
-// Middleware
 app.use(
   cors({
     origin: ["http://localhost:3000", "http://127.0.0.1:3000"],
@@ -433,11 +446,9 @@ app.use(
 );
 app.use(express.json());
 
-// Routes
 app.use("/api/inventory", inventoryRoutes);
-app.use("/api/auth", authRoutes); // Register auth routes
+app.use("/api/auth", authRoutes);
 
-// Error handling middleware should be last
 app.use(errorHandler);
 
 app.get("/", (req, res) => {

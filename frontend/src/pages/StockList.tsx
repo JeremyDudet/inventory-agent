@@ -36,8 +36,8 @@ function InventoryListWithStickyHeader({ items }: { items: InventoryItem[] }) {
           </button>
         </div> */}
       </div>
-      <div className="-mx-4 mt-8 sm:-mx-0 sm:overflow-x-hidden">
-        <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-700 sm:overflow-x-hidden">
+      <div className="-mx-4 mt-8 sm:-mx-0 overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+        <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-700 overflow-x-hidden ">
           <thead>
             <tr>
               <th

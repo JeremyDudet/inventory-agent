@@ -1,15 +1,18 @@
-// backend/src/services/speechService.ts
-import { createClient, LiveTranscriptionEvents } from '@deepgram/sdk';
-import { EventEmitter } from 'events';
-import dotenv from 'dotenv';
+import { createClient, LiveTranscriptionEvents } from "@deepgram/sdk";
+import { EventEmitter } from "events";
+import dotenv from "dotenv";
 
 dotenv.config();
 
-const deepgramApiKey = process.env.DEEPGRAM_API_KEY || '';
+const deepgramApiKey = process.env.DEEPGRAM_API_KEY || "";
 const deepgram = deepgramApiKey ? createClient(deepgramApiKey) : null;
 
 interface TranscriptionCallbacks {
-  onTranscript: (transcript: string, isFinal: boolean, confidence: number) => void;
+  onTranscript: (
+    transcript: string,
+    isFinal: boolean,
+    confidence: number
+  ) => void;
   onError: (error: any) => void;
 }
 
@@ -18,22 +21,35 @@ interface LiveConnectionOptions {
   channels?: number;
   language?: string;
   model?: string;
+  vad_events?: boolean;
+  no_delay?: boolean;
+  vad_turnoff?: number;
 }
 
 class SpeechService extends EventEmitter {
-  private liveConnections = new Map<string, { connection: any; keepAliveInterval: NodeJS.Timeout | null }>();
+  private liveConnections = new Map<
+    string,
+    { connection: any; keepAliveInterval: NodeJS.Timeout | null }
+  >();
 
   constructor() {
     super();
     if (!deepgramApiKey || !deepgram) {
-      console.log('⚠️ No Deepgram API key provided. Use mock mode or set DEEPGRAM_API_KEY.');
+      console.log(
+        "⚠️ No Deepgram API key provided. Use mock mode or set DEEPGRAM_API_KEY."
+      );
     } else {
-      console.log('✅ Deepgram client initialized successfully');
+      console.log("✅ Deepgram client initialized successfully");
     }
   }
 
-  createLiveConnection(options: LiveConnectionOptions, callbacks: TranscriptionCallbacks): string {
-    const connectionId = `live-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  createLiveConnection(
+    options: LiveConnectionOptions,
+    callbacks: TranscriptionCallbacks
+  ): string {
+    const connectionId = `live-${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2, 9)}`;
 
     if (!deepgram) {
       console.log(`🎤 Mock mode enabled for connection ${connectionId}`);
@@ -42,15 +58,21 @@ class SpeechService extends EventEmitter {
     }
 
     const deepgramOptions = {
-      model: options.model || 'nova-2',
-      language: options.language || 'en-US',
+      model: options.model || "nova-2",
+      language: options.language || "en-US",
       smart_format: true,
       interim_results: true,
       sample_rate: options.sampleRate || 48000,
       channels: options.channels || 1,
+      vad_events: options.vad_events || false,
+      no_delay: options.no_delay || false,
+      vad_turnoff: options.vad_turnoff || undefined,
     };
 
-    console.log(`🎤 Creating Deepgram connection with options:`, deepgramOptions);
+    console.log(
+      `🎤 Creating Deepgram connection with options:`,
+      deepgramOptions
+    );
 
     const connection = deepgram.listen.live(deepgramOptions);
 
@@ -58,17 +80,27 @@ class SpeechService extends EventEmitter {
 
     connection.on(LiveTranscriptionEvents.Open, () => {
       console.log(`🎤 Deepgram connection opened (${connectionId})`);
-      
+
       connection.on(LiveTranscriptionEvents.Transcript, (result: any) => {
-        const transcript = result.channel?.alternatives[0]?.transcript || '';
+        const transcript = result.channel?.alternatives[0]?.transcript || "";
         const confidence = result.channel?.alternatives[0]?.confidence || 0;
         const isFinal = !!result.is_final;
-        console.log(`🎤 Transcript received for ${connectionId}: "${transcript}" (isFinal: ${isFinal}, confidence: ${confidence})`);
+        console.log(
+          `🎤 Transcript received for ${connectionId}: "${transcript}" (isFinal: ${isFinal}, confidence: ${confidence})`
+        );
         if (transcript) {
           callbacks.onTranscript(transcript, isFinal, confidence);
         } else {
           console.log(`🎤 Empty transcript received for ${connectionId}`);
         }
+      });
+
+      connection.on(LiveTranscriptionEvents.SpeechStarted, () => {
+        console.log(`🎤 Speech started detected (${connectionId})`);
+      });
+
+      connection.on(LiveTranscriptionEvents.UtteranceEnd, () => {
+        console.log(`🎤 Utterance ended detected (${connectionId})`);
       });
 
       connection.on(LiveTranscriptionEvents.Close, () => {
@@ -100,17 +132,23 @@ class SpeechService extends EventEmitter {
     }
 
     if (!deepgram) {
-      console.log(`🎤 Mock sending ${audioChunk.length} bytes (${connectionId})`);
+      console.log(
+        `🎤 Mock sending ${audioChunk.length} bytes (${connectionId})`
+      );
       return true;
     }
 
     const { connection } = connectionData;
     if (connection.getReadyState() !== 1) {
-      console.warn(`🎤 Connection not open (${connectionId}), state: ${connection.getReadyState()}`);
+      console.warn(
+        `🎤 Connection not open (${connectionId}), state: ${connection.getReadyState()}`
+      );
       return false;
     }
 
-    console.log(`🎤 Sending ${audioChunk.length} bytes to Deepgram (${connectionId})`);
+    console.log(
+      `🎤 Sending ${audioChunk.length} bytes to Deepgram (${connectionId})`
+    );
     connection.send(audioChunk);
     return true;
   }
@@ -129,11 +167,14 @@ class SpeechService extends EventEmitter {
     console.log(`🎤 Connection closed (${connectionId})`);
   }
 
-  private setupMockLiveStreaming(connectionId: string, callbacks: TranscriptionCallbacks): void {
+  private setupMockLiveStreaming(
+    connectionId: string,
+    callbacks: TranscriptionCallbacks
+  ): void {
     console.log(`🎤 Setting up mock streaming for ${connectionId}`);
     const mockResponses = [
-      { text: 'Hello world', confidence: 0.95 },
-      { text: 'Testing audio', confidence: 0.90 },
+      { text: "Hello world", confidence: 0.95 },
+      { text: "Testing audio", confidence: 0.9 },
     ];
     let index = 0;
 

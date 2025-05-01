@@ -225,6 +225,7 @@ export function VoiceModal() {
   const [isWarpActive, setIsWarpActive] = useState(false);
   const [transcription, setTranscription] = useState("");
   const [isFinalTranscription, setIsFinalTranscription] = useState(false);
+  const [isInCooldown, setIsInCooldown] = useState(false);
   const { theme } = useTheme();
   const socketRef = useRef<typeof io.Socket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -328,10 +329,12 @@ export function VoiceModal() {
   useEffect(() => {
     if (isListening) {
       setButtonState("listening");
-    } else if (isConnected) {
+    } else if (isConnected && !isInCooldown) {
       setButtonState("ready");
+    } else if (isConnected && isInCooldown) {
+      setButtonState("loading");
     }
-  }, [isListening, isConnected]);
+  }, [isListening, isConnected, isInCooldown]);
 
   const handleStartClick = () => {
     if (isConnected) {
@@ -347,6 +350,12 @@ export function VoiceModal() {
     // Clear transcription when closing
     setTranscription("");
     setIsFinalTranscription(false);
+
+    // Set cooldown for 2 seconds
+    setIsInCooldown(true);
+    setTimeout(() => {
+      setIsInCooldown(false);
+    }, 5000);
   };
 
   const startRecording = async () => {
@@ -355,7 +364,6 @@ export function VoiceModal() {
       return;
     }
 
-    // Check if MediaRecorder is available
     if (!window.MediaRecorder) {
       console.error("MediaRecorder is not supported in this browser");
       setFeedback("Voice recording not supported in this browser");
@@ -364,6 +372,7 @@ export function VoiceModal() {
     }
 
     try {
+      const startTime = Date.now();
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -371,19 +380,18 @@ export function VoiceModal() {
           autoGainControl: true,
         },
       });
+      console.log(`Time to get media stream: ${Date.now() - startTime}ms`);
       streamRef.current = mediaStream;
 
-      // Check for supported MIME types
       const getMimeType = () => {
         if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
           return "audio/webm;codecs=opus";
         } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
-          return "audio/mp4"; // Safari often supports this
+          return "audio/mp4";
         } else if (MediaRecorder.isTypeSupported("audio/mpeg")) {
           return "audio/mpeg";
-        } else {
-          return ""; // No MIME type specified, will use browser default
         }
+        return "";
       };
 
       const mimeType = getMimeType();
@@ -398,6 +406,7 @@ export function VoiceModal() {
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0 && socketRef.current && isConnected) {
           try {
+            console.log(`Sending voice-stream, size: ${event.data.size} bytes`);
             socketRef.current.emit("voice-stream", event.data);
           } catch (error) {
             console.error("Error sending audio data:", error);
@@ -409,9 +418,10 @@ export function VoiceModal() {
       mediaRecorder.onstart = () => {
         setIsListening(true);
         setFeedback("Listening...");
-        // Clear any previous transcription
         setTranscription("");
         setIsFinalTranscription(false);
+        console.log("Emitting start-recording event");
+        socketRef.current?.emit("start-recording");
       };
 
       mediaRecorder.onstop = () => {
@@ -424,7 +434,7 @@ export function VoiceModal() {
         stopRecording();
       };
 
-      mediaRecorder.start(500);
+      mediaRecorder.start(250);
     } catch (error) {
       console.error("Error starting recording:", error);
       setFeedback("Failed to access microphone");
