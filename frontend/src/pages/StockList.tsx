@@ -7,10 +7,8 @@ import type { InventoryItem } from "../stores/inventoryStore";
 export default function StockList() {
   const { items } = useInventoryStore();
   return (
-    <div className="min-h-screen bg-inherit">
-      <div className="mx-auto max-w-7xl">
-        <InventoryListWithStickyHeader items={items} />
-      </div>
+    <div className="min-h-screen bg-inherit max-w-7xl">
+      <InventoryListWithStickyHeader items={items} />
     </div>
   );
 }
