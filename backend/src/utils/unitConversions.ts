@@ -20,6 +20,8 @@ export const unitToType: Record<string, string> = {
   pieces: "count",
   box: "count",
   boxes: "count",
+  bottle: "count",
+  bottles: "count",
   bag: "count",
   bags: "count",
   cup: "volume",

@@ -1,3 +1,4 @@
+// backend/src/app.ts
 import express from "express";
 import http from "http";
 import { Server, Socket } from "socket.io";
@@ -311,19 +312,21 @@ voiceNamespace.on("connection", (socket: Socket) => {
   socket.on("voice-stream", async (audioChunk: any) => {
     try {
       let buffer: Buffer;
-      if (audioChunk instanceof Buffer) buffer = audioChunk;
-      else if (audioChunk instanceof ArrayBuffer)
+      if (audioChunk instanceof Buffer) {
+        buffer = audioChunk;
+      } else if (audioChunk instanceof ArrayBuffer) {
         buffer = Buffer.from(audioChunk);
-      else if (audioChunk instanceof Blob) {
+      } else if (audioChunk instanceof Blob) {
         const arrayBuffer = await audioChunk.arrayBuffer();
         buffer = Buffer.from(arrayBuffer);
       } else {
         console.error(`🔊 Unsupported audio chunk format:`, audioChunk);
         return;
       }
-      const timestamp = new Date().toISOString();
       console.log(
-        `[${timestamp}] 🔊 Audio chunk received for ${socket.id}, size: ${buffer.length} bytes`
+        `[${new Date().toISOString()}] 🔊 Audio chunk received for ${
+          socket.id
+        }, size: ${buffer.length} bytes`
       );
       const success = speechService.sendAudioChunk(connectionId, buffer);
       if (!success)

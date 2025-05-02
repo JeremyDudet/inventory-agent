@@ -1,3 +1,4 @@
+// frontend/src/components/VoiceModal.tsx
 import { useState, useEffect, useRef } from "react";
 import {
   AnimatePresence,
@@ -371,25 +372,29 @@ export function VoiceModal() {
     }
 
     try {
-      const startTime = Date.now();
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
+          sampleRate: 48000,
+          channelCount: 1,
         },
       });
-      console.log(`Time to get media stream: ${Date.now() - startTime}ms`);
       streamRef.current = mediaStream;
 
       const getMimeType = () => {
         if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+          console.log("Using audio/webm;codecs=opus");
           return "audio/webm;codecs=opus";
         } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
+          console.log("Using audio/mp4");
           return "audio/mp4";
         } else if (MediaRecorder.isTypeSupported("audio/mpeg")) {
+          console.log("Using audio/mpeg");
           return "audio/mpeg";
         }
+        console.log("No supported MIME type found");
         return "";
       };
 
@@ -404,12 +409,8 @@ export function VoiceModal() {
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0 && socketRef.current && isConnected) {
-          try {
-            socketRef.current.emit("voice-stream", event.data);
-          } catch (error) {
-            console.error("Error sending audio data:", error);
-            setFeedback("Error sending audio data");
-          }
+          socketRef.current.emit("voice-stream", event.data);
+          console.log("Sent audio data as Blob, size:", event.data.size);
         }
       };
 
@@ -432,7 +433,7 @@ export function VoiceModal() {
         stopRecording();
       };
 
-      mediaRecorder.start(250);
+      mediaRecorder.start(500);
     } catch (error) {
       console.error("Error starting recording:", error);
       setFeedback("Failed to access microphone");
