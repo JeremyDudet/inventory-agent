@@ -5,6 +5,8 @@ node_modules/
 
 # Testing
 coverage/
+backend/coverage
+backend/__tests__
 
 # Production
 build/
