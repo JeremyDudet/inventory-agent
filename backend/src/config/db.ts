@@ -1,34 +1,39 @@
 // backend/src/config/db.ts
-import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
+import { createClient } from "@supabase/supabase-js";
+import dotenv from "dotenv";
+import { getAllItems } from "../repositories/InventoryRepository";
 
 // Load environment variables
 dotenv.config();
 
 // Supabase configuration
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_KEY || '';
+const supabaseUrl = process.env.SUPABASE_URL || "";
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY || "";
 
 // Supabase configuration validation
 if (!supabaseUrl || !supabaseKey) {
-  console.error('SUPABASE_URL and SUPABASE_SERVICE_KEY or SUPABASE_ANON_KEY must be set in .env');
+  console.error(
+    "SUPABASE_URL and SUPABASE_SERVICE_KEY or SUPABASE_ANON_KEY must be set in .env"
+  );
   process.exit(1);
 }
 
-console.log(`Initializing Supabase client with URL: ${supabaseUrl.substring(0, 20)}...`);
+console.log(
+  `Initializing Supabase client with URL: ${supabaseUrl.substring(0, 20)}...`
+);
 
 // Initialize Supabase client with service key for admin privileges in the backend
 const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     autoRefreshToken: false,
-    persistSession: false
+    persistSession: false,
   },
   db: {
-    schema: 'public',
+    schema: "public",
   },
   global: {
     headers: {
-      'x-application-name': 'stockcount-backend',
+      "x-application-name": "stockcount-backend",
     },
   },
 });
@@ -37,21 +42,26 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 export async function initializeSupabase() {
   try {
     // Simple connection test
-    const { data, error } = await supabase.from('session_logs').select('count(*)', { count: 'exact', head: true });
-    
-    if (error) {
-      console.error('⚠️ Supabase connection test failed:', error.message);
+    const response = await supabase
+      .from("session_logs")
+      .select("count(*)", { count: "exact", head: true });
+
+    if (response.error) {
+      console.error(
+        "⚠️ Supabase connection test failed:",
+        response.error.message
+      );
     } else {
-      console.log('✅ Supabase connection successful, database is accessible');
+      console.log("✅ Supabase connection successful, database is accessible");
     }
   } catch (err) {
-    console.error('⚠️ Supabase connection test error:', err);
+    console.error("⚠️ Supabase connection test error:", err);
   }
 }
 
 // Initialize connection in development/production, but not in test environment
-if (process.env.NODE_ENV !== 'test') {
+if (process.env.NODE_ENV !== "test") {
   initializeSupabase();
 }
 
-export default supabase; 
+export default supabase;
