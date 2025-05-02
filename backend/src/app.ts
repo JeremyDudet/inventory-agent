@@ -460,7 +460,7 @@ app.use("/api/auth", authRoutes);
 app.use(errorHandler);
 
 app.get("/", (req, res) => {
-  res.sendFile(__dirname + "/index.html");
+  res.json({ status: "Server running" });
 });
 
 server.listen(PORT, () => {
