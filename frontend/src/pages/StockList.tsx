@@ -3,6 +3,8 @@ import { useState } from "react";
 import { useInventoryStore } from "../stores/inventoryStore";
 import type { InventoryItem } from "../stores/inventoryStore";
 import { Input } from "@/components/ui/input";
+import { Text } from "@/components/ui/text";
+import { Heading } from "@/components/ui/heading";
 import {
   Dialog,
   DialogBackdrop,
@@ -69,12 +71,8 @@ function InventoryListWithStickyHeader({ items }: { items: InventoryItem[] }) {
       <div className="sm:flex-auto">
         {/* Header */}
         <div>
-          <h1 className="font-bold text-zinc-900 dark:text-zinc-200">
-            Stock List
-          </h1>
-          <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
-            Manually input how much we have in stock.
-          </p>
+          <Heading level={1}>Stock List</Heading>
+          <Text>Manually input how much there is in stock.</Text>
         </div>
 
         {/* Search and filter */}

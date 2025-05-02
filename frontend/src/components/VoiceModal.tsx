@@ -151,7 +151,7 @@ const Icon = ({ state }: { state: keyof typeof STATES }) => {
       IconComponent = <Loader />;
       break;
     case "ready":
-      IconComponent = <WaveformIcon className="w-5 h-5" />;
+      IconComponent = <WaveformIcon className="w-5 h-5 " />;
       break;
     case "error":
       IconComponent = <X />;
@@ -478,8 +478,8 @@ export function VoiceModal() {
               buttonState === "error"
                 ? "bg-zinc-400 dark:bg-zinc-700 text-white dark:text-zinc-200"
                 : buttonState === "loading"
-                ? "bg-zinc-500 dark:bg-zinc-600 text-zinc-800 dark:text-zinc-200 "
-                : "bg-zinc-500 dark:bg-zinc-600 text-white dark:text-zinc-200 "
+                ? "bg-zinc-500 dark:bg-zinc-700 text-white dark:text-zinc-200 hover:bg-zinc-600 dark:hover:bg-zinc-600"
+                : "bg-zinc-500 dark:bg-zinc-600 text-white dark:text-zinc-200 hover:bg-zinc-600 dark:hover:bg-zinc-500"
             }`}
             onClick={() => setIsOpen(true)}
             style={{}}
@@ -581,7 +581,7 @@ function Dialog({
                   ? "bg-zinc-400 dark:bg-zinc-700 text-white dark:text-zinc-200"
                   : buttonState === "loading"
                   ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 outline outline-zinc-400 dark:outline-zinc-600"
-                  : "bg-zinc-500 dark:bg-zinc-700 text-white dark:text-zinc-200"
+                  : "bg-zinc-500 dark:bg-zinc-700 text-white dark:text-zinc-200 hover:bg-zinc-600 dark:hover:bg-zinc-600"
               }`}
               style={{}}
               disabled={buttonState === "loading" || buttonState === "error"}
