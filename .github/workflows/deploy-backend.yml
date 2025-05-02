@@ -41,7 +41,7 @@ jobs:
           username: root
           key: ${{ secrets.DROPLET_SSH_KEY }}
           source: "backend/dist/*,backend/package.json,backend/package-lock.json"
-          target: "/var/www/inventory-agent/backend"
+          target: "/var/www/inventory-agent/"
           timeout: 30s
           command_timeout: 10m
 
