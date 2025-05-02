@@ -10,14 +10,15 @@ import {
 } from "motion/react";
 import { CSSProperties, useState, useRef, useEffect } from "react";
 import { useTheme } from "../context/ThemeContext";
+import { useNotification } from "@/context/NotificationContext";
 
 const N_NOTIFICATIONS = 10;
-
 const NOTIFICATION_HEIGHT = 60;
 const NOTIFICATION_GAP = 8;
 
 export default function NotificationsStack() {
   const [isOpen, setIsOpen] = useState(false);
+  const { notifications } = useNotification();
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const expandButtonRef = useRef<HTMLButtonElement>(null);
@@ -55,9 +56,9 @@ export default function NotificationsStack() {
     WebkitMaskImage: isOpen ? maskImage.get() : "none",
   };
 
-  const handleNotificationClick = (index: number) => {
+  const handleNotificationClick = (id: string) => {
     // Individual notification click handler
-    console.log(`Notification ${index} clicked`);
+    console.log(`Notification ${id} clicked`);
     // Here you can add custom logic for each notification
   };
 
@@ -103,11 +104,11 @@ export default function NotificationsStack() {
               }}
             />
 
-            {Array.from({ length: N_NOTIFICATIONS }).map((_, i) => (
+            {notifications.map((notification, index) => (
               <Notification
-                key={i}
-                index={i}
-                onClick={() => handleNotificationClick(i)}
+                key={notification.id}
+                index={index}
+                onClick={() => handleNotificationClick(notification.id)}
                 isStackOpen={isOpen}
                 isDark={isDark}
                 onExpand={() => setIsOpen(true)}

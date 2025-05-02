@@ -405,7 +405,6 @@ export function VoiceModal() {
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0 && socketRef.current && isConnected) {
           try {
-            console.log(`Sending voice-stream, size: ${event.data.size} bytes`);
             socketRef.current.emit("voice-stream", event.data);
           } catch (error) {
             console.error("Error sending audio data:", error);
