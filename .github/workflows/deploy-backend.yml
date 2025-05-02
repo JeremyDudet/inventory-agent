@@ -34,17 +34,19 @@ jobs:
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DROPLET_HOST }}
-          username: ${{ secrets.DROPLET_USERNAME }}
+          username: root
           key: ${{ secrets.DROPLET_SSH_KEY }}
           source: "backend/dist/*,backend/package.json,backend/package-lock.json"
           target: "/var/www/inventory-agent/backend"
           strip_components: 1
+          timeout: 30s
+          command_timeout: 10m
 
       - name: Install dependencies and restart PM2
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.DROPLET_HOST }}
-          username: ${{ secrets.DROPLET_USERNAME }}
+          username: root
           key: ${{ secrets.DROPLET_SSH_KEY }}
           script: |
             cd /var/www/inventory-agent/backend
