@@ -672,7 +672,6 @@ function StyleSheet({ theme }: { theme: string }) {
     margin-bottom: 20px;
     margin-left: 8px;
     margin-right: 8px;
-    border: 1px solid ${theme === "dark" ? "#262b36" : "#e5e7eb"};
     padding: 20px;
     position: relative;
     transform: translateY(0);
