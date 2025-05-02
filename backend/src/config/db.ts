@@ -40,21 +40,14 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 // Test the connection
 export async function initializeSupabase() {
   try {
-    // Simple connection test
-    const response = await supabase
-      .from("session_logs")
-      .select("count(*)", { count: "exact", head: true });
-
-    if (response.error) {
-      console.error(
-        "⚠️ Supabase connection test failed:",
-        response.error.message
-      );
-    } else {
-      console.log("✅ Supabase connection successful, database is accessible");
-    }
+    const { data, error } = await supabase.from("inventory_items").select("*");
+    if (error) throw error;
+    console.log("✅ Supabase connection successful");
   } catch (err) {
-    console.error("⚠️ Supabase connection test error:", err);
+    console.error(
+      "⚠️ Supabase connection test error:",
+      JSON.stringify(err, null, 2)
+    );
   }
 }
 

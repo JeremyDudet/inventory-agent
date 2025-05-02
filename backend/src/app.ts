@@ -457,11 +457,15 @@ app.use(express.json());
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/auth", authRoutes);
 
-app.use(errorHandler);
-
 app.get("/", (req, res) => {
   res.json({ status: "Server running" });
 });
+
+app.get("*", (req, res) => {
+  res.status(404).json({ message: "Not Found" });
+});
+
+app.use(errorHandler);
 
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
