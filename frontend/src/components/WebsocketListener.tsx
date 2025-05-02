@@ -4,7 +4,7 @@ import io from "socket.io-client";
 import { useInventoryStore } from "@/stores/inventoryStore";
 import { useNotification } from "@/context/NotificationContext";
 
-const socket = io("http://localhost:8080/voice", {
+const socket = io(`${import.meta.env.VITE_API_URL}/voice`, {
   path: "/socket.io/",
 });
 

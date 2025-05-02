@@ -264,7 +264,7 @@ export function VoiceModal() {
   }, [buttonState]);
 
   useEffect(() => {
-    const SOCKET_URL = "https://api.stockcount.io/voice";
+    const SOCKET_URL = `${import.meta.env.VITE_API_URL}/voice`;
     const socket = io(SOCKET_URL, {
       transports: ["websocket", "polling"],
       reconnection: true,

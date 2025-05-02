@@ -98,7 +98,9 @@ const App: React.FC = () => {
   useEffect(() => {
     const fetchInventory = async () => {
       try {
-        const response = await fetch("http://localhost:8080/api/inventory");
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/api/inventory`
+        );
         if (!response.ok) throw new Error("Failed to fetch inventory");
         const data = await response.json();
         setItems(data.items); // Extract the items array from the response
@@ -109,7 +111,7 @@ const App: React.FC = () => {
     const fetchCategories = async () => {
       try {
         const response = await fetch(
-          "http://localhost:8080/api/inventory/categories"
+          `${import.meta.env.VITE_API_URL}/api/inventory/categories`
         );
         if (!response.ok) throw new Error("Failed to fetch categories");
         const data = await response.json();
