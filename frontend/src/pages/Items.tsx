@@ -62,7 +62,7 @@ export default function ItemsPage() {
           {/* Add Item Button */}
           <div>
             <button
-              className="font-medium bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 rounded-lg px-4 py-2 hover:bg-zinc-300 dark:hover:bg-zinc-700 hover:cursor-pointer"
+              className="mt-1 font-medium bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 rounded-lg px-4 py-2 hover:bg-zinc-300 dark:hover:bg-zinc-700 hover:cursor-pointer"
               onClick={handleAddItem}
             >
               + New Item
