@@ -1,7 +1,6 @@
 // backend/src/config/db.ts
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
-import { getAllItems } from "../repositories/InventoryRepository";
 
 // Load environment variables
 dotenv.config();
