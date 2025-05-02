@@ -30,17 +30,36 @@ jobs:
         working-directory: ./backend
         run: npm run build
 
+      - name: Verify build output
+        working-directory: ./backend
+        run: ls -la dist/src/
+
       - name: Deploy to DigitalOcean
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DROPLET_HOST }}
           username: root
           key: ${{ secrets.DROPLET_SSH_KEY }}
-          source: "backend/dist,backend/package.json,backend/package-lock.json"
+          source: "backend/dist/*,backend/package.json,backend/package-lock.json"
           target: "/var/www/inventory-agent/backend"
-          strip_components: 1
           timeout: 30s
           command_timeout: 10m
+
+      - name: Create .env file
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: root
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          script: |
+            echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" > /var/www/inventory-agent/backend/.env
+            echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> /var/www/inventory-agent/backend/.env
+            echo "SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }}" >> /var/www/inventory-agent/backend/.env
+            echo "PORT=8080" >> /var/www/inventory-agent/backend/.env
+            echo "DEEPGRAM_API_KEY=${{ secrets.DEEPGRAM_API_KEY }}" >> /var/www/inventory-agent/backend/.env
+            echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> /var/www/inventory-agent/backend/.env
+            echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> /var/www/inventory-agent/backend/.env
+            echo "NODE_ENV=production" >> /var/www/inventory-agent/backend/.env
 
       - name: Install dependencies and restart PM2
         uses: appleboy/ssh-action@v1.0.3
