@@ -99,19 +99,32 @@ const App: React.FC = () => {
     const fetchInventory = async () => {
       try {
         const response = await fetch(
-          `${import.meta.env.VITE_API_URL}/api/inventory`
+          `${import.meta.env.VITE_API_URL}/api/inventory`,
+          {
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
         );
         if (!response.ok) throw new Error("Failed to fetch inventory");
         const data = await response.json();
-        setItems(data.items); // Extract the items array from the response
+        setItems(data.items);
       } catch (error) {
         console.error("Failed to fetch inventory:", error);
       }
     };
+
     const fetchCategories = async () => {
       try {
         const response = await fetch(
-          `${import.meta.env.VITE_API_URL}/api/inventory/categories`
+          `${import.meta.env.VITE_API_URL}/api/inventory/categories`,
+          {
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
         );
         if (!response.ok) throw new Error("Failed to fetch categories");
         const data = await response.json();

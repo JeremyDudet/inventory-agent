@@ -63,6 +63,7 @@ const apiRequest = async <T>(
     method,
     headers,
     body: data ? JSON.stringify(data) : undefined,
+    credentials: "include",
   };
 
   try {
