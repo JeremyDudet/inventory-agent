@@ -34,7 +34,18 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: "*" },
+  cors: {
+    origin: [
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+      "https://stockcount.io",
+      "https://www.stockcount.io",
+      "https://api.stockcount.io",
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"],
+  },
   path: "/socket.io/",
   pingTimeout: 60000,
   pingInterval: 25000,
@@ -446,6 +457,7 @@ app.use(
       "http://127.0.0.1:3000",
       "https://stockcount.io",
       "https://www.stockcount.io",
+      "https://api.stockcount.io",
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
