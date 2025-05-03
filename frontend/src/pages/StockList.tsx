@@ -72,7 +72,7 @@ function InventoryListWithStickyHeader({ items }: { items: InventoryItem[] }) {
         {/* Header */}
         <div>
           <Heading level={1}>Stock List</Heading>
-          <Text>Manually input how much there is in stock.</Text>
+          <Text>Manually input your stock counts.</Text>
         </div>
 
         {/* Search and filter */}
