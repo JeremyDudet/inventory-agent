@@ -552,7 +552,7 @@ export default function VoiceOverlay({
 
         // First animation: applying the deformation
         const animation1 = animate(0, 1, {
-          duration: 0.3,
+          duration: 0.5,
           ease: [0.65, 0, 0.35, 1],
           onUpdate: (value) => {
             // Use screen size adjusted values
@@ -567,7 +567,7 @@ export default function VoiceOverlay({
         // Second animation: returning to normal
         animation1.finished.then(() => {
           animate(0, 1, {
-            duration: 1.5,
+            duration: 2,
             ease: [0.22, 1, 0.36, 1],
             onUpdate: (latest) => {
               const value = 1 - latest; // Reverse from 1 to 0

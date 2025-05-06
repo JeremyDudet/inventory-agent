@@ -66,6 +66,15 @@ const animations = {
 function Loader({ className }: { className?: string }) {
   const time = useTime();
   const rotate = useTransform(time, [0, 1000], [0, 360], { clamp: false });
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   return (
     <motion.div
@@ -74,8 +83,8 @@ function Loader({ className }: { className?: string }) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        width: ICON_SIZE,
-        height: ICON_SIZE,
+        width: isMobile ? MOBILE_ICON_SIZE : ICON_SIZE,
+        height: isMobile ? MOBILE_ICON_SIZE : ICON_SIZE,
       }}
       className={className}
     >
@@ -98,17 +107,44 @@ function Check({ className }: { className?: string }) {
 }
 
 function X({ className }: { className?: string }) {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   return (
-    <motion.svg {...svgProps} className={className}>
-      <motion.line x1="6" y1="6" x2="18" y2="18" {...animations} />
-      <motion.line
-        x1="18"
-        y1="6"
-        x2="6"
-        y2="18"
-        {...{ ...animations, transition: { ...springConfig, delay: 0.1 } }}
-      />
-    </motion.svg>
+    <motion.div
+      style={{
+        width: isMobile ? MOBILE_ICON_SIZE : ICON_SIZE,
+        height: isMobile ? MOBILE_ICON_SIZE : ICON_SIZE,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <motion.svg
+        {...svgProps}
+        className={className}
+        style={{
+          width: "100%",
+          height: "100%",
+        }}
+      >
+        <motion.line x1="6" y1="6" x2="18" y2="18" {...animations} />
+        <motion.line
+          x1="18"
+          y1="6"
+          x2="6"
+          y2="18"
+          {...{ ...animations, transition: { ...springConfig, delay: 0.1 } }}
+        />
+      </motion.svg>
+    </motion.div>
   );
 }
 
