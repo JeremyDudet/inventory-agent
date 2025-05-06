@@ -252,7 +252,7 @@ const Icon = ({ state }: { state: keyof typeof STATES }) => {
               WebkitFilter: "blur(6px)",
             }}
             transition={{
-              duration: 0.15,
+              duration: 0.2,
               ease: "easeInOut",
             }}
           >
@@ -288,7 +288,7 @@ export function VoiceModal() {
         buttonRef.current,
         { x: [0, -6, 6, -6, 0] },
         {
-          duration: 0.3,
+          duration: 0.2,
           ease: "easeInOut",
           times: [0, 0.25, 0.5, 0.75, 1],
           repeat: 0,
@@ -302,10 +302,11 @@ export function VoiceModal() {
           scale: [1, 1.2, 1],
         },
         {
-          duration: 0.3,
+          duration: 0.2,
           ease: "easeInOut",
           times: [0, 0.5, 1],
           repeat: 0,
+          delay: 0.2,
         }
       );
     }
@@ -527,7 +528,6 @@ export function VoiceModal() {
                 : "bg-zinc-500 dark:bg-zinc-600 text-white dark:text-zinc-200 hover:bg-zinc-600 dark:hover:bg-zinc-500"
             }`}
             onClick={() => setIsOpen(true)}
-            style={{}}
             data-primary-action
             layoutId="cta"
             whileTap={{ scale: 0.95 }}

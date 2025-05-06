@@ -5,6 +5,7 @@ import type { InventoryItem } from "../stores/inventoryStore";
 import { Input } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
 import { Heading } from "@/components/ui/heading";
+import { InputCountDrawer } from "@/components/InputCountDrawer";
 import {
   Dialog,
   DialogBackdrop,
@@ -20,7 +21,6 @@ import {
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
 import { motion } from "framer-motion";
-
 const filters = [
   {
     id: "category",
@@ -209,7 +209,16 @@ function InventoryListWithStickyHeader({ items }: { items: InventoryItem[] }) {
                     href="#"
                     className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-300"
                   >
-                    Edit<span className="sr-only">, {item.name}</span>
+                    <InputCountDrawer
+                    // item={item}
+                    // users={[]}
+                    // units={[]}
+                    // onUpdate={() => {}}
+                    >
+                      <span>
+                        Edit<span className="sr-only">, {item.name}</span>
+                      </span>
+                    </InputCountDrawer>
                   </a>
                 </td>
               </tr>
