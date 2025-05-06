@@ -13,17 +13,15 @@ import { useTheme } from "../context/ThemeContext";
 import io from "socket.io-client";
 import VoiceOverlay from "./VoiceOverlay";
 
-const WaveformIcon = ({ className }: { className?: string }) => (
-  <div className={`flex items-center justify-center ${className}`}>
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 256 256"
-      fill="currentColor"
-      className="w-full h-full"
-    >
-      <path d="M56,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0ZM88,24a8,8,0,0,0-8,8V224a8,8,0,0,0,16,0V32A8,8,0,0,0,88,24Zm40,32a8,8,0,0,0-8,8V192a8,8,0,0,0,16,0V64A8,8,0,0,0,128,56Zm40,32a8,8,0,0,0-8,8v64a8,8,0,0,0,16,0V96A8,8,0,0,0,168,88Zm40-16a8,8,0,0,0-8,8v96a8,8,0,0,0,16,0V80A8,8,0,0,0,208,72Z"></path>
-    </svg>
-  </div>
+const WaveformIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 256 256"
+    fill="currentColor"
+    className="w-full h-full"
+  >
+    <path d="M56,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0ZM88,24a8,8,0,0,0-8,8V224a8,8,0,0,0,16,0V32A8,8,0,0,0,88,24Zm40,32a8,8,0,0,0-8,8V192a8,8,0,0,0,16,0V64A8,8,0,0,0,128,56Zm40,32a8,8,0,0,0-8,8v64a8,8,0,0,0,16,0V96A8,8,0,0,0,168,88Zm40-16a8,8,0,0,0-8,8v96a8,8,0,0,0,16,0V80A8,8,0,0,0,208,72Z"></path>
+  </svg>
 );
 
 // Define states for the button
@@ -38,6 +36,7 @@ const STATES = {
 
 // Icon components for different states
 const ICON_SIZE = 20;
+const MOBILE_ICON_SIZE = 28;
 const STROKE_WIDTH = 1.5;
 const VIEW_BOX_SIZE = 24;
 
@@ -64,7 +63,7 @@ const animations = {
   transition: springConfig,
 };
 
-function Loader() {
+function Loader({ className }: { className?: string }) {
   const time = useTime();
   const rotate = useTransform(time, [0, 1000], [0, 360], { clamp: false });
 
@@ -78,6 +77,7 @@ function Loader() {
         width: ICON_SIZE,
         height: ICON_SIZE,
       }}
+      className={className}
     >
       <motion.svg {...svgProps}>
         <motion.path d="M21 12a9 9 0 1 1-6.219-8.56" {...animations} />
@@ -86,9 +86,9 @@ function Loader() {
   );
 }
 
-function Check() {
+function Check({ className }: { className?: string }) {
   return (
-    <motion.svg {...svgProps}>
+    <motion.svg {...svgProps} className={className}>
       <motion.polyline
         points="4 12 9 17 20 6"
         {...{ ...animations, transition: { ...springConfig, delay: 0.1 } }}
@@ -97,9 +97,9 @@ function Check() {
   );
 }
 
-function X() {
+function X({ className }: { className?: string }) {
   return (
-    <motion.svg {...svgProps}>
+    <motion.svg {...svgProps} className={className}>
       <motion.line x1="6" y1="6" x2="18" y2="18" {...animations} />
       <motion.line
         x1="18"
@@ -112,9 +112,9 @@ function X() {
   );
 }
 
-function Microphone() {
+function Microphone({ className }: { className?: string }) {
   return (
-    <motion.svg {...svgProps}>
+    <motion.svg {...svgProps} className={className}>
       <motion.path
         d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"
         {...animations}
@@ -143,16 +143,26 @@ function Microphone() {
 
 const Icon = ({ state }: { state: keyof typeof STATES }) => {
   let IconComponent = <></>;
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    Icon;
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   switch (state) {
     case "idle":
-      IconComponent = <WaveformIcon className="w-5 h-5" />;
+      IconComponent = <WaveformIcon />;
       break;
     case "loading":
       IconComponent = <Loader />;
       break;
     case "ready":
-      IconComponent = <WaveformIcon className="w-5 h-5 " />;
+      IconComponent = <WaveformIcon />;
       break;
     case "error":
       IconComponent = <X />;
@@ -166,14 +176,14 @@ const Icon = ({ state }: { state: keyof typeof STATES }) => {
     <>
       <motion.span
         style={{
-          height: 20,
+          height: isMobile ? MOBILE_ICON_SIZE : ICON_SIZE,
           position: "relative",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
         }}
         animate={{
-          width: 20,
+          width: isMobile ? MOBILE_ICON_SIZE : ICON_SIZE,
         }}
         transition={springConfig}
       >
@@ -184,6 +194,8 @@ const Icon = ({ state }: { state: keyof typeof STATES }) => {
               position: "absolute",
               left: 0,
               top: 0,
+              width: "100%",
+              height: "100%",
             }}
             initial={{
               y: -40,
@@ -458,23 +470,20 @@ export function VoiceModal() {
     }
   };
 
-  const toggleRecording = () => {
-    if (isListening) {
-      stopRecording();
-    } else {
-      startRecording();
-    }
-  };
-
   return (
     <MotionConfig
       transition={{ type: "spring", visualDuration: 0.2, bounce: 0 }}
     >
       {!isWarpActive && (
-        <motion.div layoutId="modal" id="modal-open">
+        <motion.div
+          layoutId="modal"
+          id="modal-open"
+          className="fixed flex lg:justify-center justify-end z-50 bottom-5 mr-6 lg:mr-0 right-0"
+        >
           <motion.button
             ref={buttonRef}
-            className={`openButton rounded-xl ${
+            id="openButton"
+            className={`w-14 h-14 lg:w-64 lg:h-12 p-0 lg:py-3 lg:px-7 rounded-full lg:rounded-xl ${
               buttonState === "error"
                 ? "bg-zinc-400 dark:bg-zinc-700 text-white dark:text-zinc-200"
                 : buttonState === "loading"
@@ -489,11 +498,10 @@ export function VoiceModal() {
             disabled={buttonState === "loading" || buttonState === "error"}
           >
             <motion.span
-              layoutId="cta-text"
-              className="flex justify-center items-center gap-2"
-              style={{ gap: 8 }}
+              id="openButton-text"
+              className="flex justify-center items-center lg:gap-2"
             >
-              <span className="button-text">{STATES[buttonState]}</span>
+              <span className="hidden lg:block">{STATES[buttonState]}</span>
               <Icon state={buttonState} />
             </motion.span>
           </motion.button>
@@ -639,13 +647,7 @@ function StyleSheet({ theme }: { theme: string }) {
   }
 
   #modal-open {
-    position: fixed;
-    bottom: 20px;
     left: var(--sidebar-width);
-    right: 0;
-    display: flex;
-    justify-content: center;
-    z-index: 50;
   }
 
   .modal-overlay {
@@ -677,7 +679,7 @@ function StyleSheet({ theme }: { theme: string }) {
     transform: translateY(0);
   }
 
-  .openButton, .controls button {
+  .controls button {
     width: 100%;
     max-width: 300px;
     font-size: 16px;
@@ -710,21 +712,7 @@ function StyleSheet({ theme }: { theme: string }) {
     color: ${theme === "dark" ? "#9ca3af" : "#6b7280"};
   }
 
-  @media (max-width: 1023px) {
-    #modal-open {
-      justify-content: flex-end;
-      padding-right: 20px;
-    }
-    .openButton {
-      width: 50px;
-      height: 50px;
-      border-radius: 50%;
-      padding: 0;
-    }
-    .openButton .button-text {
-      display: none;
-    }
-  }
-      `}</style>
+
+  `}</style>
   );
 }
