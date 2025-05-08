@@ -579,7 +579,7 @@ function Dialog({
 }) {
   return (
     <motion.div
-      className="modal-overlay"
+      className="modal-overlay bg-black/40 backdrop-blur-[1px] -webkit-backdrop-blur-[1px]"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -692,11 +692,6 @@ function StyleSheet({ theme }: { theme: string }) {
     right: 0;
     top: 0;
     bottom: 0;
-    background: ${
-      theme === "dark" ? "rgba(0, 0, 0, 0.5)" : "rgba(0, 0, 0, 0.1)"
-    };
-    backdrop-filter: blur(1px);
-    -webkit-backdrop-filter: blur(1px);
     display: flex;
     justify-content: center;
     align-items: flex-end;

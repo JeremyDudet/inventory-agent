@@ -15,10 +15,10 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
-import { Input } from "@/components/ui/input";
 import { api } from "@/services/api";
 import { useInventoryStore } from "@/stores/inventoryStore";
 import { useAuthStore } from "@/stores/authStore";
+import { useThemeStore } from "@/stores/themeStore";
 // import { useNotification } from "@/context/NotificationContext";
 
 // import { useSession } from "next-auth/react";
@@ -62,6 +62,7 @@ export function InputCountDrawer({
   const [newCount, setNewCount] = useState(item.quantity);
   const updateItem = useInventoryStore((state) => state.updateItem);
   const { session } = useAuthStore();
+  const { theme } = useThemeStore();
   // const { addNotification, showApiError } = useNotification();
 
   // const hasInventoryCounts = item.inventoryCounts?.length > 0;
@@ -124,26 +125,17 @@ export function InputCountDrawer({
 
   const submitNewCount = async () => {
     if (!session?.access_token) {
-      console.error("No access token available");
       return;
     }
 
     try {
       setSubmitting(true);
-      console.log("Submitting new count:", {
-        itemId: item.id,
-        newCount,
-        currentQuantity: item.quantity,
-        token: session.access_token ? "present" : "missing",
-      });
 
-      const response = await api.updateInventory(
+      await api.updateInventory(
         item.id,
         { quantity: newCount },
         session.access_token
       );
-
-      console.log("API response:", response);
 
       // Update local state
       updateItem({
@@ -155,84 +147,126 @@ export function InputCountDrawer({
       setIsOpen(false);
       onUpdate?.();
     } catch (error) {
-      console.error("Failed to update inventory:", error);
       if (error instanceof Error) {
-        console.error("Error details:", {
-          message: error.message,
-          name: error.name,
-          stack: error.stack,
-        });
       }
     } finally {
       setSubmitting(false);
     }
   };
 
+  const getFontSize = (count: number) => {
+    const digits = count.toString().length;
+    if (digits <= 2) return "3.75rem"; // 60px
+    if (digits === 3) return "3rem"; // 48px
+    if (digits === 4) return "2.5rem"; // 40px
+    return "2rem"; // 32px for 5+ digits
+  };
+
   return (
     <Drawer open={isOpen} onOpenChange={setIsOpen}>
-      <DrawerTrigger onClick={() => setIsOpen(!isOpen)} asChild>
+      <DrawerTrigger
+        onClick={() => setIsOpen(!isOpen)}
+        asChild
+        className="sm:hidden"
+      >
         {children}
       </DrawerTrigger>
       <DrawerOverlay
         onClick={() => setIsOpen(false)}
         className="bg-transparent h-full"
       />
-      <DrawerContent className="flex flex-col items-center justify-center py-2">
-        <DrawerHeader>
-          <DrawerTitle>{item.name}</DrawerTitle>
-          <DrawerDescription>
-            Current quantity: {item.quantity} {item.unit}
+      <DrawerContent className="flex flex-col items-center justify-center py-6 px-4 max-w-lg mx-auto bg-white dark:bg-zinc-900">
+        <DrawerHeader className="w-full text-center">
+          <DrawerTitle className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+            {item.name}
+          </DrawerTitle>
+          <DrawerDescription className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+            Last updated {getRelativeTime(new Date())} by{" "}
+            <span className="font-bold">{"Unknown"}</span>
           </DrawerDescription>
         </DrawerHeader>
-        <div className="p-4 pb-0">
-          <div className="flex items-center justify-between space-x-2 px-4">
-            <Button
-              type="button"
-              className="h-12 w-12 shrink-0 rounded-full"
-              onClick={() => onClick(-1)}
-              disabled={newCount <= 0}
-            >
-              <MinusIcon className="h-7 w-7" />
-              <span className="sr-only">Decrease</span>
-            </Button>
-            <div className="flex flex-col gap-3 justify-center items-center mb-3">
-              <Input
+        <div className="flex items-center justify-center space-x-8 my-8 w-full">
+          <button
+            type="button"
+            className={`h-16 w-16 rounded-full flex items-center justify-center text-3xl cursor-pointer ${
+              newCount <= 0
+                ? "bg-zinc-400 dark:bg-zinc-700 text-white dark:text-zinc-200"
+                : "bg-zinc-500 dark:bg-zinc-700 text-white dark:text-zinc-200 hover:bg-zinc-600 dark:hover:bg-zinc-600"
+            }`}
+            onClick={() => onClick(-1)}
+            disabled={newCount <= 0}
+          >
+            <MinusIcon className="h-8 w-8" />
+            <span className="sr-only">Decrease</span>
+          </button>
+          <div className="flex flex-col items-center">
+            <div className="h-[80px] flex items-center justify-center">
+              <input
                 type="number"
                 inputMode="decimal"
+                pattern="^(\\d+(\\.\\d+)?|\\.\\d+)$"
+                min={0}
+                max={9999}
                 value={newCount}
-                className="text-7xl font-bold tracking-tighter h-fit w-[160px] text-center"
-                pattern="^(\d+(\.\d+)?|\.\d+)$"
                 onChange={(e) => {
-                  const value = parseFloat(e.target.value);
-                  if (!isNaN(value)) {
-                    setNewCount(Math.max(0, value));
+                  if (e.target.value === "00") {
+                    setNewCount(0);
+                  } else {
+                    const value = parseFloat(e.target.value);
+                    setNewCount(Math.min(9999, Math.max(0, value)));
                   }
+                }}
+                className="font-bold tracking-tighter leading-none text-center w-[120px] bg-transparent outline-none border-none focus:ring-0 text-zinc-900 dark:text-zinc-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                style={{
+                  MozAppearance: "textfield",
+                  fontSize: getFontSize(newCount),
+                  lineHeight: 1,
                 }}
               />
             </div>
-            <Button
-              type="button"
-              className="h-12 w-12 shrink-0 rounded-full"
-              onClick={() => onClick(1)}
-              disabled={newCount >= 9999}
-            >
-              <PlusIcon className="h-7 w-7" />
-              <span className="sr-only">Increase</span>
-            </Button>
+            <span className="text-xs uppercase text-zinc-500 dark:text-zinc-400 tracking-widest mt-2">
+              {item.unit}
+            </span>
           </div>
-          <div className="text-[0.9rem] uppercase text-muted-foreground w-full flex justify-center">
-            {item.unit}
-          </div>
+          <button
+            type="button"
+            className={`h-16 w-16 rounded-full flex items-center justify-center text-3xl cursor-pointer ${
+              newCount >= 9999
+                ? "bg-zinc-400 dark:bg-zinc-700 text-white dark:text-zinc-200"
+                : "bg-zinc-500 dark:bg-zinc-700 text-white dark:text-zinc-200 hover:bg-zinc-600 dark:hover:bg-zinc-600"
+            }`}
+            onClick={() => onClick(1)}
+            disabled={newCount >= 9999}
+          >
+            <PlusIcon className="h-8 w-8" />
+            <span className="sr-only">Increase</span>
+          </button>
         </div>
-        <DrawerFooter className="w-full">
-          <DrawerClose asChild>
-            <Button type="button" onClick={() => setIsOpen(false)}>
+        <DrawerFooter className="w-full flex flex-row justify-end gap-2 mt-4">
+          <div className="w-full flex flex-row justify-center gap-2">
+            <button
+              onClick={() => setIsOpen(false)}
+              className="w-full rounded-xl max-w-40 px-6 py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+            >
               Cancel
-            </Button>
-          </DrawerClose>
-          <Button onClick={submitNewCount} disabled={submitting}>
-            {submitting ? "Updating..." : "Update Count"}
-          </Button>
+            </button>
+            <button
+              onClick={submitNewCount}
+              className={`rounded-xl w-full max-w-40 px-6 py-3 cursor-pointer ${
+                submitting
+                  ? "bg-zinc-400 dark:bg-zinc-700 text-white dark:text-zinc-200"
+                  : "bg-zinc-500 dark:bg-zinc-700 text-white dark:text-zinc-200 hover:bg-zinc-600 dark:hover:bg-zinc-600"
+              }`}
+              disabled={submitting}
+            >
+              <span
+                className="flex justify-center items-center gap-2"
+                style={{ gap: 8 }}
+              >
+                Update
+              </span>
+            </button>
+          </div>
         </DrawerFooter>
       </DrawerContent>
     </Drawer>
