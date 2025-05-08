@@ -137,7 +137,7 @@ export class InventoryRepository {
     return data || [];
   }
 
-  async getCategories(): Promise<string[]> {
+  async getCategories(): Promise<{ id: string; name: string }[]> {
     const { data, error } = await supabase
       .from(INVENTORY_TABLE)
       .select("category")
@@ -158,7 +158,11 @@ export class InventoryRepository {
       )
     );
 
-    return uniqueCategories;
+    // Convert to the expected format with id and name
+    return uniqueCategories.map((category) => ({
+      id: category,
+      name: category,
+    }));
   }
 
   async update(

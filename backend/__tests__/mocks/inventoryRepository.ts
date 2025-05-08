@@ -58,12 +58,15 @@ export class MockInventoryRepository {
     return Array.from(this.items.values());
   }
 
-  async getCategories(): Promise<string[]> {
+  async getCategories(): Promise<{ id: string; name: string }[]> {
     const categories = new Set<string>();
     for (const item of this.items.values()) {
       categories.add(item.category);
     }
-    return Array.from(categories);
+    return Array.from(categories).map((category) => ({
+      id: category,
+      name: category,
+    }));
   }
 
   // Add the findSimilarItems method that's required by InventoryService

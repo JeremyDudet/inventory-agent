@@ -1,7 +1,10 @@
 // frontend/src/pages/StockList.tsx
 import { useState } from "react";
 import { useInventoryStore } from "../stores/inventoryStore";
-import type { InventoryItem } from "../stores/inventoryStore";
+import type {
+  InventoryItem,
+  InventoryCategory,
+} from "../stores/inventoryStore";
 import { Input } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
 import { Heading } from "@/components/ui/heading";
@@ -21,43 +24,22 @@ import {
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
 import { motion } from "framer-motion";
-const filters = [
-  {
-    id: "category",
-    name: "Category",
-    options: [
-      { value: "new-arrivals", label: "All New Arrivals", checked: false },
-      { value: "tees", label: "Tees", checked: false },
-      { value: "objects", label: "Objects", checked: true },
-    ],
-  },
-  {
-    id: "frequency",
-    name: "Frequency",
-    options: [
-      { value: "daily", label: "Daily", checked: false },
-      { value: "weekly", label: "Weekly", checked: false },
-      { value: "monthly", label: "Monthly", checked: false },
-      { value: "quarterly", label: "Quarterly", checked: false },
-    ],
-  },
-  {
-    id: "sizes",
-    name: "Sizes",
-    options: [
-      { value: "s", label: "S", checked: false },
-      { value: "m", label: "M", checked: false },
-      { value: "l", label: "L", checked: false },
-    ],
-  },
-];
-const activeFilters = [
-  { value: "object1", label: "Object 1" },
-  { value: "object2", label: "Object 2" },
-];
 
 export default function StockList() {
   const { items, categories, error } = useInventoryStore();
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Filter items based on selected categories and search query
+  const filteredItems = items.filter((item) => {
+    const matchesCategory =
+      selectedCategories.length === 0 ||
+      selectedCategories.includes(item.category);
+    const matchesSearch = item.name
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   // Show error message if there's an error
   if (error) {
@@ -81,12 +63,33 @@ export default function StockList() {
 
   return (
     <div className="min-h-screen bg-inherit max-w-7xl">
-      <InventoryListWithStickyHeader items={items} />
+      <InventoryListWithStickyHeader
+        items={filteredItems}
+        categories={categories}
+        selectedCategories={selectedCategories}
+        setSelectedCategories={setSelectedCategories}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+      />
     </div>
   );
 }
 
-function InventoryListWithStickyHeader({ items }: { items: InventoryItem[] }) {
+function InventoryListWithStickyHeader({
+  items,
+  categories,
+  selectedCategories,
+  setSelectedCategories,
+  searchQuery,
+  setSearchQuery,
+}: {
+  items: InventoryItem[];
+  categories: InventoryCategory[];
+  selectedCategories: string[];
+  setSelectedCategories: (categories: string[]) => void;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+}) {
   return (
     <>
       <div className="sm:flex-auto">
@@ -99,8 +102,12 @@ function InventoryListWithStickyHeader({ items }: { items: InventoryItem[] }) {
         {/* Search and filter */}
         <div className="flex flex-col gap-2 mt-12 w-full justify-center">
           <div className="flex gap-2">
-            <SearchBar />
-            <CategoryFilter />
+            <SearchBar value={searchQuery} onChange={setSearchQuery} />
+            <CategoryFilter
+              categories={categories}
+              selectedCategories={selectedCategories}
+              setSelectedCategories={setSelectedCategories}
+            />
           </div>
 
           {/* Active filters */}
@@ -118,18 +125,23 @@ function InventoryListWithStickyHeader({ items }: { items: InventoryItem[] }) {
 
               <div className="mt-2 sm:ml-4 sm:mt-0">
                 <div className="-m-1 flex flex-wrap items-center">
-                  {activeFilters.map((activeFilter) => (
+                  {selectedCategories.map((category) => (
                     <span
-                      key={activeFilter.value}
+                      key={category}
                       className="m-1 inline-flex items-center rounded-full border border-zinc-200 dark:border-zinc-700 py-1.5 pl-3 pr-2 text-sm font-medium text-zinc-900 dark:text-zinc-200"
                     >
-                      <span>{activeFilter.label}</span>
+                      <span>{category}</span>
                       <button
                         type="button"
+                        onClick={() =>
+                          setSelectedCategories(
+                            selectedCategories.filter((c) => c !== category)
+                          )
+                        }
                         className="ml-1 inline-flex size-4 shrink-0 rounded-full p-1 text-zinc-400 dark:text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-zinc-500 dark:hover:text-zinc-400"
                       >
                         <span className="sr-only">
-                          Remove filter for {activeFilter.label}
+                          Remove filter for {category}
                         </span>
                         <svg
                           fill="none"
@@ -254,7 +266,13 @@ function InventoryListWithStickyHeader({ items }: { items: InventoryItem[] }) {
   );
 }
 
-function SearchBar() {
+function SearchBar({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
   return (
     <div className="w-full">
       <Input
@@ -263,21 +281,41 @@ function SearchBar() {
         type="search"
         placeholder="Search item..."
         aria-label="Search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
       />
     </div>
   );
 }
 
-function classNames(...classes: string[]) {
-  return classes.filter(Boolean).join(" ");
-}
-
-function CategoryFilter() {
+function CategoryFilter({
+  categories,
+  selectedCategories,
+  setSelectedCategories,
+}: {
+  categories: InventoryCategory[];
+  selectedCategories: string[];
+  setSelectedCategories: (categories: string[]) => void;
+}) {
   const [open, setOpen] = useState(false);
+
+  const handleCategoryToggle = (category: string) => {
+    setSelectedCategories(
+      selectedCategories.includes(category)
+        ? selectedCategories.filter((c) => c !== category)
+        : [...selectedCategories, category]
+    );
+  };
 
   return (
     <>
-      <MobileCategoryFilter open={open} setOpen={setOpen} />
+      <MobileCategoryFilter
+        open={open}
+        setOpen={setOpen}
+        categories={categories}
+        selectedCategories={selectedCategories}
+        onCategoryToggle={handleCategoryToggle}
+      />
 
       {/* Filters */}
       <section
@@ -303,90 +341,78 @@ function CategoryFilter() {
           <div className="hidden sm:block">
             <div className="flow-root">
               <PopoverGroup className="-mx-4 flex items-center divide-x divide-zinc-200 dark:divide-zinc-700">
-                {filters.map((section, sectionIdx) => (
-                  <Popover
-                    key={section.name}
-                    className="relative inline-block px-4 text-left"
-                  >
-                    <PopoverButton className="group inline-flex items-center justify-center text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-300">
-                      <span className="flex items-center">{section.name}</span>
-                      {sectionIdx === 0 ? (
-                        <span className="ml-1.5 flex items-center rounded bg-zinc-200 dark:bg-zinc-700 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-zinc-700 dark:text-zinc-300">
-                          1
-                        </span>
-                      ) : null}
-                      <ChevronDownIcon
-                        aria-hidden="true"
-                        className="-mr-1 ml-1 size-5 shrink-0 text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-500 dark:group-hover:text-zinc-400"
-                      />
-                    </PopoverButton>
+                <Popover className="relative inline-block px-4 text-left">
+                  <PopoverButton className="group inline-flex items-center justify-center text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-300">
+                    <span className="flex items-center">Category</span>
+                    {selectedCategories.length > 0 && (
+                      <span className="ml-1.5 flex items-center rounded bg-zinc-200 dark:bg-zinc-700 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-zinc-700 dark:text-zinc-300">
+                        {selectedCategories.length}
+                      </span>
+                    )}
+                    <ChevronDownIcon
+                      aria-hidden="true"
+                      className="-mr-1 ml-1 size-5 shrink-0 text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-500 dark:group-hover:text-zinc-400"
+                    />
+                  </PopoverButton>
 
-                    <PopoverPanel
-                      transition
-                      className="absolute right-0 z-10 mt-2 origin-top-right rounded-md bg-white dark:bg-zinc-800 p-4 shadow-2xl ring-1 ring-black/5 dark:ring-white/5 transition focus:outline-none data-[closed]:scale-95 data-[closed]:transform data-[closed]:opacity-0 data-[enter]:duration-100 data-[leave]:duration-75 data-[enter]:ease-out data-[leave]:ease-in"
-                    >
-                      <form className="space-y-4">
-                        {section.options.map((option, optionIdx) => {
-                          const [isChecked, setIsChecked] = useState(
-                            option.checked
-                          );
-                          return (
-                            <div
-                              key={option.value}
-                              className="flex items-center gap-3"
-                            >
-                              <div className="flex h-5 shrink-0 items-center">
-                                <div className="group grid size-4 grid-cols-1">
-                                  <input
-                                    value={option.value}
-                                    checked={isChecked}
-                                    onChange={(e) =>
-                                      setIsChecked(e.target.checked)
-                                    }
-                                    id={`filter-${section.id}-${optionIdx}`}
-                                    name={`${section.id}[]`}
-                                    type="checkbox"
-                                    className="col-start-1 row-start-1 appearance-none rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 checked:border-zinc-600 dark:checked:border-zinc-400 checked:bg-zinc-600 dark:checked:bg-zinc-400 indeterminate:border-zinc-600 dark:indeterminate:border-zinc-400 indeterminate:bg-zinc-600 dark:indeterminate:bg-zinc-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-600 dark:focus-visible:outline-zinc-400 disabled:border-zinc-300 dark:disabled:border-zinc-600 disabled:bg-zinc-100 dark:disabled:bg-zinc-900 disabled:checked:bg-zinc-100 dark:disabled:checked:bg-zinc-900 forced-colors:appearance-auto"
-                                  />
-                                  <svg
-                                    fill="none"
-                                    viewBox="0 0 14 14"
-                                    className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white dark:stroke-zinc-900 group-has-[:disabled]:stroke-zinc-950/25 dark:group-has-[:disabled]:stroke-zinc-50/25"
-                                  >
-                                    <motion.path
-                                      d="M3 8L6 11L11 3.5"
-                                      strokeWidth={2}
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      initial={{ pathLength: 0 }}
-                                      animate={{
-                                        pathLength: isChecked ? 1 : 0,
-                                      }}
-                                      transition={{ duration: 0.3 }}
-                                    />
-                                    <path
-                                      d="M3 7H11"
-                                      strokeWidth={2}
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      className="opacity-0 group-has-[:indeterminate]:opacity-100"
-                                    />
-                                  </svg>
-                                </div>
-                              </div>
-                              <label
-                                htmlFor={`filter-${section.id}-${optionIdx}`}
-                                className="flex items-center whitespace-nowrap pr-6 text-sm font-medium text-zinc-900 dark:text-zinc-100"
+                  <PopoverPanel
+                    transition
+                    className="absolute right-0 z-10 mt-2 origin-top-right rounded-md bg-white dark:bg-zinc-800 p-4 shadow-2xl ring-1 ring-black/5 dark:ring-white/5 transition focus:outline-none data-[closed]:scale-95 data-[closed]:transform data-[closed]:opacity-0 data-[enter]:duration-100 data-[leave]:duration-75 data-[enter]:ease-out data-[leave]:ease-in"
+                  >
+                    <form className="space-y-4">
+                      {categories.map((category) => (
+                        <div
+                          key={category.name}
+                          className="flex items-center gap-3"
+                        >
+                          <div className="flex h-5 shrink-0 items-center">
+                            <div className="group grid size-4 grid-cols-1">
+                              <input
+                                checked={selectedCategories.includes(
+                                  category.name
+                                )}
+                                onChange={() =>
+                                  handleCategoryToggle(category.name)
+                                }
+                                id={`filter-category-${category.name}`}
+                                name="category[]"
+                                type="checkbox"
+                                className="col-start-1 row-start-1 appearance-none rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 checked:border-zinc-600 dark:checked:border-zinc-400 checked:bg-zinc-600 dark:checked:bg-zinc-400 indeterminate:border-zinc-600 dark:indeterminate:border-zinc-400 indeterminate:bg-zinc-600 dark:indeterminate:bg-zinc-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-600 dark:focus-visible:outline-zinc-400 disabled:border-zinc-300 dark:disabled:border-zinc-600 disabled:bg-zinc-100 dark:disabled:bg-zinc-900 disabled:checked:bg-zinc-100 dark:disabled:checked:bg-zinc-900 forced-colors:appearance-auto"
+                              />
+                              <svg
+                                fill="none"
+                                viewBox="0 0 14 14"
+                                className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white dark:stroke-zinc-900 group-has-[:disabled]:stroke-zinc-950/25 dark:group-has-[:disabled]:stroke-zinc-50/25"
                               >
-                                {option.label}
-                              </label>
+                                <motion.path
+                                  d="M3 8L6 11L11 3.5"
+                                  strokeWidth={2}
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  initial={{ pathLength: 0 }}
+                                  animate={{
+                                    pathLength: selectedCategories.includes(
+                                      category.name
+                                    )
+                                      ? 1
+                                      : 0,
+                                  }}
+                                  transition={{ duration: 0.3 }}
+                                />
+                              </svg>
                             </div>
-                          );
-                        })}
-                      </form>
-                    </PopoverPanel>
-                  </Popover>
-                ))}
+                          </div>
+                          <label
+                            htmlFor={`filter-category-${category.name}`}
+                            className="flex items-center whitespace-nowrap pr-6 text-sm font-medium text-zinc-900 dark:text-zinc-100"
+                          >
+                            {category.name}
+                          </label>
+                        </div>
+                      ))}
+                    </form>
+                  </PopoverPanel>
+                </Popover>
               </PopoverGroup>
             </div>
           </div>
@@ -399,9 +425,15 @@ function CategoryFilter() {
 function MobileCategoryFilter({
   open,
   setOpen,
+  categories,
+  selectedCategories,
+  onCategoryToggle,
 }: {
   open: boolean;
   setOpen: (open: boolean) => void;
+  categories: InventoryCategory[];
+  selectedCategories: string[];
+  onCategoryToggle: (category: string) => void;
 }) {
   return (
     <>
@@ -437,83 +469,73 @@ function MobileCategoryFilter({
 
             {/* Filters */}
             <form className="mt-4">
-              {filters.map((section) => (
-                <Disclosure
-                  key={section.name}
-                  as="div"
-                  className="border-t border-zinc-200 dark:border-zinc-700 px-4 py-6"
-                >
-                  <h3 className="-mx-2 -my-3 flow-root">
-                    <DisclosureButton className="group flex w-full items-center justify-between px-2 py-3 text-sm text-zinc-400">
-                      <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                        {section.name}
-                      </span>
-                      <span className="ml-6 flex items-center">
-                        <ChevronDownIcon
-                          aria-hidden="true"
-                          className="size-5 rotate-0 transform group-data-[open]:-rotate-180"
-                        />
-                      </span>
-                    </DisclosureButton>
-                  </h3>
-                  <DisclosurePanel className="pt-6">
-                    <div className="space-y-6">
-                      {section.options.map((option, optionIdx) => {
-                        const [isChecked, setIsChecked] = useState(
-                          option.checked
-                        );
-                        return (
-                          <div key={option.value} className="flex gap-3">
-                            <div className="flex h-5 shrink-0 items-center">
-                              <div className="group grid size-4 grid-cols-1">
-                                <input
-                                  value={option.value}
-                                  checked={isChecked}
-                                  onChange={(e) =>
-                                    setIsChecked(e.target.checked)
-                                  }
-                                  id={`filter-mobile-${section.id}-${optionIdx}`}
-                                  name={`${section.id}[]`}
-                                  type="checkbox"
-                                  className="col-start-1 row-start-1 appearance-none rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 checked:border-zinc-600 dark:checked:border-zinc-400 checked:bg-zinc-600 dark:checked:bg-zinc-400 indeterminate:border-zinc-600 dark:indeterminate:border-zinc-400 indeterminate:bg-zinc-600 dark:indeterminate:bg-zinc-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-600 dark:focus-visible:outline-zinc-400 disabled:border-zinc-300 dark:disabled:border-zinc-600 disabled:bg-zinc-100 dark:disabled:bg-zinc-900 disabled:checked:bg-zinc-100 dark:disabled:checked:bg-zinc-900 forced-colors:appearance-auto"
-                                />
-                                <svg
-                                  fill="none"
-                                  viewBox="0 0 14 14"
-                                  className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white dark:stroke-zinc-900 group-has-[:disabled]:stroke-zinc-950/25 dark:group-has-[:disabled]:stroke-zinc-50/25"
-                                >
-                                  <motion.path
-                                    d="M3 8L6 11L11 3.5"
-                                    strokeWidth={2}
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    initial={{ pathLength: 0 }}
-                                    animate={{ pathLength: isChecked ? 1 : 0 }}
-                                    transition={{ duration: 0.3 }}
-                                  />
-                                  <path
-                                    d="M3 7H11"
-                                    strokeWidth={2}
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    className="opacity-0 group-has-[:indeterminate]:opacity-100"
-                                  />
-                                </svg>
-                              </div>
-                            </div>
-                            <label
-                              htmlFor={`filter-mobile-${section.id}-${optionIdx}`}
-                              className="text-sm text-zinc-900 dark:text-zinc-100"
+              <Disclosure
+                as="div"
+                className="border-t border-zinc-200 dark:border-zinc-700 px-4 py-6"
+              >
+                <h3 className="-mx-2 -my-3 flow-root">
+                  <DisclosureButton className="group flex w-full items-center justify-between px-2 py-3 text-sm text-zinc-400">
+                    <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                      Category
+                    </span>
+                    <span className="ml-6 flex items-center">
+                      <ChevronDownIcon
+                        aria-hidden="true"
+                        className="size-5 rotate-0 transform group-data-[open]:-rotate-180"
+                      />
+                    </span>
+                  </DisclosureButton>
+                </h3>
+                <DisclosurePanel className="pt-6">
+                  <div className="space-y-6">
+                    {categories.map((category) => (
+                      <div key={category.name} className="flex gap-3">
+                        <div className="flex h-5 shrink-0 items-center">
+                          <div className="group grid size-4 grid-cols-1">
+                            <input
+                              checked={selectedCategories.includes(
+                                category.name
+                              )}
+                              onChange={() => onCategoryToggle(category.name)}
+                              id={`filter-mobile-category-${category.name}`}
+                              name="category[]"
+                              type="checkbox"
+                              className="col-start-1 row-start-1 appearance-none rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 checked:border-zinc-600 dark:checked:border-zinc-400 checked:bg-zinc-600 dark:checked:bg-zinc-400 indeterminate:border-zinc-600 dark:indeterminate:border-zinc-400 indeterminate:bg-zinc-600 dark:indeterminate:bg-zinc-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-600 dark:focus-visible:outline-zinc-400 disabled:border-zinc-300 dark:disabled:border-zinc-600 disabled:bg-zinc-100 dark:disabled:bg-zinc-900 disabled:checked:bg-zinc-100 dark:disabled:checked:bg-zinc-900 forced-colors:appearance-auto"
+                            />
+                            <svg
+                              fill="none"
+                              viewBox="0 0 14 14"
+                              className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white dark:stroke-zinc-900 group-has-[:disabled]:stroke-zinc-950/25 dark:group-has-[:disabled]:stroke-zinc-50/25"
                             >
-                              {option.label}
-                            </label>
+                              <motion.path
+                                d="M3 8L6 11L11 3.5"
+                                strokeWidth={2}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                initial={{ pathLength: 0 }}
+                                animate={{
+                                  pathLength: selectedCategories.includes(
+                                    category.name
+                                  )
+                                    ? 1
+                                    : 0,
+                                }}
+                                transition={{ duration: 0.3 }}
+                              />
+                            </svg>
                           </div>
-                        );
-                      })}
-                    </div>
-                  </DisclosurePanel>
-                </Disclosure>
-              ))}
+                        </div>
+                        <label
+                          htmlFor={`filter-mobile-category-${category.name}`}
+                          className="text-sm text-zinc-900 dark:text-zinc-100"
+                        >
+                          {category.name}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </DisclosurePanel>
+              </Disclosure>
             </form>
           </DialogPanel>
         </div>

@@ -352,7 +352,10 @@ describe("InventoryRepository", () => {
       const result = await repository.getCategories();
 
       // Assert
-      expect(result).toEqual(["Category 1", "Category 2"]);
+      expect(result).toEqual([
+        { id: "Category 1", name: "Category 1" },
+        { id: "Category 2", name: "Category 2" },
+      ]);
     });
 
     it("should return empty array when no items exist", async () => {
@@ -385,7 +388,7 @@ describe("InventoryRepository", () => {
       const result = await repository.getCategories();
 
       // Assert
-      expect(result).toEqual(["Category 1"]);
+      expect(result).toEqual([{ id: "Category 1", name: "Category 1" }]);
     });
   });
 });

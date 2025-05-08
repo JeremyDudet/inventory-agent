@@ -281,7 +281,7 @@ class InventoryService {
     }
   }
 
-  async getCategories(): Promise<string[]> {
+  async getCategories(): Promise<{ id: string; name: string }[]> {
     return this.repository.getCategories();
   }
 
