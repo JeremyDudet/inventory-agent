@@ -177,21 +177,21 @@ class InventoryService {
           throw new ValidationError(`Invalid action: ${update.action}`);
       }
 
-      const success = await this.repository.updateQuantity(
+      const updatedItem = await this.repository.updateQuantity(
         item.id,
         newQuantity
       );
-      if (!success) {
+      if (!updatedItem) {
         throw new ValidationError("Failed to update inventory quantity");
       }
       console.log(
-        `📦 Successfully updated ${item.name} to ${newQuantity} ${item.unit}`
+        `📦 Successfully updated ${updatedItem.name} to ${updatedItem.quantity} ${updatedItem.unit}`
       );
       await logSystemAction(
         "Inventory Update",
-        `${"User"} ${update.action}ed ${quantityToUpdate} ${item.unit} of ${
-          item.name
-        }`,
+        `${"User"} ${update.action}ed ${quantityToUpdate} ${
+          updatedItem.unit
+        } of ${updatedItem.name}`,
         "success",
         undefined
       );
@@ -201,11 +201,8 @@ class InventoryService {
         type: "inventoryUpdate",
         status: "success",
         data: {
-          item: item.name,
-          quantity: newQuantity,
-          unit: item.unit,
+          ...updatedItem,
           action: update.action,
-          id: item.id,
         },
         timestamp: Date.now(),
       };

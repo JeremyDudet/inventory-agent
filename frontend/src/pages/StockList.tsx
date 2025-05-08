@@ -57,7 +57,28 @@ const activeFilters = [
 ];
 
 export default function StockList() {
-  const { items, categories } = useInventoryStore();
+  const { items, categories, error } = useInventoryStore();
+
+  // Show error message if there's an error
+  if (error) {
+    return (
+      <div className="min-h-screen bg-inherit max-w-7xl p-4">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <h2 className="text-lg font-medium text-red-800 dark:text-red-200">
+            Error
+          </h2>
+          <p className="mt-2 text-sm text-red-700 dark:text-red-300">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+          >
+            Refresh Page
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-inherit max-w-7xl">
       <InventoryListWithStickyHeader items={items} />
