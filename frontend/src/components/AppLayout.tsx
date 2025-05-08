@@ -195,9 +195,9 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
                   <Square2StackIcon />
                   <SidebarLabel>Items</SidebarLabel>
                 </SidebarItem>
-                <SidebarItem href="/orders">
+                <SidebarItem href="/changelog">
                   <ClockIcon />
-                  <SidebarLabel>History</SidebarLabel>
+                  <SidebarLabel>Change Log</SidebarLabel>
                 </SidebarItem>
                 <SidebarItem href="/settings">
                   <Cog6ToothIcon />

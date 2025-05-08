@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useInventoryStore } from "../stores/inventoryStore";
+import { useFilterStore } from "../stores/filterStore";
 import type {
   InventoryItem,
   InventoryCategory,
@@ -26,10 +27,13 @@ import { motion } from "framer-motion";
 
 export default function ItemsPage() {
   const { items, categories } = useInventoryStore();
+  const {
+    items: { searchQuery, selectedCategories },
+    setItemsSearchQuery,
+    setItemsSelectedCategories,
+  } = useFilterStore();
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
 
   // Filter items based on selected categories and search query
   const filteredItems = items.filter((item) => {
@@ -75,11 +79,11 @@ export default function ItemsPage() {
         {/* Search and filter */}
         <div className="flex flex-col gap-2 mt-12 w-full justify-center">
           <div className="flex gap-2">
-            <SearchBar value={searchQuery} onChange={setSearchQuery} />
+            <SearchBar value={searchQuery} onChange={setItemsSearchQuery} />
             <CategoryFilter
               categories={categories}
               selectedCategories={selectedCategories}
-              setSelectedCategories={setSelectedCategories}
+              setSelectedCategories={setItemsSelectedCategories}
             />
           </div>
 
@@ -105,7 +109,7 @@ export default function ItemsPage() {
                       <button
                         type="button"
                         onClick={() =>
-                          setSelectedCategories(
+                          setItemsSelectedCategories(
                             selectedCategories.filter((c) => c !== category)
                           )
                         }

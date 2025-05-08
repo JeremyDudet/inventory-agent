@@ -1,6 +1,7 @@
 // frontend/src/pages/StockList.tsx
 import { useState } from "react";
 import { useInventoryStore } from "../stores/inventoryStore";
+import { useFilterStore } from "../stores/filterStore";
 import type {
   InventoryItem,
   InventoryCategory,
@@ -27,8 +28,11 @@ import { motion } from "framer-motion";
 
 export default function StockList() {
   const { items, categories, error } = useInventoryStore();
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
+  const {
+    stockList: { searchQuery, selectedCategories },
+    setStockListSearchQuery,
+    setStockListSelectedCategories,
+  } = useFilterStore();
 
   // Filter items based on selected categories and search query
   const filteredItems = items.filter((item) => {
@@ -67,9 +71,9 @@ export default function StockList() {
         items={filteredItems}
         categories={categories}
         selectedCategories={selectedCategories}
-        setSelectedCategories={setSelectedCategories}
+        setSelectedCategories={setStockListSelectedCategories}
         searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
+        setSearchQuery={setStockListSearchQuery}
       />
     </div>
   );

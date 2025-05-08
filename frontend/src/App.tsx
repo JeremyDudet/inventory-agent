@@ -22,6 +22,7 @@ import { ApplicationLayout } from "./components/AppLayout";
 import { useInventoryStore } from "./stores/inventoryStore";
 import StockList from "./pages/StockList";
 import { AuthInitializer } from "./components/AuthInitializer";
+import ChangeLog from "./pages/ChangeLog";
 
 // Protected route component that uses Supabase auth
 const ProtectedRoute = () => {
@@ -82,6 +83,7 @@ const AppRoutes = () => {
           <Route path="/stocklist" element={<StockList />} />
           <Route path="/items" element={<Items />} />
           <Route path="/orders" element={<div>Orders Page</div>} />
+          <Route path="/changelog" element={<ChangeLog />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
       </Route>
