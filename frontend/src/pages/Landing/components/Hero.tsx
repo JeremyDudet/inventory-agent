@@ -20,7 +20,7 @@ export default function Hero() {
 
   return (
     <div className="bg-white dark:bg-zinc-900">
-      <header className="absolute inset-x-0 top-0 z-50">
+      <header className="absolute inset-x-0 top-0 z-50 max-w-7xl mx-auto">
         <nav
           aria-label="Global"
           className="flex items-center justify-between p-6 lg:px-8"
