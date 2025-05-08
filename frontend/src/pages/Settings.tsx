@@ -2,8 +2,8 @@ import { FormEvent, useState } from "react";
 import { ChevronDownIcon } from "@heroicons/react/16/solid";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
-import { useAuth } from "../context/AuthContext";
-import { useNotification } from "../context/NotificationContext";
+import { useAuthStore } from "../stores/authStore";
+import { useNotificationStore } from "../stores/notificationStore";
 import supabase from "../config/supabase";
 
 const secondaryNavigation = [
@@ -19,8 +19,8 @@ function classNames(...classes: string[]) {
 }
 
 export default function Settings() {
-  const { user, supabase, signOut } = useAuth();
-  const { addNotification } = useNotification();
+  const { user, supabase, signOut } = useAuthStore();
+  const { addNotification } = useNotificationStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);

@@ -45,8 +45,8 @@ import {
   Square2StackIcon,
   ClockIcon,
 } from "@heroicons/react/20/solid";
-import { useTheme } from "@/context/ThemeContext";
-import { useAuth } from "@/context/AuthContext";
+import { useThemeStore } from "@/stores/themeStore";
+import { useAuthStore } from "@/stores/authStore";
 import { VoiceModal } from "./VoiceModal";
 
 function AccountDropdownMenu({
@@ -92,7 +92,7 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
     console.log("Text input clicked");
   };
 
-  const { signOut } = useAuth();
+  const { signOut } = useAuthStore();
 
   const handleSignOut = async () => {
     await signOut();
@@ -123,7 +123,7 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
               <Dropdown>
                 <DropdownButton as={SidebarItem}>
                   {(() => {
-                    const { theme } = useTheme();
+                    const { theme } = useThemeStore();
                     return (
                       <Avatar
                         src={
@@ -151,7 +151,7 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
                   <DropdownDivider />
                   <DropdownItem href="#">
                     {(() => {
-                      const { theme } = useTheme();
+                      const { theme } = useThemeStore();
                       return (
                         <Avatar
                           src={

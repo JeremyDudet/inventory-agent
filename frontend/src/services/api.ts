@@ -37,11 +37,7 @@ interface InventoryItem {
 }
 
 interface InventoryUpdateRequest {
-  item?: string; // Item name (when using voice commands)
-  itemId?: string; // Item ID (when using direct selection)
-  action: "add" | "remove" | "set";
   quantity: number;
-  unit: string;
 }
 
 // Helper function for making API requests
@@ -123,11 +119,12 @@ export const api = {
   },
 
   updateInventory: async (
+    id: string,
     update: InventoryUpdateRequest,
     token: string
   ): Promise<InventoryItem> => {
     return apiRequest<InventoryItem>(
-      "/api/inventory/update",
+      `/api/inventory/update/${id}`,
       "POST",
       update,
       token

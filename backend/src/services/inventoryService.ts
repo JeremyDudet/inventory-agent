@@ -106,7 +106,14 @@ class InventoryService {
       } of ${update.item}`
     );
     try {
-      const item = await this.findBestMatch(update.item);
+      // First try to find the item by ID
+      let item;
+      try {
+        item = await this.findById(update.item);
+      } catch (error) {
+        // If not found by ID, try finding by name
+        item = await this.findBestMatch(update.item);
+      }
 
       console.log(
         `📦 Found item in database: ${item.name} (current: ${item.quantity} ${

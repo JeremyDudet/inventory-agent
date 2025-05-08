@@ -79,6 +79,7 @@ websocketService.init(io);
 const PORT = process.env.PORT || 8080;
 
 const voiceNamespace = io.of("/voice");
+const inventoryNamespace = io.of("/inventory");
 
 // Add session action logs storage
 const sessionActionLogs = new Map<string, ActionLog[]>();
@@ -468,6 +469,36 @@ voiceNamespace.on("connection", (socket: Socket) => {
     if (connId) {
       speechService.closeLiveConnection(connId);
       socketConnectionIds.delete(socket.id);
+    }
+  });
+});
+
+// Handle inventory namespace connections
+inventoryNamespace.on("connection", (socket: Socket) => {
+  console.log("📦 Inventory client connected:", socket.id);
+
+  socket.on("error", (error) => {
+    console.error(`📦 Inventory client ${socket.id} error:`, error);
+    socket.emit("error", { message: "Inventory connection error" });
+  });
+
+  socket.on("disconnect", (reason) => {
+    console.log(
+      `📦 Inventory client ${socket.id} disconnected, reason:`,
+      reason
+    );
+  });
+
+  // Handle inventory-specific events here
+  socket.on("inventory-update", async (data) => {
+    try {
+      // Process inventory update
+      console.log(`📦 Received inventory update from ${socket.id}:`, data);
+      // Emit update to all connected inventory clients
+      inventoryNamespace.emit("inventory-updated", data);
+    } catch (error) {
+      console.error(`📦 Error processing inventory update:`, error);
+      socket.emit("error", { message: "Failed to process inventory update" });
     }
   });
 });

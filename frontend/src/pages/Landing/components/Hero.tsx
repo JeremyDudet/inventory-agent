@@ -1,11 +1,9 @@
-"use client";
-
 import { useState } from "react";
 import { Dialog, DialogPanel } from "@headlessui/react";
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import { ChevronRightIcon } from "@heroicons/react/20/solid";
 import { Link } from "react-router-dom";
-import { useTheme } from "@/context/ThemeContext";
+import { useThemeStore } from "@/stores/themeStore";
 
 const navigation = [
   { name: "Product", href: "#" },
@@ -16,7 +14,7 @@ const navigation = [
 
 export default function Hero() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { theme } = useTheme();
+  const { theme } = useThemeStore();
 
   return (
     <div className="bg-white dark:bg-zinc-900">

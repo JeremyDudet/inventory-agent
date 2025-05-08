@@ -9,8 +9,8 @@ import {
   MotionValue,
 } from "motion/react";
 import { CSSProperties, useState, useRef, useEffect } from "react";
-import { useTheme } from "../context/ThemeContext";
-import { useNotification } from "@/context/NotificationContext";
+import { useThemeStore } from "@/stores/themeStore";
+import { useNotificationStore } from "@/stores/notificationStore";
 
 const N_NOTIFICATIONS = 10;
 const NOTIFICATION_HEIGHT = 60;
@@ -18,8 +18,8 @@ const NOTIFICATION_GAP = 8;
 
 export default function NotificationsStack() {
   const [isOpen, setIsOpen] = useState(false);
-  const { notifications } = useNotification();
-  const { theme } = useTheme();
+  const { notifications } = useNotificationStore();
+  const { theme } = useThemeStore();
   const isDark = theme === "dark";
   const expandButtonRef = useRef<HTMLButtonElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);

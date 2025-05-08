@@ -231,10 +231,11 @@ function InventoryListWithStickyHeader({ items }: { items: InventoryItem[] }) {
                     className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-300"
                   >
                     <InputCountDrawer
-                    // item={item}
-                    // users={[]}
-                    // units={[]}
-                    // onUpdate={() => {}}
+                      item={item}
+                      onUpdate={() => {
+                        // The state will be automatically updated through the WebSocket listener
+                        // and the inventory store
+                      }}
                     >
                       <span>
                         Edit<span className="sr-only">, {item.name}</span>

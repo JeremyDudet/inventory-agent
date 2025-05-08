@@ -67,7 +67,9 @@ export class InventoryRepository {
         quantity,
         lastupdated: new Date().toISOString(),
       })
-      .eq("id", id);
+      .eq("id", id)
+      .select()
+      .single();
 
     if (error) {
       console.error("Error updating item quantity:", error);

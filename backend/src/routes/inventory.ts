@@ -15,8 +15,21 @@ import {
 import { NotFoundError } from "../errors/NotFoundError";
 import { ValidationError } from "../errors/ValidationError";
 import websocketService from "../services/websocketService";
+import { InventoryRepository } from "../repositories/InventoryRepository";
+import { z } from "zod";
 
 const router = express.Router();
+const inventoryRepository = new InventoryRepository();
+
+// Validation schema for updating individual inventory item's quantity
+const updateQuantitySchema = z.object({
+  quantity: z
+    .number({
+      required_error: "Quantity is required",
+      invalid_type_error: "Quantity must be a number",
+    })
+    .min(0, "Quantity must be non-negative"),
+});
 
 // Helper to check if Supabase is properly configured
 const isSupabaseConfigured = () => {
@@ -123,53 +136,53 @@ router.get("/:id", async (req, res, next) => {
   }
 });
 
-// Update inventory item
+// Update single inventory item
 router.post(
-  "/update",
+  "/update/:id",
   authMiddleware,
   authorize("inventory:write"),
   async (req, res, next) => {
     try {
-      const validationResult = inventoryUpdateSchema.safeParse(req.body);
+      const validationResult = updateQuantitySchema.safeParse(req.body);
 
       if (!validationResult.success) {
-        throw new ValidationError("Invalid input data");
-      }
-
-      const { action, item, quantity, unit } = validationResult.data;
-
-      await inventoryService.updateInventoryCount({
-        action,
-        item,
-        quantity,
-        unit,
-      });
-
-      let updatedItem;
-      try {
-        updatedItem = await inventoryService.findBestMatch(item);
-      } catch (error) {
-        console.log("Could not find updated item for WebSocket message", error);
-      }
-
-      if (updatedItem) {
-        const successMessage = {
-          type: "stockUpdate",
-          status: "success",
-          data: {
-            item: updatedItem.name,
-            quantity: updatedItem.quantity,
-            unit: updatedItem.unit,
-            action,
-            id: updatedItem.id,
-          },
-          timestamp: Date.now(),
-        };
-        websocketService.broadcastToVoiceClients(
-          "stock-updated",
-          successMessage
+        const errors = validationResult.error.errors.map((err) => ({
+          field: err.path.join("."),
+          message: err.message,
+        }));
+        throw new ValidationError(
+          `Invalid input data: ${JSON.stringify(errors)}`
         );
       }
+
+      const { quantity } = validationResult.data;
+      const { id } = req.params;
+
+      // Update the item quantity
+      const updatedItem = await inventoryRepository.updateQuantity(
+        id,
+        quantity
+      );
+      if (!updatedItem) {
+        throw new ValidationError("Failed to update inventory quantity");
+      }
+
+      // Send WebSocket notification
+      const successMessage = {
+        type: "stockUpdate",
+        status: "success",
+        data: {
+          item: updatedItem.name,
+          quantity: updatedItem.quantity,
+          unit: updatedItem.unit,
+          id: updatedItem.id,
+        },
+        timestamp: Date.now(),
+      };
+      websocketService.broadcastToInventoryClients(
+        "inventory-updated",
+        successMessage
+      );
 
       res.status(200).json({
         message: "Inventory updated successfully",

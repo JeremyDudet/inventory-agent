@@ -1,6 +1,6 @@
 // frontend/src/components/TranscriptionDisplay.tsx
 import { useState, useEffect, useRef, useReducer, useCallback } from "react";
-import { useTheme } from "../context/ThemeContext";
+import { useThemeStore } from "@/stores/themeStore";
 
 interface TranscriptionDisplayProps {
   text: string;
@@ -120,7 +120,7 @@ export default function TranscriptionDisplay({
   className = "",
 }: TranscriptionDisplayProps) {
   const [state, dispatch] = useReducer(reducer, initialState);
-  const { theme } = useTheme();
+  const { theme } = useThemeStore();
   const containerRef = useRef<HTMLDivElement>(null);
   const typingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const textProcessingRef = useRef(false);

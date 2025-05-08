@@ -7,9 +7,8 @@ import {
   Navigate,
   Outlet,
 } from "react-router-dom";
-import { NotificationProvider } from "./context/NotificationContext";
-import { ThemeProvider } from "./context/ThemeContext";
-import { AuthProvider, useAuth } from "./context/AuthContext";
+import { useAuthStore } from "./stores/authStore";
+import { useThemeStore } from "./stores/themeStore";
 import Dashboard from "./pages/Dashboard";
 import Items from "./pages/Items";
 import Login from "./pages/Login";
@@ -22,10 +21,11 @@ import LoadingSpinner from "./components/ui/LoadingSpinner";
 import { ApplicationLayout } from "./components/AppLayout";
 import { useInventoryStore } from "./stores/inventoryStore";
 import StockList from "./pages/StockList";
+import { AuthInitializer } from "./components/AuthInitializer";
 
 // Protected route component that uses Supabase auth
 const ProtectedRoute = () => {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading } = useAuthStore();
 
   if (isLoading) {
     return <LoadingSpinner fullScreen text="Loading..." />;
@@ -40,7 +40,7 @@ const ProtectedRoute = () => {
 
 // Auth routes - redirect to dashboard if already authenticated
 const AuthRoute = () => {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading } = useAuthStore();
 
   if (isLoading) {
     return <LoadingSpinner fullScreen text="Loading..." />;
@@ -95,6 +95,13 @@ const AppRoutes = () => {
 const App: React.FC = () => {
   const setItems = useInventoryStore((state) => state.setItems);
   const setCategories = useInventoryStore((state) => state.setCategories);
+  const { theme } = useThemeStore();
+
+  useEffect(() => {
+    // Initialize theme
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
+
   useEffect(() => {
     const fetchInventory = async () => {
       try {
@@ -139,16 +146,12 @@ const App: React.FC = () => {
   }, [setItems, setCategories]);
 
   return (
-    <ThemeProvider>
-      <Router>
-        <NotificationProvider>
-          <AuthProvider>
-            <WebsocketListener />
-            <AppRoutes />
-          </AuthProvider>
-        </NotificationProvider>
-      </Router>
-    </ThemeProvider>
+    <Router>
+      <AuthInitializer>
+        <WebsocketListener />
+        <AppRoutes />
+      </AuthInitializer>
+    </Router>
   );
 };
 

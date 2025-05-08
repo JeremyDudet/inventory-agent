@@ -26,6 +26,10 @@ class WebSocketService {
   broadcastToVoiceClients(event: string, data: any) {
     this.broadcastToClient("/voice", event, data);
   }
+
+  broadcastToInventoryClients(event: string, data: any) {
+    this.broadcastToClient("/inventory", event, data);
+  }
 }
 
 export default new WebSocketService();

@@ -9,7 +9,7 @@ import {
   useTransform,
 } from "motion/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { useTheme } from "../context/ThemeContext";
+import { useThemeStore } from "@/stores/themeStore";
 import io from "socket.io-client";
 import VoiceOverlay from "./VoiceOverlay";
 
@@ -274,7 +274,7 @@ export function VoiceModal() {
   const [transcription, setTranscription] = useState("");
   const [isFinalTranscription, setIsFinalTranscription] = useState(false);
   const [isInCooldown, setIsInCooldown] = useState(false);
-  const { theme } = useTheme();
+  const { theme } = useThemeStore();
   const socketRef = useRef<typeof io.Socket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);

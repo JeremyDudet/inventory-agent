@@ -1,12 +1,12 @@
 // frontend/src/pages/Login.tsx
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import { useNotification } from "../context/NotificationContext";
+import { useAuthStore } from "../stores/authStore";
+import { useNotificationStore } from "../stores/notificationStore";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import { AuthLayout } from "../components/ui/auth-layout";
 import { Avatar } from "@/components/ui/avatar";
-import { useTheme } from "@/context/ThemeContext";
+import { useThemeStore } from "@/stores/themeStore";
 import { Checkbox, CheckboxField } from "@/components/ui/checkbox";
 
 const Login: React.FC = () => {
@@ -15,9 +15,9 @@ const Login: React.FC = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const { signIn } = useAuth();
-  const { addNotification } = useNotification();
-  const { theme } = useTheme();
+  const { signIn } = useAuthStore();
+  const { addNotification } = useNotificationStore();
+  const { theme } = useThemeStore();
 
   // Load remembered email on mount
   useEffect(() => {

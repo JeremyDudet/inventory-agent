@@ -2,9 +2,21 @@
 import { useEffect } from "react";
 import io from "socket.io-client";
 import { useInventoryStore } from "@/stores/inventoryStore";
-import { useNotification } from "@/context/NotificationContext";
+import { useNotificationStore } from "@/stores/notificationStore";
 
-const socket = io(`${import.meta.env.VITE_API_URL}/voice`, {
+const voiceSocket = io(`${import.meta.env.VITE_API_URL}/voice`, {
+  path: "/socket.io/",
+  transports: ["websocket"],
+  reconnection: true,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000,
+  timeout: 20000,
+  autoConnect: true,
+  secure: true,
+});
+
+const inventorySocket = io(`${import.meta.env.VITE_API_URL}/inventory`, {
   path: "/socket.io/",
   transports: ["websocket"],
   reconnection: true,
@@ -20,35 +32,34 @@ export const WebsocketListener = () => {
   const updateItem = useInventoryStore((state) => state.updateItem);
   const updateItems = useInventoryStore((state) => state.updateItems);
   const setError = useInventoryStore((state) => state.setError);
-  const { addNotification } = useNotification();
+  const { addNotification } = useNotificationStore();
 
   useEffect(() => {
-    socket.on("connect", () => {
-      console.log("WebSocket connected successfully");
+    // Handle inventory socket events
+    inventorySocket.on("connect", () => {
+      console.log("Inventory WebSocket connected successfully");
       setError(null);
     });
 
-    socket.on("connect_error", (error: any) => {
-      console.error("WebSocket connection error:", error);
-      setError("Failed to connect to server");
+    inventorySocket.on("connect_error", (error: any) => {
+      console.error("Inventory WebSocket connection error:", error);
+      setError("Failed to connect to inventory server");
       addNotification(
         "error",
-        "Failed to connect to server. Please refresh the page."
+        "Failed to connect to inventory server. Please refresh the page."
       );
     });
 
-    socket.on("disconnect", (reason: any) => {
-      console.log("WebSocket disconnected:", reason);
+    inventorySocket.on("disconnect", (reason: any) => {
+      console.log("Inventory WebSocket disconnected:", reason);
       if (reason === "io server disconnect") {
-        // Server initiated disconnect, try to reconnect
-        socket.connect();
+        inventorySocket.connect();
       }
     });
 
-    socket.on("inventory-updated", (message: any) => {
+    inventorySocket.on("inventory-updated", (message: any) => {
       try {
         if (Array.isArray(message.data)) {
-          // Handle bulk update
           console.log("Received bulk inventory update:", message.data);
           updateItems(message.data);
           addNotification(
@@ -56,7 +67,6 @@ export const WebsocketListener = () => {
             `Updated ${message.data.length} inventory items`
           );
         } else {
-          // Handle single item update
           const { id, quantity, unit } = message.data;
           console.log("Received inventory update:", message.data);
           updateItem({ id, quantity, unit });
@@ -75,22 +85,70 @@ export const WebsocketListener = () => {
       }
     });
 
-    socket.on("error", (error: any) => {
-      console.error("WebSocket error:", error);
-      setError("WebSocket error occurred");
+    // Handle voice socket events
+    voiceSocket.on("connect", () => {
+      console.log("Voice WebSocket connected successfully");
+    });
+
+    voiceSocket.on("connect_error", (error: any) => {
+      console.error("Voice WebSocket connection error:", error);
       addNotification(
         "error",
-        "An error occurred with the connection. Please refresh the page."
+        "Failed to connect to voice server. Voice commands may not work."
       );
     });
 
+    voiceSocket.on("disconnect", (reason: any) => {
+      console.log("Voice WebSocket disconnected:", reason);
+      if (reason === "io server disconnect") {
+        voiceSocket.connect();
+      }
+    });
+
+    voiceSocket.on("voice-command", (message: any) => {
+      try {
+        console.log("Received voice command:", message);
+        // Handle voice command data
+        if (message.data) {
+          // Process the voice command data similar to inventory updates
+          if (Array.isArray(message.data)) {
+            updateItems(message.data);
+            addNotification(
+              "success",
+              `Voice command updated ${message.data.length} inventory items`
+            );
+          } else {
+            const { id, quantity, unit } = message.data;
+            updateItem({ id, quantity, unit });
+            addNotification(
+              "success",
+              `Voice command updated item ${id} to ${quantity} ${unit}`
+            );
+          }
+        }
+      } catch (error) {
+        console.error("Error processing voice command:", error);
+        addNotification(
+          "error",
+          "Failed to process voice command. Please try again."
+        );
+      }
+    });
+
     return () => {
-      socket.off("inventory-updated");
-      socket.off("connect");
-      socket.off("connect_error");
-      socket.off("disconnect");
-      socket.off("error");
+      // Clean up inventory socket listeners
+      inventorySocket.off("inventory-updated");
+      inventorySocket.off("connect");
+      inventorySocket.off("connect_error");
+      inventorySocket.off("disconnect");
+
+      // Clean up voice socket listeners
+      voiceSocket.off("voice-command");
+      voiceSocket.off("connect");
+      voiceSocket.off("connect_error");
+      voiceSocket.off("disconnect");
     };
   }, [updateItem, updateItems, setError, addNotification]);
+
   return null;
 };

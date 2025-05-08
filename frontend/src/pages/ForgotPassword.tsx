@@ -1,19 +1,19 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import { useNotification } from "../context/NotificationContext";
+import { useAuthStore } from "../stores/authStore";
+import { useNotificationStore } from "../stores/notificationStore";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import { AuthLayout } from "../components/ui/auth-layout";
 import { Avatar } from "@/components/ui/avatar";
-import { useTheme } from "@/context/ThemeContext";
+import { useThemeStore } from "@/stores/themeStore";
 
 const ForgotPassword: React.FC = () => {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const { resetPassword } = useAuth();
-  const { addNotification } = useNotification();
-  const { theme } = useTheme();
+  const { resetPassword } = useAuthStore();
+  const { addNotification } = useNotificationStore();
+  const { theme } = useThemeStore();
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
