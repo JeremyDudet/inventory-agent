@@ -6,25 +6,45 @@ import { Link } from "react-router-dom";
 import { useThemeStore } from "@/stores/themeStore";
 
 const navigation = [
-  { name: "Product", href: "#" },
-  { name: "Features", href: "#" },
-  { name: "Marketplace", href: "#" },
-  { name: "Company", href: "#" },
+  { name: "Features", href: "#features" },
+  { name: "Pricing", href: "#pricing" },
+  { name: "FAQ", href: "#faq" },
 ];
 
 export default function Hero() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { theme } = useThemeStore();
 
+  const handleNavigationClick = (
+    e: React.MouseEvent<HTMLAnchorElement>,
+    href: string
+  ) => {
+    e.preventDefault();
+    setMobileMenuOpen(false);
+    const element = document.querySelector(href);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  const handleSimpleClick = () => {
+    setMobileMenuOpen(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   return (
     <div className="bg-white dark:bg-zinc-900">
-      <header className="absolute inset-x-0 top-0 z-50 max-w-7xl mx-auto">
+      <header className="fixed inset-x-0 top-0 z-50 max-w-7xl mx-auto backdrop-blur-sm bg-white/80 dark:bg-zinc-900/80 border-b border-gray-200 dark:border-gray-800">
         <nav
           aria-label="Global"
           className="flex items-center justify-between p-6 lg:px-8"
         >
           <div className="flex lg:flex-1">
-            <a href="#" className="-m-1.5 p-1.5 flex items-center gap-2">
+            <Link
+              to="/"
+              className="-m-1.5 p-1.5 flex items-center gap-2"
+              onClick={handleSimpleClick}
+            >
               <span className="sr-only">StockCount</span>
               <img
                 alt="StockCount logo"
@@ -38,7 +58,7 @@ export default function Hero() {
               <span className="text-lg font-semibold text-zinc-950 dark:text-white">
                 StockCount
               </span>
-            </a>
+            </Link>
           </div>
           <div className="flex lg:hidden">
             <button
@@ -56,6 +76,7 @@ export default function Hero() {
                 key={item.name}
                 href={item.href}
                 className="text-sm/6 font-semibold text-gray-900 dark:text-gray-100"
+                onClick={(e) => handleNavigationClick(e, item.href)}
               >
                 {item.name}
               </a>
@@ -78,7 +99,7 @@ export default function Hero() {
           <div className="fixed inset-0 z-50" />
           <DialogPanel className="fixed inset-y-0 right-0 z-50 w-full overflow-y-auto bg-white dark:bg-zinc-900 px-6 py-6 sm:max-w-sm sm:ring-1 sm:ring-gray-900/10 dark:sm:ring-gray-100/10">
             <div className="flex items-center justify-between">
-              <a href="#" className="-m-1.5 p-1.5">
+              <Link to="/" className="-m-1.5 p-1.5" onClick={handleSimpleClick}>
                 <span className="sr-only">StockCount</span>
                 <img
                   alt="StockCount logo"
@@ -89,7 +110,7 @@ export default function Hero() {
                   }
                   className="h-8 w-auto"
                 />
-              </a>
+              </Link>
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(false)}
@@ -107,6 +128,7 @@ export default function Hero() {
                       key={item.name}
                       href={item.href}
                       className="-mx-3 block rounded-lg px-3 py-2 text-base/7 font-semibold text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-zinc-800"
+                      onClick={(e) => handleNavigationClick(e, item.href)}
                     >
                       {item.name}
                     </a>
@@ -116,6 +138,7 @@ export default function Hero() {
                   <Link
                     to="/login"
                     className="-mx-3 block rounded-lg px-3 py-2.5 text-base/7 font-semibold text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-zinc-800"
+                    onClick={handleSimpleClick}
                   >
                     Log in <span aria-hidden="true">&rarr;</span>
                   </Link>
@@ -171,14 +194,14 @@ export default function Hero() {
                   aria-hidden="true"
                   className="h-4 w-px bg-gray-900/10 dark:bg-gray-100/10"
                 />
-                <a href="#" className="flex items-center gap-x-1">
+                <Link to="/register" className="flex items-center gap-x-1">
                   <span aria-hidden="true" className="absolute inset-0" />
                   Get your invite
                   <ChevronRightIcon
                     aria-hidden="true"
                     className="-mr-2 size-5 text-gray-400 dark:text-gray-500"
                   />
-                </a>
+                </Link>
               </div>
             </div>
             <h1 className="mt-10 text-pretty text-5xl font-semibold tracking-tight text-gray-900 dark:text-white sm:text-7xl">
@@ -189,18 +212,18 @@ export default function Hero() {
               spot-on—without the hassle.
             </p>
             <div className="mt-10 flex items-center gap-x-6">
-              <a
-                href="#"
+              <Link
+                to="/register"
                 className="rounded-md bg-zinc-950 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
               >
                 Get started
-              </a>
-              <a
-                href="#"
+              </Link>
+              <Link
+                to="/#features"
                 className="text-sm/6 font-semibold text-gray-900 dark:text-gray-100"
               >
                 Learn more <span aria-hidden="true">→</span>
-              </a>
+              </Link>
             </div>
           </div>
           <div className="mt-16 sm:mt-24 lg:mt-0 lg:shrink-0 lg:grow">
