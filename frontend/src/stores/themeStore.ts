@@ -40,4 +40,14 @@ if (typeof window !== "undefined") {
     const { state } = JSON.parse(savedTheme);
     document.documentElement.setAttribute("data-theme", state.theme);
   }
+
+  // Listen for system preference changes
+  const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  const handleChange = (e: MediaQueryListEvent) => {
+    const newTheme = e.matches ? "dark" : "light";
+    useThemeStore.getState().setTheme(newTheme);
+  };
+
+  // Add listener for system preference changes
+  mediaQuery.addEventListener("change", handleChange);
 }

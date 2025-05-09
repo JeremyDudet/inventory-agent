@@ -48,11 +48,11 @@ export default function Hero() {
               <span className="sr-only">StockCount</span>
               <img
                 alt="StockCount logo"
-                src={
+                src={`${
                   theme === "dark"
                     ? "/teams/logo-light.svg"
                     : "/teams/logo-black.svg"
-                }
+                }`}
                 className="h-8 w-auto"
               />
               <span className="text-lg font-semibold text-zinc-950 dark:text-white">
@@ -103,11 +103,11 @@ export default function Hero() {
                 <span className="sr-only">StockCount</span>
                 <img
                   alt="StockCount logo"
-                  src={
+                  src={`${
                     theme === "dark"
                       ? "/teams/logo-light.svg"
                       : "/teams/logo-black.svg"
-                  }
+                  }`}
                   className="h-8 w-auto"
                 />
               </Link>
