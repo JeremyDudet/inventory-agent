@@ -2,33 +2,36 @@ import { CheckIcon } from "@heroicons/react/20/solid";
 
 const tiers = [
   {
-    name: "Personal",
+    name: "Small Business",
     id: "tier-personal",
     href: "#",
-    priceMonthly: "$29",
-    description:
-      "The perfect plan if you're just getting started with our product.",
+    priceMonthly: "$49",
+    description: "The perfect plan if you're just one location.",
     features: [
-      "25 products",
-      "Up to 10,000 subscribers",
-      "Audience segmentation",
-      "Advanced analytics",
-      "Email support",
-      "Marketing automations",
+      "Track an inventory of up to 2,000 items",
+      "Up to 10 users",
+      "Voice-controlled stock counting",
+      "Invoice processing",
+      "Menu Analysis",
+      "Food costs control",
+      "Food usage tracking",
+      "POS integration",
     ],
     featured: true,
   },
   {
-    name: "Team",
+    name: "Medium Business",
     id: "tier-team",
     href: "#",
     priceMonthly: "$99",
     description: "A plan that scales with your rapidly growing business.",
     features: [
-      "Priority support",
-      "Single sign-on",
-      "Enterprise integrations",
-      "Custom reporting tools",
+      "Track an inventory of up to 10,000 items",
+      "Up to 30 users",
+      "Voice-controlled stock counting",
+      "Real-time analytics",
+      "Invoice processing",
+      "POS system integration",
     ],
     featured: false,
   },
@@ -57,17 +60,14 @@ export default function Pricing() {
         />
       </div>
       <div className="mx-auto max-w-4xl text-center">
-        <h2 className="text-base/7 font-semibold text-zinc-600 dark:text-zinc-400">
+        <h2 className="text-5xl sm:text-6xl font-semibold text-zinc-600 dark:text-zinc-400">
           Pricing
         </h2>
-        <p className="mt-2 text-balance text-5xl font-semibold tracking-tight text-gray-900 dark:text-white sm:text-6xl">
+        <p className="mt-2 text-balance text-base sm:text-md font-semibold tracking-tight text-gray-900 dark:text-white ">
           Choose the right plan for you
         </p>
       </div>
-      <p className="mx-auto mt-6 max-w-2xl text-pretty text-center text-lg font-medium text-gray-600 dark:text-gray-400 sm:text-xl/8">
-        Choose an affordable plan that's packed with the best features for
-        engaging your audience, creating customer loyalty, and driving sales.
-      </p>
+
       <div className="mx-auto mt-16 grid max-w-lg grid-cols-1 items-center gap-y-6 sm:mt-20 sm:gap-y-0 lg:max-w-4xl lg:grid-cols-2">
         {tiers.map((tier, tierIdx) => (
           <div

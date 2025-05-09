@@ -1,8 +1,8 @@
 const faqs = [
   {
-    question: "How do you make holy water?",
+    question: "What is voice-controlled stock counting?",
     answer:
-      "You boil the hell out of it. Lorem ipsum dolor sit amet consectetur adipisicing elit. Quas cupiditate laboriosam fugiat.",
+      "Speak your inventory updates, like '5 gallons of whole milk,' and StockCount instantly records it, replacing manual checklists with easy voice input.",
   },
   {
     question: "How do you make holy water?",

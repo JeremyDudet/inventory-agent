@@ -248,7 +248,7 @@ export default function Hero() {
                 height="25"
                 rx="12.5"
                 fill="#000"
-                className="dark:fill-zinc-950"
+                className="fill-zinc-900 dark:fill-zinc-900"
                 style={{ zIndex: 10 }}
               />
             </svg>
