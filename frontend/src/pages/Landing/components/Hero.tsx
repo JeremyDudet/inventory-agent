@@ -54,17 +54,6 @@ const phoneVariants = {
   },
 };
 
-const floatingAnimation = {
-  y: [0, -8, 0],
-  rotate: [0, 0.5, 0],
-  scale: [1, 1.02, 1],
-  transition: {
-    duration: 4,
-    repeat: Infinity,
-    ease: "easeInOut",
-  },
-};
-
 export default function Hero() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -240,10 +229,9 @@ export default function Hero() {
       </header>
 
       <div className="relative isolate pt-14">
-        <motion.svg
+        <svg
           aria-hidden="true"
           className="absolute inset-0 -z-10 size-full stroke-gray-200 dark:stroke-zinc-700 [mask-image:radial-gradient(100%_100%_at_top_right,white,transparent)]"
-          animate={floatingAnimation}
         >
           <defs>
             <pattern
@@ -273,7 +261,7 @@ export default function Hero() {
             height="100%"
             strokeWidth={0}
           />
-        </motion.svg>
+        </svg>
         <div className="mx-auto max-w-7xl px-6 py-24 sm:py-32 lg:flex lg:items-center lg:gap-x-10 lg:px-8 lg:py-40">
           <motion.div 
             className="mx-auto max-w-2xl lg:mx-0 lg:flex-auto"
@@ -428,14 +416,14 @@ export default function Hero() {
                   width="90"
                   height="25"
                   rx="12.5"
-                  // fill="url(#pill-gradient)"
+                  fill="url(#pill-gradient)"
                   className="dark:fill-[url(#pill-gradient-dark)]"
                   style={{ zIndex: 10 }}
                 />
                 <defs>
                   <linearGradient id="pill-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
                     <stop offset="0%" stopColor="#48484A" />
-                    <stop offset="50%" stopColor="#636366" />
+                    <stop offset="50%" stopColor="#5C5C5E" />
                     <stop offset="100%" stopColor="#48484A" />
                   </linearGradient>
                   <linearGradient id="pill-gradient-dark" x1="0%" y1="0%" x2="100%" y2="0%">
