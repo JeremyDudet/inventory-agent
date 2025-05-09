@@ -1,8 +1,11 @@
+import { useThemeStore } from "@/stores/themeStore";
+
 export default function Benefits() {
+  const { theme } = useThemeStore();
   return (
     <div className="bg-white dark:bg-zinc-900 py-24 sm:py-32">
       <div className="mx-auto max-w-2xl px-6 lg:max-w-7xl lg:px-8">
-        <h2 className="text-base/7 font-semibold text-indigo-600 dark:text-indigo-400">
+        <h2 className="text-base/7 font-semibold text-zinc-600 dark:text-zinc-400">
           Stress-free inventory
         </h2>
         <p className="mt-2 max-w-lg text-pretty text-4xl font-semibold tracking-tight text-gray-950 dark:text-white sm:text-5xl">
@@ -18,7 +21,7 @@ export default function Benefits() {
                 className="h-80 object-cover object-left"
               />
               <div className="p-10 pt-4">
-                <h3 className="text-sm/4 font-semibold text-indigo-600 dark:text-indigo-400">
+                <h3 className="text-sm/4 font-semibold text-zinc-600 dark:text-zinc-400">
                   Reduce Stress
                 </h3>
                 <p className="mt-2 text-lg font-medium tracking-tight text-gray-950 dark:text-white">
@@ -41,7 +44,7 @@ export default function Benefits() {
                 className="h-80 object-cover object-left lg:object-right"
               />
               <div className="p-10 pt-4">
-                <h3 className="text-sm/4 font-semibold text-indigo-600 dark:text-indigo-400">
+                <h3 className="text-sm/4 font-semibold text-zinc-600 dark:text-zinc-400">
                   Save Time
                 </h3>
                 <p className="mt-2 text-lg font-medium tracking-tight text-gray-950 dark:text-white">
@@ -65,7 +68,7 @@ export default function Benefits() {
                 className="h-80 object-cover object-left"
               />
               <div className="p-10 pt-4">
-                <h3 className="text-sm/4 font-semibold text-indigo-600 dark:text-indigo-400">
+                <h3 className="text-sm/4 font-semibold text-zinc-600 dark:text-zinc-400">
                   Boost Accuracy
                 </h3>
                 <p className="mt-2 text-lg font-medium tracking-tight text-gray-950 dark:text-white">
@@ -85,11 +88,15 @@ export default function Benefits() {
             <div className="relative flex h-full flex-col overflow-hidden rounded-[calc(theme(borderRadius.lg)+1px)]">
               <img
                 alt=""
-                src="https://tailwindcss.com/plus-assets/img/component-images/bento-01-integrations.png"
-                className="h-80 object-cover"
+                src={
+                  theme === "dark"
+                    ? "/screenshots/IMG_0536.png"
+                    : "/screenshots/IMG_0537.png"
+                }
+                className="h-80 object-cover object-bottom"
               />
               <div className="p-10 pt-4">
-                <h3 className="text-sm/4 font-semibold text-indigo-600 dark:text-indigo-400">
+                <h3 className="text-sm/4 font-semibold text-zinc-600 dark:text-zinc-400">
                   Fit Your Flow
                 </h3>
                 <p className="mt-2 text-lg font-medium tracking-tight text-gray-950 dark:text-white">
@@ -113,7 +120,7 @@ export default function Benefits() {
                 className="h-80 object-cover"
               />
               <div className="p-10 pt-4">
-                <h3 className="text-sm/4 font-semibold text-indigo-600 dark:text-indigo-400">
+                <h3 className="text-sm/4 font-semibold text-zinc-600 dark:text-zinc-400">
                   Grow Confidently
                 </h3>
                 <p className="mt-2 text-lg font-medium tracking-tight text-gray-950 dark:text-white">

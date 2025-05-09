@@ -39,7 +39,7 @@ export default function Contact() {
                 name="first-name"
                 type="text"
                 autoComplete="given-name"
-                className="block w-full rounded-md bg-white dark:bg-zinc-800 px-3.5 py-2 text-base text-gray-900 dark:text-white outline outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-700 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 dark:focus:outline-indigo-400"
+                className="block w-full rounded-md bg-white dark:bg-zinc-800 px-3.5 py-2 text-base text-gray-900 dark:text-white outline outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-700 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-zinc-600 dark:focus:outline-zinc-400"
               />
             </div>
           </div>
@@ -56,7 +56,7 @@ export default function Contact() {
                 name="last-name"
                 type="text"
                 autoComplete="family-name"
-                className="block w-full rounded-md bg-white dark:bg-zinc-800 px-3.5 py-2 text-base text-gray-900 dark:text-white outline outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-700 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 dark:focus:outline-indigo-400"
+                className="block w-full rounded-md bg-white dark:bg-zinc-800 px-3.5 py-2 text-base text-gray-900 dark:text-white outline outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-700 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-zinc-600 dark:focus:outline-zinc-400"
               />
             </div>
           </div>
@@ -73,7 +73,7 @@ export default function Contact() {
                 name="company"
                 type="text"
                 autoComplete="organization"
-                className="block w-full rounded-md bg-white dark:bg-zinc-800 px-3.5 py-2 text-base text-gray-900 dark:text-white outline outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-700 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 dark:focus:outline-indigo-400"
+                className="block w-full rounded-md bg-white dark:bg-zinc-800 px-3.5 py-2 text-base text-gray-900 dark:text-white outline outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-700 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-zinc-950 dark:focus:outline-zinc-400"
               />
             </div>
           </div>
@@ -90,7 +90,7 @@ export default function Contact() {
                 name="email"
                 type="email"
                 autoComplete="email"
-                className="block w-full rounded-md bg-white dark:bg-zinc-800 px-3.5 py-2 text-base text-gray-900 dark:text-white outline outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-700 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 dark:focus:outline-indigo-400"
+                className="block w-full rounded-md bg-white dark:bg-zinc-800 px-3.5 py-2 text-base text-gray-900 dark:text-white outline outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-700 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-zinc-950 dark:focus:outline-zinc-400"
               />
             </div>
           </div>
@@ -102,14 +102,14 @@ export default function Contact() {
               Phone number
             </label>
             <div className="mt-2.5">
-              <div className="flex rounded-md bg-white dark:bg-zinc-800 outline outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-700 has-[input:focus-within]:outline has-[input:focus-within]:outline-2 has-[input:focus-within]:-outline-offset-2 has-[input:focus-within]:outline-indigo-600 dark:has-[input:focus-within]:outline-indigo-400">
+              <div className="flex rounded-md bg-white dark:bg-zinc-800 outline outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-700 has-[input:focus-within]:outline has-[input:focus-within]:outline-2 has-[input:focus-within]:-outline-offset-2 has-[input:focus-within]:outline-zinc-950 dark:has-[input:focus-within]:outline-zinc-400">
                 <div className="grid shrink-0 grid-cols-1 focus-within:relative">
                   <select
                     id="country"
                     name="country"
                     autoComplete="country"
                     aria-label="Country"
-                    className="col-start-1 row-start-1 w-full appearance-none rounded-md py-2 pl-3.5 pr-7 text-base text-gray-500 dark:text-gray-400 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 dark:focus:outline-indigo-400 sm:text-sm/6"
+                    className="col-start-1 row-start-1 w-full appearance-none rounded-md py-2 pl-3.5 pr-7 text-base text-gray-500 dark:text-gray-400 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-zinc-950 dark:focus:outline-zinc-400 sm:text-sm/6"
                   >
                     <option>US</option>
                     <option>CA</option>
@@ -142,7 +142,7 @@ export default function Contact() {
                 id="message"
                 name="message"
                 rows={4}
-                className="block w-full rounded-md bg-white dark:bg-zinc-800 px-3.5 py-2 text-base text-gray-900 dark:text-white outline outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-700 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 dark:focus:outline-indigo-400"
+                className="block w-full rounded-md bg-white dark:bg-zinc-800 px-3.5 py-2 text-base text-gray-900 dark:text-white outline outline-1 -outline-offset-1 outline-gray-300 dark:outline-gray-700 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-zinc-600 dark:focus:outline-zinc-400"
                 defaultValue={""}
               />
             </div>
@@ -152,7 +152,7 @@ export default function Contact() {
               <Switch
                 checked={agreed}
                 onChange={setAgreed}
-                className="group flex w-8 flex-none cursor-pointer rounded-full bg-gray-200 dark:bg-gray-700 p-px ring-1 ring-inset ring-gray-900/5 dark:ring-gray-100/5 transition-colors duration-200 ease-in-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:focus-visible:outline-indigo-400 data-[checked]:bg-indigo-600 dark:data-[checked]:bg-indigo-500"
+                className="group flex w-8 flex-none cursor-pointer rounded-full bg-gray-200 dark:bg-gray-700 p-px ring-1 ring-inset ring-gray-900/5 dark:ring-gray-100/5 transition-colors duration-200 ease-in-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-600 dark:focus-visible:outline-zinc-400 data-[checked]:bg-zinc-600 dark:data-[checked]:bg-zinc-500"
               >
                 <span className="sr-only">Agree to policies</span>
                 <span
@@ -165,7 +165,7 @@ export default function Contact() {
               By selecting this, you agree to our{" "}
               <a
                 href="#"
-                className="font-semibold text-indigo-600 dark:text-indigo-400"
+                className="font-semibold text-zinc-600 dark:text-zinc-400"
               >
                 privacy&nbsp;policy
               </a>
@@ -176,7 +176,7 @@ export default function Contact() {
         <div className="mt-10">
           <button
             type="submit"
-            className="block w-full rounded-md bg-indigo-600 dark:bg-indigo-500 px-3.5 py-2.5 text-center text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 dark:hover:bg-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:focus-visible:outline-indigo-400"
+            className="block w-full rounded-md bg-zinc-950 dark:bg-zinc-500 px-3.5 py-2.5 text-center text-sm font-semibold text-white shadow-sm hover:bg-zinc-800 dark:hover:bg-zinc-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 dark:focus-visible:outline-zinc-400"
           >
             Let's talk
           </button>

@@ -57,7 +57,7 @@ export default function Pricing() {
         />
       </div>
       <div className="mx-auto max-w-4xl text-center">
-        <h2 className="text-base/7 font-semibold text-indigo-600 dark:text-indigo-400">
+        <h2 className="text-base/7 font-semibold text-zinc-600 dark:text-zinc-400">
           Pricing
         </h2>
         <p className="mt-2 text-balance text-5xl font-semibold tracking-tight text-gray-900 dark:text-white sm:text-6xl">
@@ -86,7 +86,7 @@ export default function Pricing() {
           >
             <h3
               id={tier.id}
-              className="text-base/7 font-semibold text-indigo-600 dark:text-indigo-400"
+              className="text-base/7 font-semibold text-zinc-600 dark:text-zinc-400"
             >
               {tier.name}
             </h3>
@@ -109,7 +109,7 @@ export default function Pricing() {
                 <li key={feature} className="flex gap-x-3">
                   <CheckIcon
                     aria-hidden="true"
-                    className="h-6 w-5 flex-none text-indigo-600 dark:text-indigo-400"
+                    className="h-6 w-5 flex-none text-zinc-600 dark:text-zinc-400"
                   />
                   {feature}
                 </li>
@@ -120,9 +120,9 @@ export default function Pricing() {
               aria-describedby={tier.id}
               className={classNames(
                 tier.featured
-                  ? "bg-indigo-600 dark:bg-indigo-500 text-white shadow hover:bg-indigo-500 dark:hover:bg-indigo-400"
-                  : "text-indigo-600 dark:text-indigo-400 ring-1 ring-inset ring-indigo-200 dark:ring-indigo-800 hover:ring-indigo-300 dark:hover:ring-indigo-700",
-                "mt-8 block rounded-md px-3.5 py-2.5 text-center text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:focus-visible:outline-indigo-400 sm:mt-10"
+                  ? "bg-zinc-950 dark:bg-zinc-500 text-white shadow hover:bg-zinc-800 dark:hover:bg-zinc-400"
+                  : "text-zinc-600 dark:text-zinc-400 ring-1 ring-inset ring-zinc-200 dark:ring-zinc-800 hover:ring-zinc-300 dark:hover:ring-zinc-700",
+                "mt-8 block rounded-md px-3.5 py-2.5 text-center text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 dark:focus-visible:outline-zinc-400 sm:mt-10"
               )}
             >
               Get started today

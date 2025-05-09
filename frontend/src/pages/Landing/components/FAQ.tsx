@@ -29,7 +29,7 @@ export default function FAQ() {
               Can't find the answer you're looking for? Reach out to our{" "}
               <a
                 href="#"
-                className="font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300"
+                className="font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-500 dark:hover:text-zinc-300"
               >
                 customer support
               </a>{" "}

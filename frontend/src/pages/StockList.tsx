@@ -254,8 +254,7 @@ function InventoryListWithStickyHeader({
                       }}
                     >
                       <span>
-                        <span className="sm:hidden">Edit</span>
-                        <span className="hidden sm:inline">Click to edit</span>
+                        Edit
                         <span className="sr-only">, {item.name}</span>
                       </span>
                     </InputCountDrawer>

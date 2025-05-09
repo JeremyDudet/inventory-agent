@@ -47,7 +47,7 @@ export default function Features() {
             {features.map((feature) => (
               <div key={feature.name} className="flex flex-col">
                 <dt className="text-base/7 font-semibold text-gray-900 dark:text-white">
-                  <div className="mb-6 flex size-10 items-center justify-center rounded-lg bg-indigo-600 dark:bg-indigo-500">
+                  <div className="mb-6 flex size-10 items-center justify-center rounded-lg bg-zinc-950 dark:bg-zinc-500">
                     <feature.icon
                       aria-hidden="true"
                       className="size-6 text-white"
@@ -60,7 +60,7 @@ export default function Features() {
                   <p className="mt-6">
                     <a
                       href={feature.href}
-                      className="text-sm/6 font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300"
+                      className="text-sm/6 font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-500 dark:hover:text-zinc-300"
                     >
                       Learn more <span aria-hidden="true">→</span>
                     </a>

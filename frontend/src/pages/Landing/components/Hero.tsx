@@ -129,7 +129,7 @@ export default function Hero() {
       <div className="relative isolate pt-14">
         <svg
           aria-hidden="true"
-          className="absolute inset-0 -z-10 size-full stroke-gray-200 dark:stroke-zinc-800 [mask-image:radial-gradient(100%_100%_at_top_right,white,transparent)]"
+          className="absolute inset-0 -z-10 size-full stroke-gray-200 dark:stroke-zinc-700 [mask-image:radial-gradient(100%_100%_at_top_right,white,transparent)]"
         >
           <defs>
             <pattern
@@ -164,7 +164,7 @@ export default function Hero() {
           <div className="mx-auto max-w-2xl lg:mx-0 lg:flex-auto">
             <div className="flex">
               <div className="relative flex items-center gap-x-4 rounded-full bg-white dark:bg-zinc-800 px-4 py-1 text-sm/6 text-gray-600 dark:text-gray-300 ring-1 ring-gray-900/10 dark:ring-gray-100/10 hover:ring-gray-900/20 dark:hover:ring-gray-100/20">
-                <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                <span className="font-semibold text-zinc-600 dark:text-zinc-400">
                   In beta - version 0.1
                 </span>
                 <span
@@ -191,7 +191,7 @@ export default function Hero() {
             <div className="mt-10 flex items-center gap-x-6">
               <a
                 href="#"
-                className="rounded-md bg-indigo-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                className="rounded-md bg-zinc-950 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
               >
                 Get started
               </a>
@@ -232,10 +232,25 @@ export default function Hero() {
                 transform="translate(24 24)"
               >
                 <img
-                  alt=""
-                  src="https://tailwindcss.com/plus-assets/img/component-images/mobile-app-screenshot.png"
+                  alt="StockCount app screenshot"
+                  src={
+                    theme === "dark"
+                      ? "/screenshots/IMG_0535.png"
+                      : "/screenshots/IMG_0534.png"
+                  }
                 />
               </foreignObject>
+              {/* Dynamic Island Pill */}
+              <rect
+                x="138"
+                y="35"
+                width="90"
+                height="25"
+                rx="12.5"
+                fill="#000"
+                className="dark:fill-zinc-950"
+                style={{ zIndex: 10 }}
+              />
             </svg>
           </div>
         </div>
