@@ -256,11 +256,7 @@ export default function Hero() {
               >
                 <img
                   alt="StockCount app screenshot"
-                  src={
-                    theme === "dark"
-                      ? "/screenshots/IMG_0535.png"
-                      : "/screenshots/IMG_0534.png"
-                  }
+                  src="/screenshots/IMG_0534.png"
                 />
               </foreignObject>
               {/* Dynamic Island Pill */}
