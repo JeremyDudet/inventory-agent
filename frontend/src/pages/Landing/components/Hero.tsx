@@ -4,12 +4,66 @@ import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import { ChevronRightIcon } from "@heroicons/react/20/solid";
 import { Link } from "react-router-dom";
 import { useThemeStore } from "@/stores/themeStore";
+import { motion } from "framer-motion";
 
 const navigation = [
   { name: "Features", href: "#features" },
   { name: "Pricing", href: "#pricing" },
   { name: "FAQ", href: "#faq" },
 ];
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.1,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.5,
+      ease: "easeOut",
+    },
+  },
+};
+
+const phoneVariants = {
+  hidden: { 
+    y: 30,
+    opacity: 0,
+    scale: 0.98,
+    rotate: -2
+  },
+  visible: {
+    y: 0,
+    opacity: 1,
+    scale: 1,
+    rotate: 0,
+    transition: {
+      duration: 1.4,
+      ease: [0.16, 1, 0.3, 1], // Smooth easing with a slight bounce
+    },
+  },
+};
+
+const floatingAnimation = {
+  y: [0, -8, 0],
+  rotate: [0, 0.5, 0],
+  scale: [1, 1.02, 1],
+  transition: {
+    duration: 4,
+    repeat: Infinity,
+    ease: "easeInOut",
+  },
+};
 
 export default function Hero() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -44,17 +98,22 @@ export default function Hero() {
 
   return (
     <div className="bg-white dark:bg-zinc-900">
-      <header className={`fixed inset-x-0 top-0 z-50 transition-colors duration-200 ${
+      <header className={`fixed inset-x-0 top-0 z-50 transition-all duration-200 ${
         isScrolled 
           ? 'backdrop-blur-sm bg-white/80 dark:bg-zinc-900/80 border-b border-gray-200 dark:border-gray-800' 
-          : 'bg-transparent'
+          : 'bg-transparent border-b border-transparent'
       }`}>
         <div className="max-w-7xl mx-auto">
           <nav
             aria-label="Global"
             className="flex items-center justify-between p-6 lg:px-8"
           >
-            <div className="flex lg:flex-1">
+            <motion.div 
+              className="flex lg:flex-1"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
+            >
               <Link
                 to="/"
                 className="-m-1.5 p-1.5 flex items-center gap-2"
@@ -74,37 +133,52 @@ export default function Hero() {
                   StockCount
                 </span>
               </Link>
-            </div>
+            </motion.div>
             <div className="flex lg:hidden">
-              <button
+              <motion.button
                 type="button"
                 onClick={() => setMobileMenuOpen(true)}
                 className="-m-2.5 inline-flex items-center justify-center rounded-md p-2.5 text-gray-700 dark:text-gray-300"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
               >
                 <span className="sr-only">Open main menu</span>
                 <Bars3Icon aria-hidden="true" className="size-6" />
-              </button>
+              </motion.button>
             </div>
-            <div className="hidden lg:flex lg:gap-x-12">
+            <motion.div 
+              className="hidden lg:flex lg:gap-x-12"
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+            >
               {navigation.map((item) => (
-                <a
+                <motion.a
                   key={item.name}
                   href={item.href}
                   className="text-sm/6 font-semibold text-gray-900 dark:text-gray-100"
                   onClick={(e) => handleNavigationClick(e, item.href)}
+                  variants={itemVariants}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                 >
                   {item.name}
-                </a>
+                </motion.a>
               ))}
-            </div>
-            <div className="hidden lg:flex lg:flex-1 lg:justify-end">
+            </motion.div>
+            <motion.div 
+              className="hidden lg:flex lg:flex-1 lg:justify-end"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
+            >
               <Link
                 to="/login"
                 className="text-sm/6 font-semibold text-gray-900 dark:text-gray-100"
               >
                 Log in <span aria-hidden="true">&rarr;</span>
               </Link>
-            </div>
+            </motion.div>
           </nav>
           <Dialog
             open={mobileMenuOpen}
@@ -166,9 +240,10 @@ export default function Hero() {
       </header>
 
       <div className="relative isolate pt-14">
-        <svg
+        <motion.svg
           aria-hidden="true"
           className="absolute inset-0 -z-10 size-full stroke-gray-200 dark:stroke-zinc-700 [mask-image:radial-gradient(100%_100%_at_top_right,white,transparent)]"
+          animate={floatingAnimation}
         >
           <defs>
             <pattern
@@ -198,10 +273,18 @@ export default function Hero() {
             height="100%"
             strokeWidth={0}
           />
-        </svg>
+        </motion.svg>
         <div className="mx-auto max-w-7xl px-6 py-24 sm:py-32 lg:flex lg:items-center lg:gap-x-10 lg:px-8 lg:py-40">
-          <div className="mx-auto max-w-2xl lg:mx-0 lg:flex-auto">
-            <div className="flex">
+          <motion.div 
+            className="mx-auto max-w-2xl lg:mx-0 lg:flex-auto"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            <motion.div 
+              className="flex"
+              variants={itemVariants}
+            >
               <div className="relative flex items-center gap-x-4 rounded-full bg-white dark:bg-zinc-800 px-4 py-1 text-sm/6 text-gray-600 dark:text-gray-300 ring-1 ring-gray-900/10 dark:ring-gray-100/10 hover:ring-gray-900/20 dark:hover:ring-gray-100/20">
                 <span className="font-semibold text-zinc-600 dark:text-zinc-400">
                   In beta - version 0.1
@@ -219,15 +302,24 @@ export default function Hero() {
                   />
                 </Link>
               </div>
-            </div>
-            <h1 className="mt-10 text-pretty text-5xl font-semibold tracking-tight text-gray-900 dark:text-white sm:text-7xl">
+            </motion.div>
+            <motion.h1 
+              className="mt-10 text-pretty text-5xl font-semibold tracking-tight text-gray-900 dark:text-white sm:text-7xl"
+              variants={itemVariants}
+            >
               Inventory management as easy as a conversation
-            </h1>
-            <p className="mt-8 text-pretty text-lg font-medium text-gray-500 dark:text-gray-400 sm:text-xl/8">
+            </motion.h1>
+            <motion.p 
+              className="mt-8 text-pretty text-lg font-medium text-gray-500 dark:text-gray-400 sm:text-xl/8"
+              variants={itemVariants}
+            >
               StockCount listens, learns, and keeps your cafe's inventory
               spot-on—without the hassle.
-            </p>
-            <div className="mt-10 flex items-center gap-x-6">
+            </motion.p>
+            <motion.div 
+              className="mt-10 flex items-center gap-x-6"
+              variants={itemVariants}
+            >
               <Link
                 to="/register"
                 className="rounded-md bg-zinc-950 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
@@ -240,9 +332,14 @@ export default function Hero() {
               >
                 Learn more <span aria-hidden="true">→</span>
               </Link>
-            </div>
-          </div>
-          <div className="mt-16 sm:mt-24 lg:mt-0 lg:shrink-0 lg:grow">
+            </motion.div>
+          </motion.div>
+          <motion.div 
+            className="mt-16 sm:mt-24 lg:mt-0 lg:shrink-0 lg:grow"
+            variants={phoneVariants}
+            initial="hidden"
+            animate="visible"
+          >
             <div className="relative">
               <div
                 aria-hidden="true"
@@ -349,7 +446,7 @@ export default function Hero() {
                 </defs>
               </svg>
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
     </div>
