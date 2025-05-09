@@ -36,11 +36,11 @@ const itemVariants = {
 };
 
 const phoneVariants = {
-  hidden: { 
+  hidden: {
     y: 30,
     opacity: 0,
     scale: 0.98,
-    rotate: -2
+    rotate: -2,
   },
   visible: {
     y: 0,
@@ -64,8 +64,8 @@ export default function Hero() {
       setIsScrolled(window.scrollY > 0);
     };
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   const handleNavigationClick = (
@@ -87,17 +87,19 @@ export default function Hero() {
 
   return (
     <div className="bg-white dark:bg-zinc-900">
-      <header className={`fixed inset-x-0 top-0 z-50 transition-all duration-200 ${
-        isScrolled 
-          ? 'backdrop-blur-sm bg-white/80 dark:bg-zinc-900/80 border-b border-gray-200 dark:border-gray-800' 
-          : 'bg-transparent border-b border-transparent'
-      }`}>
+      <header
+        className={`fixed inset-x-0 top-0 z-50 transition-all duration-200 ${
+          isScrolled
+            ? "backdrop-blur-sm bg-white/80 dark:bg-zinc-900/80 border-b border-gray-200 dark:border-gray-800"
+            : "bg-transparent border-b border-transparent"
+        }`}
+      >
         <div className="max-w-7xl mx-auto">
           <nav
             aria-label="Global"
             className="flex items-center justify-between p-6 lg:px-8"
           >
-            <motion.div 
+            <motion.div
               className="flex lg:flex-1"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -135,7 +137,7 @@ export default function Hero() {
                 <Bars3Icon aria-hidden="true" className="size-6" />
               </motion.button>
             </div>
-            <motion.div 
+            <motion.div
               className="hidden lg:flex lg:gap-x-12"
               variants={containerVariants}
               initial="hidden"
@@ -155,7 +157,7 @@ export default function Hero() {
                 </motion.a>
               ))}
             </motion.div>
-            <motion.div 
+            <motion.div
               className="hidden lg:flex lg:flex-1 lg:justify-end"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -177,7 +179,11 @@ export default function Hero() {
             <div className="fixed inset-0 z-50" />
             <DialogPanel className="fixed inset-y-0 right-0 z-50 w-full overflow-y-auto bg-white dark:bg-zinc-900 px-6 py-6 sm:max-w-sm sm:ring-1 sm:ring-gray-900/10 dark:sm:ring-gray-100/10">
               <div className="flex items-center justify-between">
-                <Link to="/" className="-m-1.5 p-1.5" onClick={handleSimpleClick}>
+                <Link
+                  to="/"
+                  className="-m-1.5 p-1.5"
+                  onClick={handleSimpleClick}
+                >
                   <span className="sr-only">StockCount</span>
                   <img
                     alt="StockCount logo"
@@ -227,11 +233,11 @@ export default function Hero() {
           </Dialog>
         </div>
       </header>
-
+      {/* Background pattern */}
       <div className="relative isolate pt-14">
         <svg
           aria-hidden="true"
-          className="absolute inset-0 -z-10 size-full stroke-gray-200 dark:stroke-zinc-700 [mask-image:radial-gradient(100%_100%_at_top_right,white,transparent)]"
+          className="absolute inset-0 -z-10 size-full stroke-gray-200 dark:stroke-zinc-800 [mask-image:radial-gradient(100%_100%_at_top_right,white,transparent)]"
         >
           <defs>
             <pattern
@@ -263,16 +269,13 @@ export default function Hero() {
           />
         </svg>
         <div className="mx-auto max-w-7xl px-6 py-24 sm:py-32 lg:flex lg:items-center lg:gap-x-10 lg:px-8 lg:py-40">
-          <motion.div 
+          <motion.div
             className="mx-auto max-w-2xl lg:mx-0 lg:flex-auto"
             variants={containerVariants}
             initial="hidden"
             animate="visible"
           >
-            <motion.div 
-              className="flex"
-              variants={itemVariants}
-            >
+            <motion.div className="flex" variants={itemVariants}>
               <div className="relative flex items-center gap-x-4 rounded-full bg-white dark:bg-zinc-800 px-4 py-1 text-sm/6 text-gray-600 dark:text-gray-300 ring-1 ring-gray-900/10 dark:ring-gray-100/10 hover:ring-gray-900/20 dark:hover:ring-gray-100/20">
                 <span className="font-semibold text-zinc-600 dark:text-zinc-400">
                   In beta - version 0.1
@@ -291,38 +294,39 @@ export default function Hero() {
                 </Link>
               </div>
             </motion.div>
-            <motion.h1 
+            <motion.h1
               className="mt-10 text-pretty text-5xl font-semibold tracking-tight text-gray-900 dark:text-white sm:text-7xl"
               variants={itemVariants}
             >
               Inventory management as easy as a conversation
             </motion.h1>
-            <motion.p 
+            <motion.p
               className="mt-8 text-pretty text-lg font-medium text-gray-500 dark:text-gray-400 sm:text-xl/8"
               variants={itemVariants}
             >
               StockCount listens, learns, and keeps your cafe's inventory
               spot-on—without the hassle.
             </motion.p>
-            <motion.div 
+            <motion.div
               className="mt-10 flex items-center gap-x-6"
               variants={itemVariants}
             >
               <Link
                 to="/register"
-                className="rounded-md bg-zinc-950 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
+                className="rounded-md bg-zinc-950 dark:bg-zinc-100 px-3.5 py-2.5 text-sm font-bold text-white dark:text-zinc-950 shadow-sm hover:bg-zinc-800 dark:hover:bg-zinc-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 dark:focus-visible:outline-zinc-100"
               >
                 Get started
               </Link>
-              <Link
+              {/* <Link
                 to="/#features"
-                className="text-sm/6 font-semibold text-gray-900 dark:text-gray-100"
+                className="text-sm/6 font-medium text-gray-900 dark:text-gray-100"
               >
                 Learn more <span aria-hidden="true">→</span>
-              </Link>
+              </Link> */}
             </motion.div>
           </motion.div>
-          <motion.div 
+          {/* Phone mockup */}
+          <motion.div
             className="mt-16 sm:mt-24 lg:mt-0 lg:shrink-0 lg:grow"
             variants={phoneVariants}
             initial="hidden"
@@ -338,7 +342,7 @@ export default function Hero() {
                     clipPath:
                       "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 20% 20%, 80% 20%, 100% 40%, 80% 60%, 100% 80%, 80% 100%, 20% 100%, 0% 80%, 20% 60%, 0% 40%, 20% 20%)",
                   }}
-                  className="mx-auto aspect-[1155/678] w-[90rem] bg-gradient-to-tr from-[#a78bfa] to-[#6366f1] dark:from-[#ff80b5] dark:to-[#9089fc] opacity-30 sm:opacity-20 lg:opacity-25"
+                  className="mx-auto aspect-[9/19.5] w-[320px] dark:w-[290px] bg-gradient-to-tr from-[#054ebb] to-[#374151] dark:from-[#ff80b5] dark:to-[#9089fc] dark:opacity-30 opacity-60"
                 />
               </div>
               <div className="relative mx-auto w-[22.875rem] max-w-full">
@@ -347,24 +351,31 @@ export default function Hero() {
                   alt="StockCount app on iPhone"
                   className="w-full h-auto drop-shadow-xl"
                   style={{
-                    filter: theme === 'dark' ? 'none' : 'drop-shadow(0 8px 16px rgba(0, 0, 0, 0.1))',
-                    position: 'relative',
-                    zIndex: 2
+                    filter:
+                      theme === "dark"
+                        ? "none"
+                        : "drop-shadow(0 8px 16px rgba(0, 0, 0, 0.1))",
+                    position: "relative",
+                    zIndex: 2,
                   }}
                 />
-                <div 
+                <div
                   className="absolute overflow-hidden rounded-[36px]"
                   style={{
-                    top: '2%',
-                    left: '5.5%',
-                    right: '5.5%',
-                    bottom: '4.5%',
+                    top: "2%",
+                    left: "5.5%",
+                    right: "5.5%",
+                    bottom: "4.5%",
                     zIndex: 1,
-                    aspectRatio: '9/19.5'
+                    aspectRatio: "9/19.5",
                   }}
                 >
                   <img
-                    src={theme === 'dark' ? '/screenshots/IMG_0534.png' : '/screenshots/IMG_0535.png'}
+                    src={
+                      theme === "dark"
+                        ? "/screenshots/IMG_0534.png"
+                        : "/screenshots/IMG_0535.png"
+                    }
                     alt="StockCount app screenshot"
                     className="w-full h-full object-cover"
                   />
