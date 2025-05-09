@@ -60,10 +60,10 @@ export default function Pricing() {
         />
       </div>
       <div className="mx-auto max-w-4xl text-center">
-        <h2 className="text-5xl sm:text-6xl font-semibold text-zinc-600 dark:text-zinc-400">
+        <h2 className="text-5xl sm:text-6xl font-semibold text-zinc-900 dark:text-white">
           Pricing
         </h2>
-        <p className="mt-2 text-balance text-base sm:text-md font-semibold tracking-tight text-gray-900 dark:text-white ">
+        <p className="mt-2 text-balance text-base sm:text-md font-semibold tracking-tight text-gray-900 dark:text-zinc-200 ">
           Choose the right plan for you
         </p>
       </div>
