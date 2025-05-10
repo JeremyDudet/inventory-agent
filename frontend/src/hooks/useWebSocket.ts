@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+// frontend/src/hooks/useWebSocket.ts
+import { useEffect, useRef } from "react";
 
 interface WebSocketHandlers {
   onMessage: (event: MessageEvent) => void;
@@ -26,4 +27,4 @@ export const useWebSocket = (url: string, handlers: WebSocketHandlers) => {
   }, [url, handlers]);
 
   return ws.current;
-}; 
+};

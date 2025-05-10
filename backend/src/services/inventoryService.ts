@@ -1,7 +1,7 @@
 // backend/src/services/inventoryService.ts
 import { logSystemAction } from "./session/sessionLogsService";
 import { InventoryRepository } from "../repositories/InventoryRepository";
-import { InventoryItem, InventoryItemInsert } from "../models/InventoryItem";
+import { InventoryItem, InventoryItemInsert } from "../types";
 import { NotFoundError, ValidationError } from "../errors";
 import { generateEmbedding } from "../utils/createEmbedding";
 import { preprocessText } from "../utils/preprocessText";
@@ -172,10 +172,10 @@ class InventoryService {
       let newQuantity: number;
       switch (update.action.toLowerCase()) {
         case "add":
-          newQuantity = item.quantity + quantityToUpdate;
+          newQuantity = Number(item.quantity) + quantityToUpdate;
           break;
         case "remove":
-          newQuantity = Math.max(0, item.quantity - quantityToUpdate);
+          newQuantity = Math.max(0, Number(item.quantity) - quantityToUpdate);
           break;
         case "set":
           newQuantity = quantityToUpdate;
@@ -234,9 +234,9 @@ class InventoryService {
       }
 
       // Add lastupdated timestamp
-      updates.lastupdated = new Date().toISOString();
+      updates.lastUpdated = new Date().toISOString();
 
-      const updatedItem = await this.repository.update(id, updates);
+      const updatedItem = await this.repository.updateItem(id, updates);
       if (!updatedItem) {
         throw new ValidationError("Failed to update inventory item");
       }
@@ -254,10 +254,10 @@ class InventoryService {
   async addItem(item: InventoryItemInsert): Promise<InventoryItem> {
     try {
       const embedding = await generateEmbedding(item.name);
-      const newItem = await this.repository.create({
+      const newItem = await this.repository.createItem({
         ...item,
         embedding, // Store the embedding
-        lastupdated: new Date().toISOString(),
+        lastUpdated: new Date().toISOString(),
       });
       if (!newItem) {
         throw new ValidationError("Failed to create inventory item");
@@ -271,7 +271,7 @@ class InventoryService {
 
   async deleteItem(id: string): Promise<void> {
     try {
-      const success = await this.repository.delete(id);
+      const success = await this.repository.deleteItem(id);
       if (!success) {
         throw new ValidationError("Failed to delete inventory item");
       }
@@ -293,7 +293,7 @@ class InventoryService {
       const item = await this.findBestMatch(itemName);
 
       if (!requestedUnit || requestedUnit === item.unit) {
-        return { quantity: item.quantity, unit: item.unit };
+        return { quantity: Number(item.quantity), unit: item.unit };
       }
 
       const itemUnitType = getUnitType(item.unit);
@@ -312,7 +312,7 @@ class InventoryService {
       }
 
       const convertedQuantity = convertQuantity(
-        item.quantity,
+        Number(item.quantity),
         item.unit,
         requestedUnit
       );

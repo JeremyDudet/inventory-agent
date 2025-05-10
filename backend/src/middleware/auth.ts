@@ -1,11 +1,8 @@
 // backend/src/middleware/auth.ts
 import { Request, Response, NextFunction } from "express";
-import authService, {
-  AuthTokenPayload,
-  UserPermissions,
-  User,
-} from "../services/authService";
-import { asyncMiddleware } from "./utils";
+import authService from "../services/authService";
+import { AuthTokenPayload, UserPermissions, User } from "../types";
+// import { asyncMiddleware } from "./utils";
 import { UnauthorizedError, ForbiddenError } from "../errors/AuthError";
 
 // Define custom request interface with user property

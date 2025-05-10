@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-import { initializeSupabase } from "@/config/db";
+import { initializeSupabase } from "@/config/supabase";
 import { createClient } from "@supabase/supabase-js";
 import { describe, it, expect, jest } from "@jest/globals";
 

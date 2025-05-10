@@ -1,85 +1,85 @@
 // backend/src/repositories/InventoryRepository.ts
-import supabase from "../config/db";
-import {
-  INVENTORY_TABLE,
-  InventoryItem,
-  InventoryItemInsert,
-} from "../models/InventoryItem";
+import { eq, ilike, desc, isNull, sql } from "drizzle-orm";
+import db from "../db";
+import { inventory_items, inventory_updates, locations } from "../db/schema";
+import { InventoryItem, InventoryItemInsert } from "@/types";
+
+export type DrizzleInventoryItem = typeof inventory_items.$inferSelect;
+export type DrizzleInventoryItemInsert = typeof inventory_items.$inferInsert;
 
 export class InventoryRepository {
+  // Convert between Drizzle numeric type and number
+  private convertItem(dbItem: DrizzleInventoryItem): InventoryItem {
+    return {
+      ...dbItem,
+      quantity: dbItem.quantity,
+      threshold: dbItem.threshold,
+      lastUpdated: dbItem.lastUpdated,
+      createdAt: dbItem.createdAt,
+      updatedAt: dbItem.updatedAt,
+    };
+  }
+
   async findSimilarItems(
     embedding: number[],
     limit: number = 5
   ): Promise<{ item: InventoryItem; similarity: number }[]> {
-    const { data, error } = await supabase.rpc("match_items", {
-      query_embedding: embedding,
-      match_threshold: 0.7,
-      match_count: limit,
-    });
+    // Note: Drizzle doesn't have built-in support for pgvector operations,
+    // so we'll use raw SQL for similarity search
+    const result = await db.execute(sql`
+      SELECT *,
+        1 - (embedding <=> ${embedding}::vector) as similarity
+      FROM ${inventory_items}
+      WHERE embedding IS NOT NULL
+        AND 1 - (embedding <=> ${embedding}::vector) > 0.7
+      ORDER BY embedding <=> ${embedding}::vector
+      LIMIT ${limit}
+    `);
 
-    if (error) {
-      throw new Error(`Error performing similarity search: ${error.message}`);
-    }
-
-    return data.map((row: any) => ({
-      item: row as InventoryItem,
+    return result.map((row: any) => ({
+      item: this.convertItem(row),
       similarity: row.similarity,
     }));
   }
 
   async findById(id: string): Promise<InventoryItem | null> {
-    const { data, error } = await supabase
-      .from(INVENTORY_TABLE)
-      .select("*")
-      .eq("id", id)
-      .single();
+    const [item] = await db
+      .select()
+      .from(inventory_items)
+      .where(eq(inventory_items.id, id))
+      .limit(1);
 
-    if (error) {
-      console.error("Error finding item by ID:", error);
-      return null;
-    }
-
-    return data;
+    return item ? this.convertItem(item) : null;
   }
 
   async findByName(name: string): Promise<InventoryItem[]> {
-    const { data, error } = await supabase
-      .from(INVENTORY_TABLE)
-      .select("*")
-      .ilike("name", `%${name}%`)
+    const items = await db
+      .select()
+      .from(inventory_items)
+      .where(ilike(inventory_items.name, `%${name}%`))
       .limit(1);
 
-    if (error) {
-      console.error("Error finding items by name:", error);
-      return [];
-    }
-
-    return data || [];
+    return items.map(this.convertItem);
   }
 
   async updateQuantity(
     id: string,
     quantity: number
   ): Promise<InventoryItem | null> {
-    const { data, error } = await supabase
-      .from(INVENTORY_TABLE)
-      .update({
-        quantity,
-        lastupdated: new Date().toISOString(),
+    const [updated] = await db
+      .update(inventory_items)
+      .set({
+        quantity: quantity.toString(),
+        lastUpdated: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       })
-      .eq("id", id)
-      .select()
-      .single();
+      .where(eq(inventory_items.id, id))
+      .returning();
 
-    if (error) {
-      console.error("Error updating item quantity:", error);
-      return null;
-    }
-
-    return data;
+    return updated ? this.convertItem(updated) : null;
   }
 
-  async create(item: InventoryItemInsert): Promise<InventoryItem | null> {
+  async createItem(item: InventoryItemInsert): Promise<InventoryItem | null> {
     if (
       !item.name ||
       typeof item.name !== "string" ||
@@ -91,105 +91,131 @@ export class InventoryRepository {
       throw new Error("Quantity must be a non-negative number");
     }
 
-    const { data, error } = await supabase
-      .from(INVENTORY_TABLE)
-      .insert({ ...item, lastupdated: new Date().toISOString() })
-      .select()
-      .single();
+    const insertData: InventoryItemInsert = {
+      ...item,
+      quantity: item.quantity,
+      threshold: item.threshold,
+      lastUpdated: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
 
-    if (error) {
-      console.error("Error creating inventory item:", error);
-      return null;
-    }
+    const [created] = await db
+      .insert(inventory_items)
+      .values(insertData)
+      .returning();
 
-    return data;
+    return created ? this.convertItem(created) : null;
   }
 
-  async delete(id: string): Promise<boolean> {
-    const { error } = await supabase
-      .from(INVENTORY_TABLE)
-      .delete()
-      .eq("id", id);
+  async deleteItem(id: string): Promise<boolean> {
+    const result = await db
+      .delete(inventory_items)
+      .where(eq(inventory_items.id, id));
 
-    if (error) {
-      console.error("Error deleting inventory item:", error);
-      return false;
-    }
-
-    return true;
+    return result.count > 0;
   }
 
   async getAllItems(
     offset: number = 0,
     limit: number = 100
   ): Promise<InventoryItem[]> {
-    const { data, error } = await supabase
-      .from(INVENTORY_TABLE)
-      .select("*")
-      .order("lastupdated", { ascending: false })
-      .range(offset, offset + limit - 1);
+    const items = await db
+      .select()
+      .from(inventory_items)
+      .orderBy(desc(inventory_items.lastUpdated))
+      .limit(limit)
+      .offset(offset);
 
-    if (error) {
-      console.error("Error fetching inventory items:", error);
-      return [];
-    }
-
-    return data || [];
+    return items.map(this.convertItem);
   }
 
   async getCategories(): Promise<{ id: string; name: string }[]> {
-    const { data, error } = await supabase
-      .from(INVENTORY_TABLE)
-      .select("category")
-      .order("category")
+    // Using distinct on category
+    const result = await db
+      .selectDistinct({
+        category: inventory_items.category,
+      })
+      .from(inventory_items)
+      .orderBy(inventory_items.category)
       .limit(100);
 
-    if (error) {
-      console.error("Error fetching categories:", error);
-      return [];
-    }
-
-    // Filter out null/undefined categories and ensure uniqueness
-    const uniqueCategories = Array.from(
-      new Set(
-        data
-          ?.map((item) => item.category)
-          .filter((category) => category != null) || []
-      )
-    );
-
-    // Convert to the expected format with id and name
-    return uniqueCategories.map((category) => ({
-      id: category,
-      name: category,
-    }));
+    // Filter out null/undefined categories
+    return result
+      .filter((item) => item.category != null)
+      .map((item) => ({
+        id: item.category,
+        name: item.category,
+      }));
   }
 
-  async update(
+  async updateItem(
     id: string,
     updates: Partial<InventoryItem>
   ): Promise<InventoryItem | null> {
-    const { data, error } = await supabase
-      .from(INVENTORY_TABLE)
-      .update(updates)
-      .eq("id", id)
-      .select()
-      .single();
+    const updateData: Partial<DrizzleInventoryItemInsert> = {
+      ...updates,
+      quantity: updates.quantity?.toString(),
+      threshold: updates.threshold?.toString(),
+      updatedAt: new Date().toISOString(),
+    };
 
-    if (error) {
-      console.error("Error updating inventory item:", error);
-      return null;
-    }
+    const [updated] = await db
+      .update(inventory_items)
+      .set(updateData)
+      .where(eq(inventory_items.id, id))
+      .returning();
 
-    return data;
+    return updated ? this.convertItem(updated) : null;
   }
 
   async getItemsWithoutEmbeddings(): Promise<InventoryItem[]> {
-    const { data, error } = await supabase
-      .from(INVENTORY_TABLE)
-      .select("*")
-      .or("embedding.is.null");
-    if (error) throw error;
-    return data.map((item) => item as InventoryItem);
+    const items = await db
+      .select()
+      .from(inventory_items)
+      .where(isNull(inventory_items.embedding));
+
+    return items.map(this.convertItem);
+  }
+
+  // Additional method to get items by location (since your schema includes locationId)
+  async getItemsByLocation(
+    locationId: string,
+    offset: number = 0,
+    limit: number = 100
+  ): Promise<InventoryItem[]> {
+    const items = await db
+      .select()
+      .from(inventory_items)
+      .where(eq(inventory_items.locationId, locationId))
+      .orderBy(desc(inventory_items.lastUpdated))
+      .limit(limit)
+      .offset(offset);
+
+    return items.map(this.convertItem);
+  }
+
+  // Method to create an inventory update record
+  async createInventoryUpdate(
+    itemId: string,
+    action: "add" | "remove" | "set" | "check",
+    previousQuantity: number,
+    newQuantity: number,
+    quantity: number,
+    unit: string,
+    userId?: string,
+    userName?: string
+  ): Promise<void> {
+    await db.insert(inventory_updates).values({
+      itemId,
+      action,
+      previousQuantity: previousQuantity.toString(),
+      newQuantity: newQuantity.toString(),
+      quantity: quantity.toString(),
+      unit,
+      userId,
+      userName,
+      createdAt: new Date().toISOString(),
+    });
   }
 }

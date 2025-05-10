@@ -1,7 +1,8 @@
+// frontend/src/components/AuthInitializer.tsx
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../stores/authStore";
-import supabase from "../config/supabase";
+import api from "@/services/api";
 
 export const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -11,28 +12,67 @@ export const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({
 
   useEffect(() => {
     const fetchSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      setSession(session);
-      setUser(session?.user || null);
-      setIsLoading(false);
+      try {
+        setIsLoading(true);
 
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange((_event, session) => {
-        setSession(session);
-        setUser(session?.user || null);
+        // Get the stored session from localStorage
+        const storedSession = localStorage.getItem("auth-storage");
+        if (!storedSession) {
+          setIsLoading(false);
+          return;
+        }
+
+        const { state } = JSON.parse(storedSession);
+        if (!state.session?.access_token) {
+          setIsLoading(false);
+          return;
+        }
+
+        try {
+          // Verify the session with our backend using the api service
+          const response = await api.getUser(state.session.access_token);
+
+          console.log("User data from /me endpoint:", response);
+
+          // The response already contains the user object with permissions
+          // based on your api.ts and the /me endpoint structure
+          const userData = {
+            id: response.user.id,
+            email: response.user.email,
+            name: response.user.name,
+            role: response.user.role,
+            permissions: response.permissions || {},
+          };
+
+          // Update the user in the store
+          setUser(userData);
+
+          // Keep the existing session with the token
+          setSession(state.session);
+
+          console.log("User data set in store:", userData);
+        } catch (error: any) {
+          console.error("Error verifying session:", error);
+          // If the session is invalid, clear it
+          setSession(null);
+          setUser(null);
+
+          // If it's an auth error, redirect to login
+          if (error.isAuthError || error.status === 401) {
+            navigate("/login");
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching session:", error);
+        setSession(null);
+        setUser(null);
+      } finally {
         setIsLoading(false);
-      });
-
-      return () => {
-        subscription.unsubscribe();
-      };
+      }
     };
 
     fetchSession();
-  }, [setUser, setSession, setIsLoading]);
+  }, [setUser, setSession, setIsLoading, navigate]);
 
   return <>{children}</>;
 };

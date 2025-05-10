@@ -7,12 +7,13 @@ dotenv.config();
 
 // Supabase configuration
 const supabaseUrl = process.env.SUPABASE_URL || "";
-const supabaseKey = process.env.SUPABASE_SERVICE_KEY || "";
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || "";
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || "";
 
 // Supabase configuration validation
-if (!supabaseUrl || !supabaseKey) {
+if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
   console.error(
-    "SUPABASE_URL and SUPABASE_SERVICE_KEY or SUPABASE_ANON_KEY must be set in .env"
+    "SUPABASE_URL, SUPABASE_SERVICE_KEY, and SUPABASE_ANON_KEY must be set in .env"
   );
   process.exit(1);
 }
@@ -21,8 +22,8 @@ console.log(
   `Initializing Supabase client with URL: ${supabaseUrl.substring(0, 20)}...`
 );
 
-// Initialize Supabase client with service key for admin privileges in the backend
-const supabase = createClient(supabaseUrl, supabaseKey, {
+// Initialize Supabase client with anon key for auth operations
+const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false,
@@ -37,10 +38,28 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
   },
 });
 
+// Initialize Supabase admin client with service key for admin operations
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+  },
+  db: {
+    schema: "public",
+  },
+  global: {
+    headers: {
+      "x-application-name": "stockcount-backend-admin",
+    },
+  },
+});
+
 // Test the connection
 export async function initializeSupabase() {
   try {
-    const { data, error } = await supabase.from("inventory_items").select("*");
+    const { data, error } = await supabaseAdmin
+      .from("inventory_items")
+      .select("*");
     if (error) throw error;
     console.log("✅ Supabase connection successful");
   } catch (err) {
@@ -56,4 +75,5 @@ if (process.env.NODE_ENV !== "test") {
   initializeSupabase();
 }
 
+export { supabase, supabaseAdmin };
 export default supabase;

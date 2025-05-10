@@ -1,6 +1,6 @@
 // frontend/src/components/AppLayout.tsx
-import { useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
+import { AuthLoadingScreen } from "@/components/AuthLoadingScreen";
 import {
   Dropdown,
   DropdownButton,
@@ -81,22 +81,16 @@ function AccountDropdownMenu({
 }
 
 export function ApplicationLayout({ children }: { children: React.ReactNode }) {
-  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
-
-  const handleVoiceClick = () => {
-    setIsVoiceModalOpen(true);
-    console.log("Voice input clicked");
-  };
-
-  const handleTextClick = () => {
-    console.log("Text input clicked");
-  };
-
-  const { signOut } = useAuthStore();
+  const { user, signOut, isLoading } = useAuthStore();
 
   const handleSignOut = async () => {
     await signOut();
   };
+
+  // Show loading screen while checking auth
+  if (isLoading) {
+    return <AuthLoadingScreen />;
+  }
 
   return (
     <>
@@ -235,10 +229,10 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
                     />
                     <span className="min-w-0">
                       <span className="block truncate text-sm/5 font-medium text-zinc-950 dark:text-white">
-                        Erica
+                        {user?.name || "User"}
                       </span>
                       <span className="block truncate text-xs/5 font-normal text-zinc-500 dark:text-zinc-400">
-                        erica@example.com
+                        {user?.email}
                       </span>
                     </span>
                   </span>

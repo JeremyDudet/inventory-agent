@@ -1,35 +1,19 @@
 // backend/src/routes/inventory.ts
 import express from "express";
-import {
-  mockInventory,
-  InventoryItem,
-  InventoryItemInsert,
-  INVENTORY_TABLE,
-} from "../models/InventoryItem";
+import { InventoryItem, InventoryItemInsert } from "../types";
 import { authMiddleware, authorize } from "../middleware/auth";
 import inventoryService from "../services/inventoryService";
 import {
-  inventoryUpdateSchema,
   inventoryItemSchema,
+  updateQuantitySchema,
 } from "../validation/inventoryValidation";
 import { NotFoundError } from "../errors/NotFoundError";
 import { ValidationError } from "../errors/ValidationError";
 import websocketService from "../services/websocketService";
 import { InventoryRepository } from "../repositories/InventoryRepository";
-import { z } from "zod";
 
 const router = express.Router();
 const inventoryRepository = new InventoryRepository();
-
-// Validation schema for updating individual inventory item's quantity
-const updateQuantitySchema = z.object({
-  quantity: z
-    .number({
-      required_error: "Quantity is required",
-      invalid_type_error: "Quantity must be a number",
-    })
-    .min(0, "Quantity must be non-negative"),
-});
 
 // Helper to check if Supabase is properly configured
 const isSupabaseConfigured = () => {
@@ -42,15 +26,6 @@ const isSupabaseConfigured = () => {
 // Get all inventory items
 router.get("/", async (req, res, next) => {
   try {
-    if (!isSupabaseConfigured()) {
-      console.warn("Supabase not configured, using mock data");
-      return res.status(200).json({
-        items: mockInventory,
-        count: mockInventory.length,
-        source: "mock",
-      });
-    }
-
     const { category, search, limit = 100, page = 1 } = req.query;
     const offset = (Number(page) - 1) * Number(limit);
 
@@ -85,17 +60,6 @@ router.get("/", async (req, res, next) => {
 // Get all categories (MOVED BEFORE /:id)
 router.get("/categories", async (req, res, next) => {
   try {
-    if (!isSupabaseConfigured()) {
-      console.warn("Supabase not configured, using mock data");
-      const categories = Array.from(
-        new Set(mockInventory.map((item) => item.category))
-      );
-      return res.status(200).json({
-        categories,
-        source: "mock",
-      });
-    }
-
     const categories = await inventoryService.getCategories();
 
     res.status(200).json({
@@ -111,20 +75,6 @@ router.get("/categories", async (req, res, next) => {
 router.get("/:id", async (req, res, next) => {
   try {
     const { id } = req.params;
-
-    if (!isSupabaseConfigured()) {
-      console.warn("Supabase not configured, using mock data");
-      const item = mockInventory.find((item) => item.id === id);
-
-      if (!item) {
-        throw new NotFoundError("Inventory item not found");
-      }
-
-      return res.status(200).json({
-        item,
-        source: "mock",
-      });
-    }
 
     const item = await inventoryService.findById(id);
     res.status(200).json({
@@ -229,24 +179,6 @@ router.delete(
   async (req, res, next) => {
     try {
       const { id } = req.params;
-
-      if (!isSupabaseConfigured()) {
-        console.warn("Supabase not configured, using mock data");
-        const itemIndex = mockInventory.findIndex((item) => item.id === id);
-
-        if (itemIndex === -1) {
-          throw new NotFoundError("Inventory item not found");
-        }
-
-        const deletedItem = { ...mockInventory[itemIndex] };
-        mockInventory.splice(itemIndex, 1);
-
-        return res.status(200).json({
-          item: deletedItem,
-          message: `Item deleted: ${deletedItem.name}`,
-          source: "mock",
-        });
-      }
 
       await inventoryService.deleteItem(id);
 

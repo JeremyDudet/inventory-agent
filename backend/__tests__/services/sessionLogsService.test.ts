@@ -1,5 +1,5 @@
 import { logTranscript } from "@/services/session/sessionLogsService";
-import { createTranscriptLog } from "@/models/SessionLog";
+import { createTranscriptLog } from "@/types/SessionLog";
 
 // Mock the SessionLog model
 jest.mock("@/models/SessionLog", () => ({

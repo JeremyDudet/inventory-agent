@@ -23,7 +23,7 @@ const mockSupabase = {
 jest.mock("@/config/db", () => mockSupabase);
 
 import AuthService, { UserRole, UserPermissions } from "@/services/authService";
-import supabase from "@/config/db";
+import supabase from "@/config/supabase";
 import jwt from "jsonwebtoken";
 import { createUser } from "../utils/testFixtures";
 

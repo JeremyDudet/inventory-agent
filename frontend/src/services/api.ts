@@ -1,3 +1,4 @@
+// frontend/src/services/api.ts
 /**
  * API service for making calls to the backend
  */
@@ -6,18 +7,40 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 // Types
-interface LoginCredentials {
-  username: string;
-  password: string;
+type User = {
+  id: string;
+  email: string;
+  name: string;
   role: string;
+  permissions: Record<string, boolean>;
+};
+
+interface GetUserResponse {
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    role: string;
+  };
+  permissions: Record<string, boolean>;
+}
+interface LoginCredentials {
+  email: string;
+  password: string;
 }
 
 interface LoginResponse {
   token: string;
   user: {
-    username: string;
+    id: string;
+    email: string;
+    name: string;
     role: string;
+    permissions: Record<string, boolean>; // Add permissions inside user
   };
+  // Remove permissions from root level
+  sessionId: string;
+  message: string;
 }
 
 // API Error types
@@ -105,7 +128,7 @@ const apiRequest = async <T>(
 export const api = {
   // Auth
   login: async (credentials: LoginCredentials): Promise<LoginResponse> => {
-    return apiRequest<LoginResponse>("/api/login", "POST", credentials);
+    return apiRequest<LoginResponse>("/api/auth/login", "POST", credentials);
   },
 
   // Inventory
@@ -134,6 +157,11 @@ export const api = {
   // Health check
   healthCheck: async (): Promise<{ status: string }> => {
     return apiRequest<{ status: string }>("/health");
+  },
+
+  // Get user - Fix the return type to match what the backend actually sends
+  getUser: async (token: string): Promise<GetUserResponse> => {
+    return apiRequest<GetUserResponse>("/api/auth/me", "GET", undefined, token);
   },
 };
 

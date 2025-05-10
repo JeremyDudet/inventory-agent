@@ -1,13 +1,13 @@
 // frontend/src/pages/Login.tsx
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { useAuthStore } from "../stores/authStore";
-import { useNotificationStore } from "../stores/notificationStore";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import { AuthLayout } from "../components/ui/auth-layout";
 import { Avatar } from "@/components/ui/avatar";
-import { useThemeStore } from "@/stores/themeStore";
 import { Checkbox, CheckboxField } from "@/components/ui/checkbox";
+import { useThemeStore } from "@/stores/themeStore";
+import { useAuthStore } from "../stores/authStore";
+import { useNotificationStore } from "../stores/notificationStore";
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState("");
@@ -15,7 +15,7 @@ const Login: React.FC = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const { signIn } = useAuthStore();
+  const { login } = useAuthStore();
   const { addNotification } = useNotificationStore();
   const { theme } = useThemeStore();
 
@@ -66,7 +66,7 @@ const Login: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const { error } = await signIn(email, password);
+      const { error } = await login(email, password);
 
       if (error) {
         addNotification("error", error.message);

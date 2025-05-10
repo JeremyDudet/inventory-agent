@@ -1,4 +1,4 @@
-import { InventoryItem } from "@/models/InventoryItem";
+import { InventoryItem } from "@/types/InventoryItem";
 import { User, UserRole } from "@/services/authService";
 import { NlpResult } from "@/types/nlp";
 import { describe, it, expect } from "@jest/globals";

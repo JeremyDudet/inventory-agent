@@ -5,8 +5,8 @@ import {
   createSystemActionLog,
   getSessionLogs,
   getUserSessions,
-} from "../../models/SessionLog";
-import supabase from "../../config/db";
+} from "../../types/SessionLog";
+import supabase from "../../config/supabase";
 
 // Cache the current session ID
 let currentSessionId: string | null = null;

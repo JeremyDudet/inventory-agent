@@ -1,7 +1,7 @@
 // backend/src/__tests__/repositories/InventoryRepository.test.ts
 import { InventoryRepository } from "@/repositories/InventoryRepository";
-import supabase from "@/config/db";
-import { INVENTORY_TABLE } from "@/models/InventoryItem";
+import supabase from "@/config/supabase";
+import { INVENTORY_TABLE } from "@/types/InventoryItem";
 
 // Mock Supabase client
 jest.mock("../../src/config/db", () => ({

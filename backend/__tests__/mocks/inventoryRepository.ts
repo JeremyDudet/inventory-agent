@@ -1,4 +1,4 @@
-import { InventoryItem } from "@/models/InventoryItem";
+import { InventoryItem } from "@/types/InventoryItem";
 import { describe, it, expect, beforeEach } from "@jest/globals";
 
 export class MockInventoryRepository {

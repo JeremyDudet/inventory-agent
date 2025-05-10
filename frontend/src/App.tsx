@@ -148,7 +148,12 @@ const App: React.FC = () => {
   }, [setItems, setCategories]);
 
   return (
-    <Router>
+    <Router
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
       <AuthInitializer>
         <WebsocketListener />
         <AppRoutes />

@@ -1,32 +1,8 @@
 // frontend/src/components/WebsocketListener.tsx
-import { useEffect } from "react";
-import io from "socket.io-client";
 import { useInventoryStore } from "@/stores/inventoryStore";
 import { useNotificationStore } from "@/stores/notificationStore";
-
-const voiceSocket = io(`${import.meta.env.VITE_API_URL}/voice`, {
-  path: "/socket.io/",
-  transports: ["websocket"],
-  reconnection: true,
-  reconnectionAttempts: 5,
-  reconnectionDelay: 1000,
-  reconnectionDelayMax: 5000,
-  timeout: 20000,
-  autoConnect: true,
-  secure: true,
-});
-
-const inventorySocket = io(`${import.meta.env.VITE_API_URL}/inventory`, {
-  path: "/socket.io/",
-  transports: ["websocket"],
-  reconnection: true,
-  reconnectionAttempts: 5,
-  reconnectionDelay: 1000,
-  reconnectionDelayMax: 5000,
-  timeout: 20000,
-  autoConnect: true,
-  secure: true,
-});
+import { useInventorySocket } from "@/hooks/useInventorySocket";
+import { useVoiceSocket } from "@/hooks/useVoiceSocket";
 
 export const WebsocketListener = () => {
   const updateItem = useInventoryStore((state) => state.updateItem);
@@ -34,30 +10,24 @@ export const WebsocketListener = () => {
   const setError = useInventoryStore((state) => state.setError);
   const { addNotification } = useNotificationStore();
 
-  useEffect(() => {
-    // Handle inventory socket events
-    inventorySocket.on("connect", () => {
+  // Inventory socket management
+  useInventorySocket({
+    onConnect: () => {
       console.log("Inventory WebSocket connected successfully");
       setError(null);
-    });
-
-    inventorySocket.on("connect_error", (error: any) => {
+    },
+    onConnectError: (error) => {
       console.error("Inventory WebSocket connection error:", error);
       setError("Failed to connect to inventory server");
       addNotification(
         "error",
         "Failed to connect to inventory server. Please refresh the page."
       );
-    });
-
-    inventorySocket.on("disconnect", (reason: any) => {
+    },
+    onDisconnect: (reason) => {
       console.log("Inventory WebSocket disconnected:", reason);
-      if (reason === "io server disconnect") {
-        inventorySocket.connect();
-      }
-    });
-
-    inventorySocket.on("inventory-updated", (message: any) => {
+    },
+    onInventoryUpdated: (message) => {
       try {
         if (Array.isArray(message.data)) {
           console.log("Received bulk inventory update:", message.data);
@@ -83,29 +53,25 @@ export const WebsocketListener = () => {
           "Failed to process inventory update. Please refresh the page."
         );
       }
-    });
+    },
+  });
 
-    // Handle voice socket events
-    voiceSocket.on("connect", () => {
+  // Voice socket management
+  useVoiceSocket({
+    onConnect: () => {
       console.log("Voice WebSocket connected successfully");
-    });
-
-    voiceSocket.on("connect_error", (error: any) => {
+    },
+    onConnectError: (error) => {
       console.error("Voice WebSocket connection error:", error);
       addNotification(
         "error",
         "Failed to connect to voice server. Voice commands may not work."
       );
-    });
-
-    voiceSocket.on("disconnect", (reason: any) => {
+    },
+    onDisconnect: (reason) => {
       console.log("Voice WebSocket disconnected:", reason);
-      if (reason === "io server disconnect") {
-        voiceSocket.connect();
-      }
-    });
-
-    voiceSocket.on("voice-command", (message: any) => {
+    },
+    onVoiceCommand: (message) => {
       try {
         console.log("Received voice command:", message);
         // Handle voice command data
@@ -133,22 +99,8 @@ export const WebsocketListener = () => {
           "Failed to process voice command. Please try again."
         );
       }
-    });
-
-    return () => {
-      // Clean up inventory socket listeners
-      inventorySocket.off("inventory-updated");
-      inventorySocket.off("connect");
-      inventorySocket.off("connect_error");
-      inventorySocket.off("disconnect");
-
-      // Clean up voice socket listeners
-      voiceSocket.off("voice-command");
-      voiceSocket.off("connect");
-      voiceSocket.off("connect_error");
-      voiceSocket.off("disconnect");
-    };
-  }, [updateItem, updateItems, setError, addNotification]);
+    },
+  });
 
   return null;
 };

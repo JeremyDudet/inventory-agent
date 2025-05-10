@@ -1,48 +1,29 @@
 // backend/src/services/authService.ts
-import supabase from '../config/db';
-import jwt from 'jsonwebtoken';
-
-// Define types for user roles and permissions
-export enum UserRole {
-  OWNER = 'owner',
-  MANAGER = 'manager',
-  STAFF = 'staff',
-  READONLY = 'readonly'
-}
-
-export interface UserPermissions {
-  'inventory:read': boolean;
-  'inventory:write': boolean;
-  'inventory:delete': boolean;
-  'user:read': boolean;
-  'user:write': boolean;
-}
-
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: UserRole;
-  permissions?: UserPermissions;
-  sessionId?: string;
-}
-
-export interface AuthTokenPayload {
-  userId: string;
-  email: string;
-  name: string;
-  role: UserRole;
-  permissions?: UserPermissions;
-  sessionId: string;
-  jti: string; // JWT ID for token revocation
-}
-
-// Default permissions are now stored in the database (user_roles table)
+import {
+  UserRoleEnum,
+  AuthUser,
+  AuthTokenPayload,
+  UserPermissions,
+  User,
+} from "@/types";
+import { supabase, supabaseAdmin } from "../config/supabase";
+import jwt from "jsonwebtoken";
+import db from "@/db";
+import {
+  profiles,
+  user_roles,
+  user_locations,
+  locations,
+  invite_codes,
+  revoked_tokens,
+} from "@/db/schema";
+import { eq, isNull, gt, and } from "drizzle-orm";
+import crypto from "crypto";
 
 interface InviteCode {
   id: string;
   code: string;
-  role: UserRole;
+  role: string;
   created_by?: string;
   used_by?: string;
   used_at?: string;
@@ -61,63 +42,65 @@ class AuthService {
   /**
    * Get permissions for a given role from the database
    */
-  async getPermissionsForRole(role: UserRole): Promise<UserPermissions> {
+  async getPermissionsForRole(role: string): Promise<UserPermissions> {
     try {
-      // Get permissions from database
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('permissions')
-        .eq('name', role)
-        .single();
+      // Get permissions from database using Drizzle
+      const [roleData] = await db
+        .select()
+        .from(user_roles)
+        .where(eq(user_roles.name, role))
+        .limit(1);
 
-      if (error || !data) {
-        console.error(`Role ${role} not found in database, this should never happen!`);
+      if (!roleData) {
+        console.error(
+          `Role ${role} not found in database, this should never happen!`
+        );
         // Create default fallback permission based on role
         const defaultPermissions: UserPermissions = {
-          'inventory:read': true,  // All roles can read inventory
-          'inventory:write': role !== UserRole.READONLY, // All except READONLY can write
-          'inventory:delete': role === UserRole.OWNER, // Only OWNER can delete
-          'user:read': role === UserRole.OWNER || role === UserRole.MANAGER, // OWNER and MANAGER can read users
-          'user:write': role === UserRole.OWNER // Only OWNER can write users
+          "inventory:read": true, // All roles can read inventory
+          "inventory:write": role !== UserRoleEnum.READONLY, // All except READONLY can write
+          "inventory:delete": role === UserRoleEnum.OWNER, // Only OWNER can delete
+          "user:read":
+            role === UserRoleEnum.OWNER || role === UserRoleEnum.MANAGER, // OWNER and MANAGER can read users
+          "user:write": role === UserRoleEnum.OWNER, // Only OWNER can write users
         };
-        
+
         // Try to insert the missing role into the database for future use
         await this.insertMissingRole(role, defaultPermissions);
         return defaultPermissions;
       }
 
-      return data.permissions as UserPermissions;
+      return roleData.permissions as UserPermissions;
     } catch (error) {
-      console.error('Error fetching permissions:', error);
+      console.error("Error fetching permissions:", error);
       // If there's an error, default to read-only permissions for safety
       return {
-        'inventory:read': true,
-        'inventory:write': false,
-        'inventory:delete': false,
-        'user:read': false,
-        'user:write': false
+        "inventory:read": true,
+        "inventory:write": false,
+        "inventory:delete": false,
+        "user:read": false,
+        "user:write": false,
       };
     }
   }
-  
+
   /**
    * Insert a missing role into the database with default permissions
    * This is a recovery mechanism in case a role is missing
    */
-  private async insertMissingRole(role: UserRole, permissions: UserPermissions): Promise<void> {
+  private async insertMissingRole(
+    role: string,
+    permissions: UserPermissions
+  ): Promise<void> {
     try {
-      const { error } = await supabase
-        .from('user_roles')
-        .insert({
-          name: role,
-          permissions: permissions
-        });
-        
-      if (error) {
-        console.error(`Failed to insert missing role ${role}:`, error);
-      } else {
-        console.log(`Successfully inserted missing role ${role} with default permissions`);
-      }
+      await db.insert(user_roles).values({
+        name: role,
+        permissions: permissions,
+      });
+
+      console.log(
+        `Successfully inserted missing role ${role} with default permissions`
+      );
     } catch (error) {
       console.error(`Error inserting missing role ${role}:`, error);
     }
@@ -138,37 +121,44 @@ class AuthService {
    */
   generateToken(user: User, sessionId?: string): string {
     if (!this.isJwtConfigured()) {
-      throw new Error('JWT secret is not configured');
+      throw new Error("JWT secret is not configured");
     }
 
-    // Import here to avoid circular dependency
-    const { resetSessionId, getSessionId } = require('../services/sessionLogsService');
-    
     // Generate a new session ID or use provided one
-    const session = sessionId || resetSessionId();
-    
+    const session = sessionId || crypto.randomBytes(16).toString("hex");
+
     // Generate a unique JWT ID for token revocation
-    const jwtId = require('crypto').randomBytes(16).toString('hex');
-    
-    const payload: AuthTokenPayload = {
+    const jwtId = crypto.randomBytes(16).toString("hex");
+
+    const payload = {
       userId: user.id,
       email: user.email,
       name: user.name,
       role: user.role,
       permissions: user.permissions,
       sessionId: session,
-      jti: jwtId // Include the JWT ID in the payload
+      // Remove jti from here - let the library handle it
     };
 
-    // Log the session creation
-    const { logSystemAction } = require('../services/sessionLogsService');
-    logSystemAction('auth:session:created', 'User session created', 'success', user.id).catch((err: Error) => {
-      console.error('Failed to log session creation:', err);
-    });
+    // Log the session creation if sessionLogsService is available
+    try {
+      const { logSystemAction } = require("../services/sessionLogsService");
+      logSystemAction(
+        "auth:session:created",
+        "User session created",
+        "success",
+        user.id
+      ).catch((err: Error) => {
+        console.error("Failed to log session creation:", err);
+      });
+    } catch (error) {
+      // sessionLogsService might not be available
+      console.log("Session logging service not available");
+    }
 
     return jwt.sign(payload, process.env.JWT_SECRET!, {
-      expiresIn: '24h', // Token expires in 24 hours
-      jwtid: jwtId // Set the JWT ID in the token
+      expiresIn: "24h", // Token expires in 24 hours
+      jwtid: jwtId, // Set the JWT ID in the token options (this will add 'jti' to the payload)
     });
   }
 
@@ -177,13 +167,16 @@ class AuthService {
    */
   async verifyToken(token: string): Promise<AuthTokenPayload | null> {
     if (!this.isJwtConfigured()) {
-      throw new Error('JWT secret is not configured');
+      throw new Error("JWT secret is not configured");
     }
 
     try {
       // First verify the token signature and expiration
-      const payload = jwt.verify(token, process.env.JWT_SECRET!) as AuthTokenPayload;
-      
+      const payload = jwt.verify(
+        token,
+        process.env.JWT_SECRET!
+      ) as AuthTokenPayload;
+
       // Check if the token has been revoked
       if (payload.jti) {
         const isRevoked = await this.isTokenRevoked(payload.jti);
@@ -193,415 +186,503 @@ class AuthService {
         }
       } else {
         // For backwards compatibility with tokens that don't have jti
-        console.warn('Token does not have a jti claim, skipping revocation check');
+        console.warn(
+          "Token does not have a jti claim, skipping revocation check"
+        );
       }
-      
+
       return payload;
     } catch (error) {
-      console.error('Error verifying token:', error);
+      console.error("Error verifying token:", error);
       return null;
     }
   }
-  
+
   /**
-   * Check if a token has been revoked
+   * Check if token is revoked using Drizzle
    */
   private async isTokenRevoked(jti: string): Promise<boolean> {
     try {
-      const { data, error } = await supabase
-        .from('revoked_tokens')
-        .select('token_jti')
-        .eq('token_jti', jti)
-        .single();
-        
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "No rows found"
-        console.error('Error checking for revoked token:', error);
-        // Default to treating the token as valid if we can't check
-        return false;
-      }
-      
-      // If we found a record, the token has been revoked
-      return !!data;
+      const [result] = await db
+        .select()
+        .from(revoked_tokens)
+        .where(eq(revoked_tokens.token_jti, jti))
+        .limit(1);
+
+      return !!result;
     } catch (error) {
-      console.error('Exception checking for revoked token:', error);
-      // Default to treating the token as valid if we can't check
+      console.error("Exception checking for revoked token:", error);
       return false;
     }
   }
 
   /**
-   * Revoke a token (logout)
+   * Revoke a token
    */
-  async revokeToken(token: string, reason: string = 'user_logout'): Promise<boolean> {
+  async revokeToken(
+    token: string,
+    reason: string = "user_logout"
+  ): Promise<boolean> {
     try {
-      // First decode the token to get the payload without verifying
-      // This allows us to revoke tokens even if they're expired
-      let payload: any;
+      // Decode token to get the payload
+      let payload: AuthTokenPayload | null = null;
       try {
-        // Try to verify the token first to make sure it's valid
         payload = await this.verifyToken(token);
       } catch (error) {
         // If verification fails, try to decode without verification
         payload = jwt.decode(token) as AuthTokenPayload;
       }
-      
+
       if (!payload || !payload.jti || !payload.userId) {
-        console.error('Cannot revoke token: Invalid or missing jti/userId in token payload');
+        console.error(
+          "Cannot revoke token: Invalid or missing jti/userId in token payload"
+        );
         return false;
       }
-      
-      // Calculate token expiration from the exp claim
+
+      // Calculate token expiration
       let expiresAt: Date;
-      if (payload.exp) {
-        expiresAt = new Date(payload.exp * 1000); // exp is in seconds since epoch
+      if ((payload as any).exp) {
+        expiresAt = new Date((payload as any).exp * 1000);
       } else {
-        // Default to 24h from now if exp is missing
         expiresAt = new Date();
         expiresAt.setHours(expiresAt.getHours() + 24);
       }
-      
+
       // Insert into revoked_tokens table
-      const { error } = await supabase
-        .from('revoked_tokens')
-        .insert({
-          token_jti: payload.jti,
-          user_id: payload.userId,
-          revoked_at: new Date().toISOString(),
-          expires_at: expiresAt.toISOString(),
-          reason
-        });
-        
-      if (error) {
-        console.error('Error revoking token:', error);
-        return false;
-      }
-      
-      // Log the logout action if we have a session ID
-      if (payload.sessionId) {
-        const { logSystemAction } = require('../services/sessionLogsService');
-        logSystemAction('auth:session:revoked', 'User session revoked: ' + reason, 'info', payload.userId).catch((err: Error) => {
-          console.error('Failed to log session revocation:', err);
-        });
-      }
-      
-      // Run cleanup of expired tokens occasionally to keep the table small
-      if (Math.random() < 0.1) { // 10% chance on each logout
-        this.cleanupExpiredRevokedTokens().catch(err => {
-          console.error('Error cleaning up expired revoked tokens:', err);
-        });
-      }
-      
+      await db.insert(revoked_tokens).values({
+        token_jti: payload.jti,
+        user_id: payload.userId,
+        revoked_at: new Date().toISOString(),
+        expires_at: expiresAt.toISOString(),
+        reason,
+      });
+
       return true;
     } catch (error) {
-      console.error('Exception revoking token:', error);
+      console.error("Exception revoking token:", error);
       return false;
     }
   }
-  
+
   /**
    * Clean up expired revoked tokens to keep the table small
    */
   private async cleanupExpiredRevokedTokens(): Promise<number> {
     try {
-      const { data, error } = await supabase.rpc('cleanup_expired_revoked_tokens');
-      
+      const { data, error } = await supabase.rpc(
+        "cleanup_expired_revoked_tokens"
+      );
+
       if (error) {
-        console.error('Error cleaning up expired revoked tokens:', error);
+        console.error("Error cleaning up expired revoked tokens:", error);
         return 0;
       }
-      
+
       console.log(`Cleaned up ${data} expired revoked tokens`);
       return data || 0;
     } catch (error) {
-      console.error('Exception cleaning up expired revoked tokens:', error);
+      console.error("Exception cleaning up expired revoked tokens:", error);
       return 0;
     }
   }
 
   /**
-   * Check if a Supabase JWT token is valid and get the user data
+   * Validate Supabase token
    */
-  async validateSupabaseToken(token: string): Promise<User | null> {
+  async validateSupabaseToken(token: string): Promise<AuthUser | null> {
     try {
-      const { data: { user }, error } = await supabase.auth.getUser(token);
-      
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser(token);
+
       if (error || !user) {
-        console.error('Error validating Supabase token:', error);
         return null;
       }
-      
-      // Get user's role from metadata or default to staff
-      const role = (user.user_metadata?.role as UserRole) || UserRole.STAFF;
-      
-      // Get permissions for the role
-      const permissions = await this.getPermissionsForRole(role);
-      
-      // Generate a new session ID for Supabase tokens
-      const { resetSessionId, logSystemAction } = require('../services/sessionLogsService');
-      const sessionId = resetSessionId();
-      
-      // Log the Supabase token validation
-      logSystemAction('auth:session:supabase', 'Supabase session validated', 'info', user.id).catch((err: Error) => {
-        console.error('Failed to log Supabase session validation:', err);
-      });
-      
-      return {
-        id: user.id,
-        email: user.email || '',
-        name: user.user_metadata?.name || 'User',
-        role,
+
+      // Get user's profile from database
+      const userProfile = await this.getUserWithProfile(user.id);
+
+      if (!userProfile) {
+        return null;
+      }
+
+      // Get permissions
+      const permissions = await this.getUserPermissions(user.id);
+
+      // Get primary role from first location or metadata
+      const primaryRole =
+        userProfile.locations?.[0]?.role.name ||
+        user.user_metadata?.role ||
+        UserRoleEnum.STAFF;
+
+      const authUser: AuthUser = {
+        id: userProfile.id,
+        email: userProfile.email!,
+        name: userProfile.name || "",
+        role: primaryRole,
         permissions,
-        sessionId
+        locations: userProfile.locations?.map((ul: any) => ({
+          id: ul.location.id,
+          name: ul.location.name,
+          role: {
+            id: ul.role.id,
+            name: ul.role.name,
+            permissions: ul.role.permissions as Record<string, boolean>,
+          },
+        })),
+      };
+
+      return authUser;
+    } catch (error) {
+      console.error("Error validating Supabase token:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Get user with profile and locations
+   */
+  private async getUserWithProfile(userId: string): Promise<any | null> {
+    try {
+      const [userProfile] = await db
+        .select()
+        .from(profiles)
+        .where(eq(profiles.id, userId))
+        .limit(1);
+
+      if (!userProfile) {
+        return null;
+      }
+
+      // Get user locations with roles
+      const userLocations = await db
+        .select({
+          location: locations,
+          role: user_roles,
+        })
+        .from(user_locations)
+        .innerJoin(locations, eq(user_locations.locationId, locations.id))
+        .innerJoin(user_roles, eq(user_locations.roleId, user_roles.id))
+        .where(eq(user_locations.userId, userId));
+
+      return {
+        ...userProfile,
+        locations: userLocations,
       };
     } catch (error) {
-      console.error('Error validating Supabase token:', error);
+      console.error("Error getting user with profile:", error);
       return null;
+    }
+  }
+
+  /**
+   * Get user permissions
+   */
+  private async getUserPermissions(userId: string): Promise<UserPermissions> {
+    try {
+      // Get user's primary role
+      const [userLocation] = await db
+        .select({
+          role: user_roles,
+        })
+        .from(user_locations)
+        .innerJoin(user_roles, eq(user_locations.roleId, user_roles.id))
+        .where(eq(user_locations.userId, userId))
+        .limit(1);
+
+      if (!userLocation) {
+        // Default permissions for users without locations
+        return {
+          "inventory:read": true,
+          "inventory:write": false,
+          "inventory:delete": false,
+          "user:read": false,
+          "user:write": false,
+        };
+      }
+
+      return userLocation.role.permissions as UserPermissions;
+    } catch (error) {
+      console.error("Error getting user permissions:", error);
+      return {
+        "inventory:read": true,
+        "inventory:write": false,
+        "inventory:delete": false,
+        "user:read": false,
+        "user:write": false,
+      };
+    }
+  }
+
+  /**
+   * Create user profile
+   */
+  private async createUserProfile(data: {
+    id: string;
+    email: string | null;
+    name: string;
+  }): Promise<any> {
+    try {
+      const [profile] = await db
+        .insert(profiles)
+        .values({
+          id: data.id,
+          email: data.email,
+          name: data.name,
+        })
+        .returning();
+
+      return profile;
+    } catch (error) {
+      console.error("Error creating user profile:", error);
+      throw error;
     }
   }
 
   /**
    * Authenticate a user based on credentials using Supabase Auth with session management
    */
-  async authenticateUser(email: string, password: string): Promise<{ user: User; token: string; sessionId: string } | null> {
+  async authenticateUser(
+    email: string,
+    password: string
+  ): Promise<{ user: User; token: string; sessionId: string } | null> {
     try {
-      // Authenticate with Supabase Auth
+      console.log("Attempting to authenticate user:", email);
+
+      // Authenticate with Supabase Auth using the anon client
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        password
+        password,
       });
-      
-      if (error || !data.user) {
-        console.error('Supabase authentication error:', error);
+
+      if (error) {
+        console.error("Supabase auth error details:", {
+          message: error.message,
+          status: error.status,
+          name: error.name,
+        });
         return null;
       }
-      
+
+      if (!data.user) {
+        console.error("No user data returned from Supabase");
+        return null;
+      }
+
+      console.log("Supabase authentication successful for:", email);
+
       // Get user's role from metadata or default to staff
-      const role = (data.user.user_metadata?.role as UserRole) || UserRole.STAFF;
-      
+      const role =
+        (data.user.user_metadata?.role as string) || UserRoleEnum.STAFF;
+
       // Get permissions for the role
       const permissions = await this.getPermissionsForRole(role);
-      
+
       // Create user object
       const user: User = {
         id: data.user.id,
-        email: data.user.email || '',
-        name: data.user.user_metadata?.name || 'User',
+        email: data.user.email!,
+        name: data.user.user_metadata?.name || "User",
         role,
-        permissions
+        permissions,
       };
-      
+
+      console.log("User object created:", user);
+
       // Generate a new session ID for this login
-      const { resetSessionId, logSystemAction } = require('../services/sessionLogsService');
-      const sessionId = resetSessionId();
-      
-      // Log the login
-      await logSystemAction(
-        'auth:user:login', 
-        `User logged in: ${email}`,
-        'success',
-        data.user.id
-      );
-      
+      const sessionId = crypto.randomBytes(16).toString("hex");
+
       // Generate our own JWT with the session ID
       const token = this.generateToken(user, sessionId);
-      
+
+      console.log("Generated token:");
+
       return {
         user,
         token,
-        sessionId
+        sessionId,
       };
     } catch (error) {
-      console.error('Error authenticating user:', error);
+      console.error("Error authenticating user:", error);
       return null;
     }
   }
-  
+
   /**
    * Create a new invite code
    */
-  async createInviteCode(role: UserRole, createdBy: string, expiresInDays: number = 7): Promise<InviteCode | null> {
+  async createInviteCode(
+    role: string,
+    createdBy: string,
+    expiresInDays: number = 7
+  ): Promise<InviteCode | null> {
     try {
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + expiresInDays);
-      
-      const { data, error } = await supabase.rpc('generate_invite_code');
-      if (error) {
-        console.error('Error generating invite code:', error);
-        // Fallback to simple random code if RPC fails
-        const code = Math.random().toString(36).substring(2, 10).toUpperCase();
-        
-        // Insert the invite code into the database
-        const { data: inviteData, error: insertError } = await supabase
-          .from('invite_codes')
-          .insert({
-            code: code,
-            role: role,
-            created_by: createdBy,
-            expires_at: expiresAt.toISOString()
-          })
-          .select()
-          .single();
-          
-        if (insertError) {
-          console.error('Error creating invite code:', insertError);
-          return null;
-        }
-        
-        return inviteData as InviteCode;
-      }
-      
-      // Insert the generated code
-      const { data: inviteData, error: insertError } = await supabase
-        .from('invite_codes')
-        .insert({
-          code: data,
+
+      // Generate a random invite code
+      const code = Math.random().toString(36).substring(2, 10).toUpperCase();
+
+      // Insert the invite code into the database
+      const [inviteData] = await db
+        .insert(invite_codes)
+        .values({
+          code: code,
           role: role,
           created_by: createdBy,
-          expires_at: expiresAt.toISOString()
+          expires_at: expiresAt.toISOString(),
         })
-        .select()
-        .single();
-        
-      if (insertError) {
-        console.error('Error creating invite code:', insertError);
-        return null;
-      }
-      
+        .returning();
+
       return inviteData as InviteCode;
     } catch (error) {
-      console.error('Error creating invite code:', error);
+      console.error("Error creating invite code:", error);
       return null;
     }
   }
-  
+
   /**
    * Validate an invite code
    */
-  async validateInviteCode(code: string): Promise<{ valid: boolean; role?: UserRole }> {
+  async validateInviteCode(
+    code: string
+  ): Promise<{ valid: boolean; role?: string }> {
     try {
-      const { data, error } = await supabase
-        .from('invite_codes')
-        .select('role, expires_at')
-        .eq('code', code)
-        .is('used_by', null)
-        .gt('expires_at', new Date().toISOString())
-        .single();
-      
-      if (error || !data) {
+      const [inviteCodeData] = await db
+        .select({
+          role: invite_codes.role,
+          expires_at: invite_codes.expires_at,
+          used_by: invite_codes.used_by,
+        })
+        .from(invite_codes)
+        .where(
+          and(
+            eq(invite_codes.code, code),
+            isNull(invite_codes.used_by),
+            gt(invite_codes.expires_at, new Date().toISOString())
+          )
+        )
+        .limit(1);
+
+      if (!inviteCodeData) {
         return { valid: false };
       }
-      
-      return { valid: true, role: data.role as UserRole };
+
+      return { valid: true, role: inviteCodeData.role };
     } catch (error) {
-      console.error('Error validating invite code:', error);
+      console.error("Error validating invite code:", error);
       return { valid: false };
     }
   }
-  
+
   /**
    * Mark an invite code as used
    */
   async markInviteCodeAsUsed(code: string, userId: string): Promise<boolean> {
     try {
-      const { error } = await supabase
-        .from('invite_codes')
-        .update({
+      const result = await db
+        .update(invite_codes)
+        .set({
           used_by: userId,
-          used_at: new Date().toISOString()
+          used_at: new Date().toISOString(),
         })
-        .eq('code', code);
-      
-      return !error;
+        .where(eq(invite_codes.code, code));
+
+      return !!result;
     } catch (error) {
-      console.error('Error marking invite code as used:', error);
+      console.error("Error marking invite code as used:", error);
       return false;
     }
   }
-  
+
   /**
    * Register a new user with Supabase Auth with enhanced authentication flow
    */
   async registerUser(
-    email: string, 
-    password: string, 
-    name: string, 
+    email: string,
+    password: string,
+    name: string,
     inviteCode?: string,
     paymentVerified?: boolean
-  ): Promise<{ user: User; token: string; sessionId: string } | null> {
+  ): Promise<{ user: AuthUser; token: string; sessionId: string } | null> {
     try {
-      let role = UserRole.READONLY; // Default to readonly
-      
+      let role = UserRoleEnum.READONLY; // Default to readonly
+
       // Determine the appropriate role based on input parameters
       if (inviteCode) {
         // If invite code is provided, validate it
-        const { valid, role: inviteRole } = await this.validateInviteCode(inviteCode);
+        const { valid, role: inviteRole } = await this.validateInviteCode(
+          inviteCode
+        );
         if (!valid) {
-          throw new Error('Invalid or expired invite code');
+          throw new Error("Invalid or expired invite code");
         }
-        role = inviteRole || UserRole.STAFF;
+        role = (inviteRole as UserRoleEnum) || UserRoleEnum.STAFF;
       } else if (paymentVerified) {
         // If payment is verified and no invite code, they can be an owner
-        role = UserRole.OWNER;
-      } else if (role !== UserRole.READONLY) {
+        role = UserRoleEnum.OWNER;
+      } else if (role !== UserRoleEnum.READONLY) {
         // Per the App Flow Document, all non-readonly roles require either an invite code or payment verification
-        throw new Error('Invite code required for staff and management roles');
+        throw new Error("Invite code required for staff and management roles");
       }
-      
-      // Register with Supabase Auth
-      const { data, error } = await supabase.auth.admin.createUser({
+
+      // Register with Supabase Auth using the admin client
+      const { data, error } = await supabaseAdmin.auth.admin.createUser({
         email,
         password,
         user_metadata: { name, role },
-        email_confirm: true // Auto-confirm email for simplicity
+        email_confirm: true, // Auto-confirm email for simplicity
       });
-      
+
       if (error || !data.user) {
-        console.error('Supabase registration error:', error);
-        return null;
+        console.error("Supabase registration error:", error);
+        throw new Error("Registration failed");
       }
-      
+
+      // Create user profile in our database
+      const profile = await this.createUserProfile({
+        id: data.user.id,
+        email: data.user.email!,
+        name: name,
+      });
+
       // If invite code was provided, mark it as used
       if (inviteCode) {
         await this.markInviteCodeAsUsed(inviteCode, data.user.id);
       }
-      
+
       // Get permissions for the role
       const permissions = await this.getPermissionsForRole(role);
-      
-      // Create user object
-      const user: User = {
-        id: data.user.id,
-        email: data.user.email || '',
-        name: data.user.user_metadata?.name || name,
-        role,
-        permissions
+
+      // Create auth user object
+      const authUser: AuthUser = {
+        id: profile.id,
+        email: profile.email!,
+        name: profile.name || "",
+        role: role,
+        permissions: permissions,
+        locations: [],
       };
-      
-      // Generate a new session ID and log onboarding
-      const { resetSessionId, logSystemAction } = require('../services/sessionLogsService');
-      const sessionId = resetSessionId();
-      
-      // Log the user registration
-      await logSystemAction(
-        'auth:user:registered', 
-        `New user registered: ${email} with role ${role}`,
-        'success',
-        data.user.id
-      );
-      
-      // Generate JWT with the session ID
-      const token = this.generateToken(user, sessionId);
-      
+
+      // Generate session
+      const sessionId = crypto.randomBytes(16).toString("hex");
+
+      // Generate JWT
+      const token = this.generateToken(authUser as User, sessionId);
+
       return {
-        user,
+        user: authUser,
         token,
-        sessionId
+        sessionId,
       };
     } catch (error) {
-      console.error('Error registering user:', error);
-      return null;
+      console.error("Error registering user:", error);
+      throw error; // Re-throw to be caught by the route handler
     }
   }
 }
 
 export default new AuthService();
+export type { UserRoleEnum as UserRole, UserPermissions };

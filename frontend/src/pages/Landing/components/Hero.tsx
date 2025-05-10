@@ -40,13 +40,11 @@ const phoneVariants = {
     y: 30,
     opacity: 0,
     scale: 0.98,
-    rotate: -2,
   },
   visible: {
     y: 0,
     opacity: 1,
     scale: 1,
-    rotate: 0,
     transition: {
       duration: 1.4,
       ease: [0.16, 1, 0.3, 1], // Smooth easing with a slight bounce

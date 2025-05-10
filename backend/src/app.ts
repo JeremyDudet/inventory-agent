@@ -102,14 +102,14 @@ voiceNamespace.on("connection", (socket: Socket) => {
     sessionItems: [] as string[],
   };
 
-  // Initialize services
+  // Initialize services (but NOT Deepgram yet)
   const sessionState = new SessionStateService();
   const contextProvider = new SessionStateContextProvider(sessionState);
   const nlpService = new NlpService();
   nlpService.setContextProvider(contextProvider);
   const transcriptionBuffer = new TranscriptionBuffer(nlpService, sessionState);
 
-  // Deepgram connection options
+  // Deepgram connection options - store for later use
   const deepgramOptions = {
     sampleRate: 48000,
     channels: 1,
@@ -120,7 +120,10 @@ voiceNamespace.on("connection", (socket: Socket) => {
     vad_turnoff: 500,
   };
 
-  // Transcription callbacks
+  // Flag to track if Deepgram connection has been created
+  let deepgramConnectionCreated = false;
+
+  // Transcription callbacks - defined here but used only when connection is created
   const callbacks = {
     onTranscript: async (
       transcript: string,
@@ -149,8 +152,13 @@ voiceNamespace.on("connection", (socket: Socket) => {
     },
   };
 
-  // Create initial Deepgram connection
+  // Only create Deepgram connection when starting recording
   const createNewConnection = () => {
+    if (!deepgramConnectionCreated) {
+      console.log("🎤 Creating Deepgram connection for first time");
+      deepgramConnectionCreated = true;
+    }
+
     const connectionId = speechService.createLiveConnection(
       deepgramOptions,
       callbacks
@@ -161,8 +169,6 @@ voiceNamespace.on("connection", (socket: Socket) => {
     );
     return connectionId;
   };
-
-  let connectionId = createNewConnection();
 
   transcriptionBuffer.on(
     "completeCommand",
@@ -191,48 +197,44 @@ voiceNamespace.on("connection", (socket: Socket) => {
               actionLog,
             });
 
-            if (nlpResult.action === "undo") {
-              // TODO: undo last action
-            } else {
-              try {
-                await inventoryService.updateInventoryCount({
-                  action: nlpResult.action,
-                  item: nlpResult.item,
-                  quantity: nlpResult.quantity || 0,
-                  unit: nlpResult.unit,
-                });
-                console.log(
-                  `📝 Updated inventory: ${nlpResult.item} ${nlpResult.quantity} ${nlpResult.unit}`
-                );
+            try {
+              await inventoryService.updateInventoryCount({
+                action: nlpResult.action,
+                item: nlpResult.item,
+                quantity: nlpResult.quantity || 0,
+                unit: nlpResult.unit,
+              });
+              console.log(
+                `📝 Updated inventory: ${nlpResult.item} ${nlpResult.quantity} ${nlpResult.unit}`
+              );
 
-                const feedback = speechFeedbackService.generateSuccessFeedback(
-                  nlpResult.action,
-                  nlpResult.quantity || 0,
-                  nlpResult.unit,
-                  nlpResult.item
-                );
-                if (feedback) {
-                  sessionState.addAssistantMessage(feedback.text);
-                  socket.emit("feedback", feedback);
-                }
-              } catch (error: unknown) {
-                if (error instanceof ValidationError) {
-                  socket.emit("clarification-needed", {
-                    message: error.message,
-                    originalCommand: {
-                      action: nlpResult.action,
-                      item: nlpResult.item,
-                      quantity: nlpResult.quantity,
-                      unit: nlpResult.unit,
-                    },
-                  });
-                  console.log(`🔍 Ambiguous match detected: ${error.message}`);
-                } else {
-                  console.error("Error updating inventory:", error);
-                  socket.emit("error", {
-                    message: "Failed to update inventory",
-                  });
-                }
+              const feedback = speechFeedbackService.generateSuccessFeedback(
+                nlpResult.action,
+                nlpResult.quantity || 0,
+                nlpResult.unit,
+                nlpResult.item
+              );
+              if (feedback) {
+                sessionState.addAssistantMessage(feedback.text);
+                socket.emit("feedback", feedback);
+              }
+            } catch (error: unknown) {
+              if (error instanceof ValidationError) {
+                socket.emit("clarification-needed", {
+                  message: error.message,
+                  originalCommand: {
+                    action: nlpResult.action,
+                    item: nlpResult.item,
+                    quantity: nlpResult.quantity,
+                    unit: nlpResult.unit,
+                  },
+                });
+                console.log(`🔍 Ambiguous match detected: ${error.message}`);
+              } else {
+                console.error("Error updating inventory:", error);
+                socket.emit("error", {
+                  message: "Failed to update inventory",
+                });
               }
             }
           }
@@ -339,12 +341,20 @@ voiceNamespace.on("connection", (socket: Socket) => {
       speechService.closeLiveConnection(oldConnId);
       socketConnectionIds.delete(socket.id);
     }
-    // Create new connection
-    connectionId = createNewConnection();
+    // Create new connection only when actually starting to record
+    const connectionId = createNewConnection();
   });
 
   socket.on("voice-stream", async (audioChunk: any) => {
     try {
+      // Get the current connection ID
+      const connectionId = socketConnectionIds.get(socket.id);
+      if (!connectionId) {
+        console.error(`🔊 No Deepgram connection found for ${socket.id}`);
+        socket.emit("error", { message: "No voice connection established" });
+        return;
+      }
+
       let buffer: Buffer;
       if (audioChunk instanceof Buffer) {
         buffer = audioChunk;
@@ -470,6 +480,8 @@ voiceNamespace.on("connection", (socket: Socket) => {
       speechService.closeLiveConnection(connId);
       socketConnectionIds.delete(socket.id);
     }
+    // Clean up session data
+    sessionActionLogs.delete(socket.id);
   });
 });
 

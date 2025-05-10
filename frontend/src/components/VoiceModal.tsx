@@ -1,5 +1,9 @@
 // frontend/src/components/VoiceModal.tsx
 import { useState, useEffect, useRef } from "react";
+import { useVoiceSocket } from "@/hooks/useVoiceSocket";
+import VoiceOverlay from "./VoiceOverlay";
+import { useThemeStore } from "@/stores/themeStore";
+import { useAuthStore } from "@/stores/authStore";
 import {
   AnimatePresence,
   motion,
@@ -9,9 +13,6 @@ import {
   useTransform,
 } from "motion/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { useThemeStore } from "@/stores/themeStore";
-import io from "socket.io-client";
-import VoiceOverlay from "./VoiceOverlay";
 
 const WaveformIcon = () => (
   <svg
@@ -275,10 +276,49 @@ export function VoiceModal() {
   const [isFinalTranscription, setIsFinalTranscription] = useState(false);
   const [isInCooldown, setIsInCooldown] = useState(false);
   const { theme } = useThemeStore();
-  const socketRef = useRef<typeof io.Socket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const user = useAuthStore((state) => state.user);
+
+  if (!user) {
+    return null;
+  }
+
+  // Get socket from hook properly
+  const socket = useVoiceSocket({
+    onConnect: () => {
+      setIsConnected(true);
+      setButtonState("ready");
+      setFeedback("Connected to voice server");
+    },
+    onConnectError: (error) => {
+      setIsConnected(false);
+      setButtonState("error");
+      setFeedback(`Connection error: ${error.message}`);
+    },
+    onDisconnect: (reason) => {
+      setIsConnected(false);
+      setButtonState("error");
+      setFeedback(`Disconnected: ${reason}`);
+    },
+    onError: (data) => {
+      setFeedback(`Error: ${data.message}`);
+      stopRecording();
+    },
+    onTranscription: (data) => {
+      if (data.text.trim()) {
+        setTranscription(data.text);
+        setIsFinalTranscription(data.isFinal);
+
+        if (data.isFinal) {
+          setFeedback(`Heard: ${data.text}`);
+        } else {
+          setFeedback("Listening...");
+        }
+      }
+    },
+  });
 
   useEffect(() => {
     if (!buttonRef.current) return;
@@ -313,69 +353,6 @@ export function VoiceModal() {
   }, [buttonState]);
 
   useEffect(() => {
-    const SOCKET_URL = `${import.meta.env.VITE_API_URL}/voice`;
-    const socket = io(SOCKET_URL, {
-      transports: ["websocket", "polling"],
-      reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 60000,
-      autoConnect: true,
-      path: "/socket.io/",
-      forceNew: true,
-    });
-
-    socket.on("connect", () => {
-      setIsConnected(true);
-      setButtonState("ready");
-      setFeedback("Connected to voice server");
-    });
-
-    socket.on("connect_error", (error: Error) => {
-      setIsConnected(false);
-      setButtonState("error");
-      setFeedback(`Connection error: ${error.message}`);
-    });
-
-    socket.on("disconnect", (reason: string) => {
-      setIsConnected(false);
-      setButtonState("error");
-      setFeedback(`Disconnected: ${reason}`);
-    });
-
-    socket.on("error", (data: { message: string }) => {
-      setFeedback(`Error: ${data.message}`);
-      stopRecording();
-    });
-
-    socket.on(
-      "transcription",
-      (data: { text: string; isFinal: boolean; confidence?: number }) => {
-        if (data.text.trim()) {
-          setTranscription(data.text);
-          setIsFinalTranscription(data.isFinal);
-
-          if (data.isFinal) {
-            setFeedback(`Heard: ${data.text}`);
-          } else {
-            setFeedback("Listening...");
-          }
-        }
-      }
-    );
-
-    socketRef.current = socket;
-    setButtonState("loading");
-    socket.connect();
-
-    return () => {
-      socket.disconnect();
-      stopRecording();
-    };
-  }, []);
-
-  useEffect(() => {
     if (isListening) {
       setButtonState("listening");
     } else if (isConnected && !isInCooldown) {
@@ -408,7 +385,7 @@ export function VoiceModal() {
   };
 
   const startRecording = async () => {
-    if (!socketRef.current || !isConnected) {
+    if (!socket || !isConnected) {
       setFeedback("Not connected to server");
       return;
     }
@@ -457,8 +434,8 @@ export function VoiceModal() {
       mediaRecorderRef.current = mediaRecorder;
 
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0 && socketRef.current && isConnected) {
-          socketRef.current.emit("voice-stream", event.data);
+        if (event.data.size > 0 && socket && isConnected) {
+          socket.emit("voice-stream", event.data);
           console.log("Sent audio data as Blob, size:", event.data.size);
         }
       };
@@ -469,7 +446,7 @@ export function VoiceModal() {
         setTranscription("");
         setIsFinalTranscription(false);
         console.log("Emitting start-recording event");
-        socketRef.current?.emit("start-recording");
+        socket.emit("start-recording");
       };
 
       mediaRecorder.onstop = () => {
@@ -498,8 +475,8 @@ export function VoiceModal() {
     ) {
       mediaRecorderRef.current.stop();
     }
-    if (socketRef.current && isConnected) {
-      socketRef.current.emit("stop-recording");
+    if (socket && isConnected) {
+      socket.emit("stop-recording");
     }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
@@ -566,6 +543,7 @@ export function VoiceModal() {
   );
 }
 
+// Dialog and other components remain the same...
 function Dialog({
   close,
   theme,

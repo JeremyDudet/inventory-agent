@@ -8,7 +8,7 @@ import {
   afterEach,
 } from "@jest/globals";
 import { MockInventoryRepository } from "../mocks/inventoryRepository";
-import { InventoryItem } from "@/models/InventoryItem";
+import { InventoryItem } from "@/types/InventoryItem";
 import { NotFoundError, ValidationError } from "@/errors";
 import inventoryService from "@/services/inventoryService";
 import websocketService from "@/services/websocketService";

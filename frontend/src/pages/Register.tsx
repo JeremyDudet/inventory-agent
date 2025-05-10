@@ -19,7 +19,7 @@ const Register: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { theme } = useThemeStore();
 
-  const { signUp } = useAuthStore();
+  const { register } = useAuthStore();
   const { addNotification } = useNotificationStore();
 
   const validateForm = () => {
@@ -55,7 +55,7 @@ const Register: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const { error } = await signUp(email, password, fullName);
+      const { error } = await register(email, password, fullName);
 
       if (error) {
         addNotification("error", error.message);
