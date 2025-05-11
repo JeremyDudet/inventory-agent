@@ -7,7 +7,6 @@ import {
   inventoryItemSchema,
   updateQuantitySchema,
 } from "../validation/inventoryValidation";
-import { NotFoundError } from "../errors/NotFoundError";
 import { ValidationError } from "../errors/ValidationError";
 import websocketService from "../services/websocketService";
 import { InventoryRepository } from "../repositories/InventoryRepository";

@@ -363,9 +363,9 @@ class AuthService {
           role: user_roles,
         })
         .from(user_locations)
-        .innerJoin(locations, eq(user_locations.locationId, locations.id))
-        .innerJoin(user_roles, eq(user_locations.roleId, user_roles.id))
-        .where(eq(user_locations.userId, userId));
+        .innerJoin(locations, eq(user_locations.location_id, locations.id))
+        .innerJoin(user_roles, eq(user_locations.role_id, user_roles.id))
+        .where(eq(user_locations.user_id, userId));
 
       return {
         ...userProfile,
@@ -388,8 +388,8 @@ class AuthService {
           role: user_roles,
         })
         .from(user_locations)
-        .innerJoin(user_roles, eq(user_locations.roleId, user_roles.id))
-        .where(eq(user_locations.userId, userId))
+        .innerJoin(user_roles, eq(user_locations.role_id, user_roles.id))
+        .where(eq(user_locations.user_id, userId))
         .limit(1);
 
       if (!userLocation) {

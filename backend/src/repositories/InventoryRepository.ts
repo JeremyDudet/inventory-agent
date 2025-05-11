@@ -14,9 +14,9 @@ export class InventoryRepository {
       ...dbItem,
       quantity: dbItem.quantity,
       threshold: dbItem.threshold,
-      lastUpdated: dbItem.lastUpdated,
-      createdAt: dbItem.createdAt,
-      updatedAt: dbItem.updatedAt,
+      last_updated: dbItem.last_updated,
+      created_at: dbItem.created_at,
+      updated_at: dbItem.updated_at,
     };
   }
 
@@ -70,8 +70,8 @@ export class InventoryRepository {
       .update(inventory_items)
       .set({
         quantity: quantity.toString(),
-        lastUpdated: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        last_updated: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       })
       .where(eq(inventory_items.id, id))
       .returning();
@@ -95,9 +95,9 @@ export class InventoryRepository {
       ...item,
       quantity: item.quantity,
       threshold: item.threshold,
-      lastUpdated: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      last_updated: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
 
     const [created] = await db
@@ -123,7 +123,7 @@ export class InventoryRepository {
     const items = await db
       .select()
       .from(inventory_items)
-      .orderBy(desc(inventory_items.lastUpdated))
+      .orderBy(desc(inventory_items.last_updated))
       .limit(limit)
       .offset(offset);
 
@@ -157,7 +157,7 @@ export class InventoryRepository {
       ...updates,
       quantity: updates.quantity?.toString(),
       threshold: updates.threshold?.toString(),
-      updatedAt: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
 
     const [updated] = await db
@@ -187,8 +187,8 @@ export class InventoryRepository {
     const items = await db
       .select()
       .from(inventory_items)
-      .where(eq(inventory_items.locationId, locationId))
-      .orderBy(desc(inventory_items.lastUpdated))
+      .where(eq(inventory_items.location_id, locationId))
+      .orderBy(desc(inventory_items.last_updated))
       .limit(limit)
       .offset(offset);
 
@@ -203,19 +203,19 @@ export class InventoryRepository {
     newQuantity: number,
     quantity: number,
     unit: string,
-    userId?: string,
-    userName?: string
+    user_id?: string,
+    user_name?: string
   ): Promise<void> {
     await db.insert(inventory_updates).values({
-      itemId,
+      item_id: itemId,
       action,
-      previousQuantity: previousQuantity.toString(),
-      newQuantity: newQuantity.toString(),
+      previous_quantity: previousQuantity.toString(),
+      new_quantity: newQuantity.toString(),
       quantity: quantity.toString(),
       unit,
-      userId,
-      userName,
-      createdAt: new Date().toISOString(),
+      user_name: user_name,
+      user_id: user_id,
+      created_at: new Date().toISOString(),
     });
   }
 }

@@ -234,7 +234,7 @@ class InventoryService {
       }
 
       // Add lastupdated timestamp
-      updates.lastUpdated = new Date().toISOString();
+      updates.last_updated = new Date().toISOString();
 
       const updatedItem = await this.repository.updateItem(id, updates);
       if (!updatedItem) {
@@ -257,7 +257,7 @@ class InventoryService {
       const newItem = await this.repository.createItem({
         ...item,
         embedding, // Store the embedding
-        lastUpdated: new Date().toISOString(),
+        last_updated: new Date().toISOString(),
       });
       if (!newItem) {
         throw new ValidationError("Failed to create inventory item");

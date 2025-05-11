@@ -568,7 +568,7 @@ router.put(
         .update(user_roles)
         .set({
           permissions,
-          updatedAt: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         })
         .where(eq(user_roles.name, name))
         .returning();
