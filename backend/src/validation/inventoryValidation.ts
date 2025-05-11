@@ -22,19 +22,12 @@ export const updateQuantitySchema = z.object({
 // Schema for creating/updating inventory items
 export const inventoryItemSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  quantity: z.union([
-    z.number().transform(String), // Convert number to string
-    z.string(),
-  ]),
+  quantity: z.number().min(0, "Quantity must be non-negative"),
   unit: z.string().min(1, "Unit is required"),
   category: z.string().min(1, "Category is required"),
   location_id: z.string().min(1, "Location ID is required"),
   threshold: z
-    .union([
-      z.number().transform(String), // Convert number to string
-      z.string(),
-      z.null(),
-    ])
+    .number()
     .optional(),
   last_updated: z.string().optional(), // Changed from 'lastupdated' to match DB schema
   embedding: z.array(z.number()).optional(),

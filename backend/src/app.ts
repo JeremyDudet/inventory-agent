@@ -24,8 +24,7 @@ import {
 import { SessionStateService } from "./services/session/sessionStateService";
 import { SessionStateContextProvider } from "./services/session/sessionStateContextProvider";
 
-import { ActionLog } from "./types/actionLog";
-import type { NlpResult } from "./types/nlp";
+import { ActionLog, NlpResult } from "@/types";
 
 import { ValidationError } from "./errors";
 

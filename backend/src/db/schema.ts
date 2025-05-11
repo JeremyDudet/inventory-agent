@@ -11,10 +11,10 @@ import {
   timestamp,
   jsonb,
   unique,
-  numeric,
   vector,
   foreignKey,
   primaryKey,
+  decimal,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -146,10 +146,10 @@ export const inventory_items = pgTable(
       .notNull(),
     location_id: uuid("location_id").notNull(),
     name: text().notNull(),
-    quantity: numeric().default("0").notNull(),
+    quantity: decimal('quantity', { precision: 10, scale: 2, mode: 'number' }),
     unit: text().notNull(),
     category: text().notNull(),
-    threshold: numeric(),
+    threshold: decimal('threshold', { precision: 10, scale: 2, mode: 'number' }),
     last_updated: timestamp("last_updated", {
       withTimezone: true,
       mode: "string",
@@ -228,9 +228,9 @@ export const inventory_updates = pgTable(
       .notNull(),
     item_id: uuid("item_id").notNull(),
     action: text().notNull(),
-    previous_quantity: numeric("previous_quantity").notNull(),
-    new_quantity: numeric("new_quantity").notNull(),
-    quantity: numeric().notNull(),
+    previous_quantity: decimal('previous_quantity', { precision: 10, scale: 2, mode: 'number' }),
+    new_quantity: decimal('new_quantity', { precision: 10, scale: 2, mode: 'number' }),
+    quantity: decimal('quantity', { precision: 10, scale: 2, mode: 'number' }).notNull(),
     unit: text().notNull(),
     user_id: uuid("user_id"),
     user_name: text("user_name"),

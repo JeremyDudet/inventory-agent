@@ -170,8 +170,8 @@ function InventoryListWithStickyHeader({
       </div>
 
       {/* Table */}
-      <div className="-mx-4 mt-12 sm:-mx-0 overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
-        <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-700 overflow-x-hidden">
+      <div className="-mx-4 mt-12 sm:-mx-0">
+        <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-700">
           <thead>
             <tr>
               <th
@@ -241,7 +241,7 @@ function InventoryListWithStickyHeader({
                     year: "numeric",
                   })}
                 </td>
-                <td className="py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-0">
+                <td className="py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-0 whitespace-nowrap">
                   <a
                     href="#"
                     className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-300"

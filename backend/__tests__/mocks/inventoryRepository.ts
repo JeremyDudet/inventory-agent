@@ -1,4 +1,4 @@
-import { InventoryItem } from "@/types/InventoryItem";
+import { InventoryItem } from "@/types";
 import { describe, it, expect, beforeEach } from "@jest/globals";
 
 export class MockInventoryRepository {
@@ -89,8 +89,8 @@ export class MockInventoryRepository {
       return false;
     }
 
-    item.quantity = quantity;
-    item.lastupdated = new Date().toISOString();
+    item.quantity = quantity.toString();
+    item.last_updated = new Date().toISOString();
     this.items.set(id, item);
     return true;
   }
@@ -136,11 +136,16 @@ describe("MockInventoryRepository", () => {
     const testItem: InventoryItem = {
       id: "test-id",
       name: "Test Item",
-      quantity: 10,
+      quantity: "10",
       unit: "units",
       category: "Test",
-      lastupdated: new Date().toISOString(),
+      last_updated: new Date().toISOString(),
       embedding: [],
+      location_id: "test-location-id",
+      threshold: "10",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      description: "Test description",
     };
 
     await mockRepo.save(testItem);
@@ -153,18 +158,23 @@ describe("MockInventoryRepository", () => {
     const testItem: InventoryItem = {
       id: "test-id",
       name: "Test Item",
-      quantity: 10,
+      quantity: "10",
       unit: "units",
       category: "Test",
-      lastupdated: new Date().toISOString(),
+      last_updated: new Date().toISOString(),
       embedding: [],
+      location_id: "test-location-id",
+      threshold: "10",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      description: "Test description",
     };
 
     await mockRepo.save(testItem);
 
     const updates = {
       name: "Updated Item",
-      quantity: 20,
+      quantity: "20",
     };
 
     const updatedItem = await mockRepo.update("test-id", updates);

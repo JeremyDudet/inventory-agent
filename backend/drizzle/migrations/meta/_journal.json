@@ -22,6 +22,27 @@
       "when": 1746914052227,
       "tag": "0002_productive_veda",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1746952887626,
+      "tag": "0003_fat_dreaming_celestial",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1746953058906,
+      "tag": "0004_broad_big_bertha",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1746954034767,
+      "tag": "0005_sharp_dorian_gray",
+      "breakpoints": true
     }
   ]
 }

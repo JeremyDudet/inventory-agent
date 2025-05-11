@@ -1,29 +1,78 @@
+// backend/__tests__/services/authService.test.ts
 import { describe, it, expect, jest, beforeEach } from "@jest/globals";
 
+// Mock implementations
+let mockSelect: any;
+let mockFrom: any;
+let mockWhere: any;
+let mockLimit: any;
+let mockInsert: any;
+let mockValues: any;
+let mockReturning: any;
+let mockUpdate: any;
+let mockSet: any;
+let mockInnerJoin: any;
+let mockLeftJoin: any;
+
+interface MockInviteCode {
+  id: string;
+  code: string;
+  role: string;
+  created_by: string;
+  expires_at: string;
+  created_at: string;
+  used_by: string | null;
+  used_at: string | null;
+}
+
+// Create the mock db object
+const mockDb = {
+  select: jest.fn(() => mockDb),
+  from: jest.fn(() => mockDb),
+  where: jest.fn(() => mockDb),
+  limit: jest.fn(() => mockDb),
+  insert: jest.fn(() => mockDb),
+  values: jest.fn(() => mockDb),
+  returning: jest.fn(() => mockDb),
+  update: jest.fn(() => mockDb),
+  set: jest.fn(() => mockDb),
+  innerJoin: jest.fn(() => mockDb),
+  leftJoin: jest.fn(() => mockDb),
+} as any;
+
+// Mock Supabase client
 const mockSupabase = {
-  from: jest.fn().mockReturnThis(),
-  select: jest.fn().mockReturnThis(),
-  eq: jest.fn().mockReturnThis(),
-  is: jest.fn().mockReturnThis(),
-  gt: jest.fn().mockReturnThis(),
-  single: jest.fn().mockReturnThis(),
-  insert: jest.fn().mockReturnThis(),
-  update: jest.fn().mockReturnThis(),
-  delete: jest.fn().mockReturnThis(),
   auth: {
     signInWithPassword: jest.fn(),
-    admin: {
-      createUser: jest.fn(),
-    },
     getUser: jest.fn(),
   },
   rpc: jest.fn().mockReturnThis(),
 };
 
-jest.mock("@/config/db", () => mockSupabase);
+const mockSupabaseAdmin = {
+  auth: {
+    admin: {
+      createUser: jest.fn(),
+    },
+  },
+};
 
-import AuthService, { UserRole, UserPermissions } from "@/services/authService";
-import supabase from "@/config/supabase";
+jest.mock("@/db", () => mockDb);
+jest.mock("@/config/supabase", () => ({
+  supabase: mockSupabase,
+  supabaseAdmin: mockSupabaseAdmin,
+}));
+
+// Mock Drizzle operators
+jest.mock("drizzle-orm", () => ({
+  eq: jest.fn((field, value) => ({ type: "eq", field, value })),
+  isNull: jest.fn((field) => ({ type: "isNull", field })),
+  gt: jest.fn((field, value) => ({ type: "gt", field, value })),
+  and: jest.fn((...conditions) => ({ type: "and", conditions })),
+}));
+
+import AuthService, { UserPermissions } from "@/services/authService";
+import { UserRoleEnum } from "@/types";
 import jwt from "jsonwebtoken";
 import { createUser } from "../utils/testFixtures";
 
@@ -47,6 +96,19 @@ describe("AuthService", () => {
   beforeEach(() => {
     authService = AuthService;
     jest.clearAllMocks();
+    
+    // Reset the chain returns
+    mockDb.select.mockReturnValue(mockDb);
+    mockDb.from.mockReturnValue(mockDb);
+    mockDb.where.mockReturnValue(mockDb);
+    mockDb.limit.mockReturnValue(mockDb);
+    mockDb.insert.mockReturnValue(mockDb);
+    mockDb.values.mockReturnValue(mockDb);
+    mockDb.returning.mockReturnValue(mockDb);
+    mockDb.update.mockReturnValue(mockDb);
+    mockDb.set.mockReturnValue(mockDb);
+    mockDb.innerJoin.mockReturnValue(mockDb);
+    mockDb.leftJoin.mockReturnValue(mockDb);
   });
 
   describe("generateToken", () => {
@@ -63,6 +125,7 @@ describe("AuthService", () => {
           email: mockUser.email,
           name: mockUser.name,
           role: mockUser.role,
+          permissions: mockUser.permissions,
           sessionId: mockSessionId,
         }),
         "test-secret",
@@ -88,22 +151,27 @@ describe("AuthService", () => {
         userId: "test-user-id",
         email: "test@example.com",
         name: "Test User",
-        role: UserRole.STAFF,
+        role: UserRoleEnum.STAFF,
+        permissions: {
+          "inventory:read": true,
+          "inventory:write": true,
+          "inventory:delete": false,
+          "user:read": false,
+          "user:write": false,
+        },
         sessionId: "test-session-id",
         jti: "test-jwt-id",
       };
 
       (jwt.verify as jest.Mock).mockReturnValue(mockPayload);
 
-      const isTokenRevokedSpy = jest
-        .spyOn(authService as any, "isTokenRevoked")
-        .mockResolvedValue(false);
+      // Mock isTokenRevoked check - return empty array (not revoked)
+      mockDb.limit.mockResolvedValue([]);
 
       const result = await authService.verifyToken("valid-token");
 
       expect(result).toEqual(mockPayload);
       expect(jwt.verify).toHaveBeenCalledWith("valid-token", "test-secret");
-      expect(isTokenRevokedSpy).toHaveBeenCalledWith(mockPayload.jti);
     });
 
     it("should return null for an invalid token", async () => {
@@ -121,14 +189,22 @@ describe("AuthService", () => {
         userId: "test-user-id",
         email: "test@example.com",
         name: "Test User",
-        role: UserRole.STAFF,
+        role: UserRoleEnum.STAFF,
+        permissions: {
+          "inventory:read": true,
+          "inventory:write": true,
+          "inventory:delete": false,
+          "user:read": false,
+          "user:write": false,
+        },
         sessionId: "test-session-id",
         jti: "test-jwt-id",
       };
 
       (jwt.verify as jest.Mock).mockReturnValue(mockPayload);
 
-      jest.spyOn(authService as any, "isTokenRevoked").mockResolvedValue(true);
+      // Mock isTokenRevoked check - return a revoked token
+      mockDb.limit.mockResolvedValue([{ token_jti: "test-jwt-id" }]);
 
       const result = await authService.verifyToken("revoked-token");
 
@@ -140,21 +216,23 @@ describe("AuthService", () => {
         userId: "test-user-id",
         email: "test@example.com",
         name: "Test User",
-        role: UserRole.STAFF,
+        role: UserRoleEnum.STAFF,
+        permissions: {
+          "inventory:read": true,
+          "inventory:write": true,
+          "inventory:delete": false,
+          "user:read": false,
+          "user:write": false,
+        },
         sessionId: "test-session-id",
       };
 
       (jwt.verify as jest.Mock).mockReturnValue(mockPayload);
 
-      const isTokenRevokedSpy = jest.spyOn(
-        authService as any,
-        "isTokenRevoked"
-      );
-
       const result = await authService.verifyToken("legacy-token");
 
       expect(result).toEqual(mockPayload);
-      expect(isTokenRevokedSpy).not.toHaveBeenCalled();
+      expect(mockDb.select).not.toHaveBeenCalled();
     });
   });
 
@@ -163,7 +241,7 @@ describe("AuthService", () => {
       const mockUser = createUser();
       const mockSessionId = "test-session-id";
 
-      (supabase.auth.signInWithPassword as jest.Mock).mockImplementation(() =>
+      (mockSupabase.auth.signInWithPassword as jest.Mock).mockImplementation(() =>
         Promise.resolve({
           data: {
             user: {
@@ -182,9 +260,10 @@ describe("AuthService", () => {
         })
       );
 
-      jest
-        .spyOn(authService, "getPermissionsForRole")
-        .mockResolvedValue(mockUser.permissions);
+      // Mock getPermissionsForRole
+      mockDb.limit.mockResolvedValue([{
+        permissions: mockUser.permissions,
+      }]);
 
       const result = await authService.authenticateUser(
         "test@example.com",
@@ -196,18 +275,19 @@ describe("AuthService", () => {
           id: mockUser.id,
           email: mockUser.email,
           role: mockUser.role,
+          permissions: mockUser.permissions,
         }),
         token: "mock-token",
-        sessionId: "test-session-id",
+        sessionId: expect.any(String),
       });
-      expect(supabase.auth.signInWithPassword).toHaveBeenCalledWith({
+      expect(mockSupabase.auth.signInWithPassword).toHaveBeenCalledWith({
         email: "test@example.com",
         password: "password",
       });
     });
 
     it("should return null on failed login", async () => {
-      (supabase.auth.signInWithPassword as jest.Mock).mockImplementation(() =>
+      (mockSupabase.auth.signInWithPassword as jest.Mock).mockImplementation(() =>
         Promise.resolve({
           data: { user: null, session: null },
           error: { message: "Invalid login credentials" },
@@ -223,7 +303,7 @@ describe("AuthService", () => {
     });
 
     it("should handle exceptions during authentication", async () => {
-      (supabase.auth.signInWithPassword as jest.Mock).mockImplementation(() => {
+      (mockSupabase.auth.signInWithPassword as jest.Mock).mockImplementation(() => {
         throw new Error("Network error");
       });
 
@@ -271,7 +351,7 @@ describe("AuthService", () => {
 
     it("should return false when permission does not exist", () => {
       const mockUser = createUser();
-      mockUser.permissions = undefined;
+      mockUser.permissions = undefined as any;
 
       const result = authService.hasPermission(
         mockUser,
@@ -288,55 +368,36 @@ describe("AuthService", () => {
         "inventory:read": true,
         "inventory:write": true,
         "inventory:delete": false,
-        "user:read": false, // Changed from true to false to match actual implementation
+        "user:read": false,
         "user:write": false,
       };
 
-      const mockQueryResult = {
-        data: { permissions: mockPermissions },
-        error: null,
-      };
+      mockDb.limit.mockResolvedValue([{ permissions: mockPermissions }]);
 
-      const mockQueryBuilder: any = {
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockReturnValue(Promise.resolve(mockQueryResult)),
-      };
-
-      (supabase.from as jest.Mock).mockReturnValue(mockQueryBuilder);
-
-      const result = await authService.getPermissionsForRole(UserRole.MANAGER);
+      const result = await authService.getPermissionsForRole(UserRoleEnum.MANAGER);
 
       expect(result).toEqual(mockPermissions);
-      // expect(supabase.from).toHaveBeenCalledWith('user_roles');
-      // expect(mockQueryBuilder.select).toHaveBeenCalledWith('permissions');
-      // expect(mockQueryBuilder.eq).toHaveBeenCalledWith('name', UserRole.MANAGER);
+      expect(mockDb.select).toHaveBeenCalled();
+      expect(mockDb.from).toHaveBeenCalled();
+      expect(mockDb.where).toHaveBeenCalled();
     });
 
     it("should create default permissions when role not found", async () => {
-      const mockQueryResult = {
-        data: null,
-        error: { message: "Role not found" },
-      };
+      mockDb.limit.mockResolvedValue([]);
+      
+      // Mock insertMissingRole - returning should resolve to an array
+      mockDb.returning.mockResolvedValue([{
+        name: UserRoleEnum.STAFF,
+        permissions: {
+          "inventory:read": true,
+          "inventory:write": true,
+          "inventory:delete": false,
+          "user:read": false,
+          "user:write": false,
+        }
+      }]);
 
-      const mockQueryBuilder: any = {
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockReturnValue(Promise.resolve(mockQueryResult)),
-      };
-
-      (supabase.from as jest.Mock).mockReturnValue(mockQueryBuilder);
-
-      const insertMissingRoleSpy = jest.spyOn(
-        authService as any,
-        "insertMissingRole"
-      );
-
-      insertMissingRoleSpy.mockImplementation((role, permissions) => {
-        return Promise.resolve();
-      });
-
-      const result = await authService.getPermissionsForRole(UserRole.STAFF);
+      const result = await authService.getPermissionsForRole(UserRoleEnum.STAFF);
 
       expect(result).toEqual(
         expect.objectContaining({
@@ -345,7 +406,7 @@ describe("AuthService", () => {
           "inventory:delete": false,
         })
       );
-      // expect(insertMissingRoleSpy).toHaveBeenCalledWith(UserRole.STAFF, expect.any(Object));
+      expect(mockDb.insert).toHaveBeenCalled();
     });
   });
 
@@ -354,87 +415,56 @@ describe("AuthService", () => {
       const mockToken = "valid-token";
       const mockJti = "test-jwt-id";
 
-      jest
-        .spyOn(authService, "verifyToken")
-        .mockImplementation(() => Promise.resolve(null));
-
       (jwt.decode as jest.Mock).mockReturnValue({
         jti: mockJti,
         userId: "test-user-id",
       });
 
-      const mockRpcResponse = { data: true, error: null };
-      (supabase.rpc as jest.Mock).mockReturnValue({
-        then: (callback: any) => Promise.resolve(callback(mockRpcResponse)),
-      });
+      // Mock successful insert
+      mockDb.values.mockReturnValue(mockDb);
 
-      await authService.revokeToken(mockToken);
+      const result = await authService.revokeToken(mockToken);
 
-      // expect(authService.verifyToken).toHaveBeenCalledWith(mockToken);
-      // expect(jwt.decode).toHaveBeenCalledWith(mockToken);
-      // expect(supabase.rpc).toHaveBeenCalledWith('revoke_token', { token_id: mockJti });
+      expect(result).toBe(true);
+      expect(mockDb.insert).toHaveBeenCalled();
+      expect(mockDb.values).toHaveBeenCalledWith(
+        expect.objectContaining({
+          token_jti: mockJti,
+          user_id: "test-user-id",
+          reason: "user_logout",
+        })
+      );
     });
 
     it("should handle invalid tokens gracefully", async () => {
       const mockToken = "invalid-token";
 
-      jest
-        .spyOn(authService, "verifyToken")
-        .mockImplementation(() => Promise.resolve(null));
-
       (jwt.decode as jest.Mock).mockReturnValue(null);
 
-      await authService.revokeToken(mockToken);
+      const result = await authService.revokeToken(mockToken);
 
-      // expect(authService.verifyToken).toHaveBeenCalledWith(mockToken);
-      // expect(jwt.decode).toHaveBeenCalledWith(mockToken);
-      // expect(supabase.rpc).not.toHaveBeenCalled();
+      expect(result).toBe(false);
+      expect(mockDb.insert).not.toHaveBeenCalled();
     });
   });
 
   describe("validateInviteCode", () => {
     it("should validate a valid invite code", async () => {
-      const mockQueryResult = {
-        data: {
-          role: UserRole.STAFF,
-          expires_at: new Date(Date.now() + 86400000).toISOString(),
-        },
-        error: null,
-      };
-
-      const mockQueryBuilder: any = {
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        is: jest.fn().mockReturnThis(),
-        gt: jest.fn().mockReturnThis(),
-        single: jest.fn().mockReturnValue(Promise.resolve(mockQueryResult)),
-      };
-
-      (supabase.from as jest.Mock).mockReturnValue(mockQueryBuilder);
+      mockDb.limit.mockResolvedValue([{
+        role: UserRoleEnum.STAFF,
+        expires_at: new Date(Date.now() + 86400000).toISOString(),
+        used_by: null,
+      }]);
 
       const result = await authService.validateInviteCode("VALID123");
 
-      expect(result).toEqual({ valid: true, role: UserRole.STAFF });
-      expect(supabase.from).toHaveBeenCalledWith("invite_codes");
-      expect(mockQueryBuilder.eq).toHaveBeenCalledWith("code", "VALID123");
-      expect(mockQueryBuilder.is).toHaveBeenCalledWith("used_by", null);
+      expect(result).toEqual({ valid: true, role: UserRoleEnum.STAFF });
+      expect(mockDb.select).toHaveBeenCalled();
+      expect(mockDb.where).toHaveBeenCalled();
     });
 
     it("should return invalid for an expired or used invite code", async () => {
-      const mockQueryResult = {
-        data: null,
-        error: { message: "No matching record found" },
-      };
-
-      const mockQueryBuilder: any = {
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        is: jest.fn().mockReturnThis(),
-        gt: jest.fn().mockReturnThis(),
-        single: jest.fn().mockReturnValue(Promise.resolve(mockQueryResult)),
-      };
-
-      (supabase.from as jest.Mock).mockReturnValue(mockQueryBuilder);
+      mockDb.limit.mockResolvedValue([]);
 
       const result = await authService.validateInviteCode("EXPIRED123");
 
@@ -442,7 +472,7 @@ describe("AuthService", () => {
     });
 
     it("should handle database errors gracefully", async () => {
-      (supabase.from as jest.Mock).mockImplementation(() => {
+      mockDb.select.mockImplementation(() => {
         throw new Error("Database connection error");
       });
 
@@ -459,7 +489,7 @@ describe("AuthService", () => {
         email: "newuser@example.com",
         user_metadata: {
           name: "New User",
-          role: UserRole.STAFF,
+          role: UserRoleEnum.STAFF,
         },
       };
 
@@ -473,7 +503,7 @@ describe("AuthService", () => {
 
       jest.spyOn(authService, "validateInviteCode").mockResolvedValue({
         valid: true,
-        role: UserRole.STAFF,
+        role: UserRoleEnum.STAFF,
       });
 
       jest.spyOn(authService, "markInviteCodeAsUsed").mockResolvedValue(true);
@@ -482,7 +512,14 @@ describe("AuthService", () => {
         .spyOn(authService, "getPermissionsForRole")
         .mockResolvedValue(mockPermissions);
 
-      (supabase.auth.admin.createUser as any).mockImplementation(() =>
+      // Mock createUserProfile
+      jest.spyOn(authService as any, "createUserProfile").mockResolvedValue({
+        id: mockUser.id,
+        email: mockUser.email,
+        name: "New User",
+      });
+
+      (mockSupabaseAdmin.auth.admin.createUser as any).mockImplementation(() =>
         Promise.resolve({
           data: { user: mockUser },
           error: null,
@@ -502,7 +539,8 @@ describe("AuthService", () => {
             id: "new-user-id",
             email: "newuser@example.com",
             name: "New User",
-            role: UserRole.STAFF,
+            role: UserRoleEnum.STAFF,
+            permissions: mockPermissions,
           }),
           token: expect.any(String),
           sessionId: expect.any(String),
@@ -516,19 +554,17 @@ describe("AuthService", () => {
       );
     });
 
-    it("should return null for invalid invite code", async () => {
+    it("should throw error for invalid invite code", async () => {
       jest.spyOn(authService, "validateInviteCode").mockResolvedValue({
         valid: false,
       });
 
-      const result = await authService.registerUser(
+      await expect(authService.registerUser(
         "newuser@example.com",
         "password123",
         "New User",
         "INVALID123"
-      );
-
-      expect(result).toBeNull();
+      )).rejects.toThrow("Invalid or expired invite code");
     });
 
     it("should register an owner with payment verification", async () => {
@@ -537,7 +573,7 @@ describe("AuthService", () => {
         email: "owner@example.com",
         user_metadata: {
           name: "Owner User",
-          role: UserRole.OWNER,
+          role: UserRoleEnum.OWNER,
         },
       };
 
@@ -553,7 +589,14 @@ describe("AuthService", () => {
         .spyOn(authService, "getPermissionsForRole")
         .mockResolvedValue(mockPermissions);
 
-      (supabase.auth.admin.createUser as any).mockImplementation(() =>
+      // Mock createUserProfile
+      jest.spyOn(authService as any, "createUserProfile").mockResolvedValue({
+        id: mockUser.id,
+        email: mockUser.email,
+        name: "Owner User",
+      });
+
+      (mockSupabaseAdmin.auth.admin.createUser as any).mockImplementation(() =>
         Promise.resolve({
           data: { user: mockUser },
           error: null,
@@ -574,18 +617,19 @@ describe("AuthService", () => {
             id: "owner-id",
             email: "owner@example.com",
             name: "Owner User",
-            role: UserRole.OWNER,
+            role: UserRoleEnum.OWNER,
+            permissions: mockPermissions,
           }),
         })
       );
 
-      expect(supabase.auth.admin.createUser).toHaveBeenCalledWith(
+      expect(mockSupabaseAdmin.auth.admin.createUser).toHaveBeenCalledWith(
         expect.objectContaining({
           email: "owner@example.com",
           password: "password123",
           user_metadata: expect.objectContaining({
             name: "Owner User",
-            role: UserRole.OWNER,
+            role: UserRoleEnum.OWNER,
           }),
         })
       );
@@ -599,7 +643,7 @@ describe("AuthService", () => {
         email: "test@example.com",
         user_metadata: {
           name: "Test User",
-          role: UserRole.STAFF,
+          role: UserRoleEnum.STAFF,
         },
       };
 
@@ -611,16 +655,26 @@ describe("AuthService", () => {
         "user:write": false,
       };
 
-      (supabase.auth.getUser as any).mockImplementation(() =>
+      (mockSupabase.auth.getUser as any).mockImplementation(() =>
         Promise.resolve({
           data: { user: mockUser },
           error: null,
         })
       );
 
-      jest
-        .spyOn(authService, "getPermissionsForRole")
-        .mockResolvedValue(mockPermissions);
+      // Mock getUserWithProfile
+      jest.spyOn(authService as any, "getUserWithProfile").mockResolvedValue({
+        id: mockUser.id,
+        email: mockUser.email,
+        name: "Test User",
+        locations: [{
+          location: { id: "loc1", name: "Location 1" },
+          role: { id: "role1", name: UserRoleEnum.STAFF, permissions: mockPermissions },
+        }],
+      });
+
+      // Mock getUserPermissions
+      jest.spyOn(authService as any, "getUserPermissions").mockResolvedValue(mockPermissions);
 
       const result = await authService.validateSupabaseToken(
         "valid-supabase-token"
@@ -631,18 +685,18 @@ describe("AuthService", () => {
           id: "test-user-id",
           email: "test@example.com",
           name: "Test User",
-          role: UserRole.STAFF,
+          role: UserRoleEnum.STAFF,
           permissions: mockPermissions,
         })
       );
 
-      expect(supabase.auth.getUser).toHaveBeenCalledWith(
+      expect(mockSupabase.auth.getUser).toHaveBeenCalledWith(
         "valid-supabase-token"
       );
     });
 
     it("should return null for invalid Supabase token", async () => {
-      (supabase.auth.getUser as any).mockImplementation(() =>
+      (mockSupabase.auth.getUser as any).mockImplementation(() =>
         Promise.resolve({
           data: { user: null },
           error: { message: "Invalid token" },
@@ -651,6 +705,83 @@ describe("AuthService", () => {
 
       const result = await authService.validateSupabaseToken(
         "invalid-supabase-token"
+      );
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("markInviteCodeAsUsed", () => {
+    it("should mark invite code as used", async () => {
+      // Mock the update chain to resolve to a result object
+      mockDb.where.mockReturnValue(mockDb);
+      mockDb.set.mockReturnValue(mockDb);
+      mockDb.update.mockReturnValue(mockDb);
+      mockDb.where.mockResolvedValue({ count: 1 });
+
+      const result = await authService.markInviteCodeAsUsed("CODE123", "user123");
+
+      expect(result).toBe(true);
+      expect(mockDb.update).toHaveBeenCalled();
+      expect(mockDb.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          used_by: "user123",
+          used_at: expect.any(String),
+        })
+      );
+    });
+
+    it("should return false on error", async () => {
+      mockDb.update.mockImplementation(() => {
+        throw new Error("Database error");
+      });
+
+      const result = await authService.markInviteCodeAsUsed("CODE123", "user123");
+
+      expect(result).toBe(false);
+    });
+  });
+
+  describe("createInviteCode", () => {
+    it("should create an invite code", async () => {
+      const mockInviteCode: MockInviteCode = {
+        id: "invite123",
+        code: "ABCD1234",
+        role: UserRoleEnum.STAFF,
+        created_by: "user123",
+        expires_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        used_by: null,
+        used_at: null,
+      };
+
+      mockDb.returning.mockResolvedValue([mockInviteCode]);
+
+      const result = await authService.createInviteCode(
+        UserRoleEnum.STAFF,
+        "user123",
+        7
+      );
+
+      expect(result).toEqual(mockInviteCode);
+      expect(mockDb.insert).toHaveBeenCalled();
+      expect(mockDb.values).toHaveBeenCalledWith(
+        expect.objectContaining({
+          role: UserRoleEnum.STAFF,
+          created_by: "user123",
+          expires_at: expect.any(String),
+        })
+      );
+    });
+
+    it("should return null on error", async () => {
+      mockDb.insert.mockImplementation(() => {
+        throw new Error("Database error");
+      });
+
+      const result = await authService.createInviteCode(
+        UserRoleEnum.STAFF,
+        "user123"
       );
 
       expect(result).toBeNull();

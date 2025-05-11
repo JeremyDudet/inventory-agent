@@ -8,7 +8,7 @@ export const inventoryUpdatesRelations = relations(
   inventory_updates,
   ({ one }) => ({
     inventoryItem: one(inventory_items, {
-      fields: [inventory_updates.itemId],
+      fields: [inventory_updates.item_id],
       references: [inventory_items.id],
     }),
   })

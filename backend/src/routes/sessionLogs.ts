@@ -8,7 +8,7 @@ import {
   getRecentInventoryUpdates,
 } from "@/services/session/sessionLogsService";
 import { authMiddleware } from "@/middleware/auth";
-import { UserRole } from "@/services/authService";
+import { UserRoleEnum } from "@/types";
 
 const router = express.Router();
 
@@ -59,8 +59,8 @@ const getUserSessionsHandler = async (
       const id = "userId" in req.user ? req.user.userId : req.user.id;
       if (
         id !== userId &&
-        req.user.role !== UserRole.OWNER &&
-        req.user.role !== UserRole.MANAGER
+        req.user.role !== UserRoleEnum.OWNER &&
+        req.user.role !== UserRoleEnum.MANAGER
       ) {
         return res
           .status(403)

@@ -69,7 +69,7 @@ export class InventoryRepository {
     const [updated] = await db
       .update(inventory_items)
       .set({
-        quantity: quantity.toString(),
+        quantity: quantity,
         last_updated: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -155,8 +155,8 @@ export class InventoryRepository {
   ): Promise<InventoryItem | null> {
     const updateData: Partial<DrizzleInventoryItemInsert> = {
       ...updates,
-      quantity: updates.quantity?.toString(),
-      threshold: updates.threshold?.toString(),
+      quantity: updates.quantity,
+      threshold: updates.threshold,
       updated_at: new Date().toISOString(),
     };
 
@@ -209,9 +209,9 @@ export class InventoryRepository {
     await db.insert(inventory_updates).values({
       item_id: itemId,
       action,
-      previous_quantity: previousQuantity.toString(),
-      new_quantity: newQuantity.toString(),
-      quantity: quantity.toString(),
+      previous_quantity: previousQuantity,
+      new_quantity: newQuantity,
+      quantity: quantity,
       unit,
       user_name: user_name,
       user_id: user_id,

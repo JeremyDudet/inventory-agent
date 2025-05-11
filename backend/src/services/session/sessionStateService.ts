@@ -3,7 +3,7 @@ import {
   SessionState,
   SessionStateType,
   RecentCommand,
-} from "../../types/session";
+} from "@/types";
 
 export class SessionStateService {
   private state: SessionState;

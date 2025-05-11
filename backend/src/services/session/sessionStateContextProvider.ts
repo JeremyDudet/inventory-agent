@@ -1,6 +1,6 @@
 // backend/src/services/sessionStateContextProvider.ts
-import { ContextProvider } from "../../types/context";
-import { RecentCommand } from "../../types/session";
+import { ContextProvider } from "@/types";
+import { RecentCommand } from "@/types";
 import { SessionStateService } from "./sessionStateService";
 
 /**

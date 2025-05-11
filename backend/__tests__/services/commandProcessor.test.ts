@@ -1,7 +1,7 @@
 import { describe, it, expect, jest, beforeEach } from "@jest/globals";
 import { NlpService } from "@/services/speech/nlpService";
 import speechFeedbackService from "@/services/speech/speechFeedbackService";
-import { InventoryUpdate, InventoryItem } from "@/types/inventory";
+import { InventoryUpdate, InventoryItem } from "@/types";
 import { ActionLog } from "@/types/actionLog";
 import { MockInventoryRepository } from "../mocks/inventoryRepository";
 
@@ -66,10 +66,10 @@ describe("Command Processor Tests", () => {
       mockInventoryRepository.addTestItem({
         id: "coffee-1",
         name: "coffee",
-        quantity: 0,
+        quantity: "0",
         unit: "pounds",
         category: "beverages",
-        lastupdated: new Date().toISOString(),
+        last_updated: new Date().toISOString(),
         embedding: [],
       });
 
@@ -88,7 +88,7 @@ describe("Command Processor Tests", () => {
           const update: InventoryUpdate = {
             action: command.action as "add" | "remove" | "set",
             item: command.item,
-            quantity: command.quantity || 0,
+            quantity: command.quantity || "0",
             unit: command.unit,
           };
 

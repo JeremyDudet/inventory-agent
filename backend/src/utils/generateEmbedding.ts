@@ -1,4 +1,4 @@
-// backend/src/utils/createEmbedding.ts
+// backend/src/utils/generateEmbedding.ts
 import dotenv from 'dotenv';
 import axios from 'axios';
 import { preprocessText } from './preprocessText';

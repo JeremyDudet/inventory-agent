@@ -1,12 +1,13 @@
+// backend/__tests__/middleware/auth.test.ts
 import { Request, Response, NextFunction } from "express";
 import { describe, it, expect, jest, beforeEach } from "@jest/globals";
 import { authenticate, authorize, requireRole } from "@/middleware/auth";
-import authService, {
-  UserRole,
-  UserPermissions,
+import {
+  UserRoleEnum,
   AuthTokenPayload,
-} from "@/services/authService";
+} from "@/types";
 import { UnauthorizedError, ForbiddenError } from "@/errors/AuthError";
+import authService from "@/services/authService";
 
 // Mock the auth service
 jest.mock("@/services/authService");
@@ -81,7 +82,7 @@ describe("Authentication Middleware", () => {
         id: "123",
         email: "test@example.com",
         name: "Test User",
-        role: UserRole.STAFF,
+        role: UserRoleEnum.STAFF,
         permissions: {
           "inventory:read": true,
           "inventory:write": false,
@@ -105,7 +106,7 @@ describe("Authentication Middleware", () => {
         userId: "123",
         email: "test@example.com",
         name: "Test User",
-        role: UserRole.STAFF,
+        role: UserRoleEnum.STAFF,
         sessionId: "session-123",
         jti: "token-123",
       } as AuthTokenPayload);
@@ -149,7 +150,7 @@ describe("Authentication Middleware", () => {
         id: "123",
         email: "test@example.com",
         name: "Test User",
-        role: UserRole.READONLY,
+        role: UserRoleEnum.READONLY,
         permissions: {
           "inventory:read": true,
           "inventory:write": false,
@@ -180,7 +181,7 @@ describe("Authentication Middleware", () => {
         id: "123",
         email: "test@example.com",
         name: "Test User",
-        role: UserRole.MANAGER,
+        role: UserRoleEnum.MANAGER,
         permissions: {
           "inventory:read": true,
           "inventory:write": true,
@@ -204,7 +205,7 @@ describe("Authentication Middleware", () => {
 
   describe("requireRole", () => {
     it("should return 401 if user is not authenticated", () => {
-      const middleware = requireRole([UserRole.MANAGER]);
+      const middleware = requireRole([UserRoleEnum.MANAGER]);
       middleware(
         mockRequest as Request,
         mockResponse as Response,
@@ -224,7 +225,7 @@ describe("Authentication Middleware", () => {
         id: "123",
         email: "test@example.com",
         name: "Test User",
-        role: UserRole.STAFF,
+        role: UserRoleEnum.STAFF,
         permissions: {
           "inventory:read": true,
           "inventory:write": true,
@@ -235,7 +236,7 @@ describe("Authentication Middleware", () => {
         sessionId: "session-123",
       };
 
-      const middleware = requireRole([UserRole.MANAGER]);
+      const middleware = requireRole([UserRoleEnum.MANAGER]);
       middleware(
         mockRequest as Request,
         mockResponse as Response,
@@ -245,7 +246,7 @@ describe("Authentication Middleware", () => {
       expect(nextFunction).toHaveBeenCalledWith(
         expect.objectContaining({
           message: expect.stringContaining(
-            `Access denied. Your role (${UserRole.STAFF}) doesn't have permission for this action`
+            `Access denied. Your role (${UserRoleEnum.STAFF}) doesn't have permission for this action`
           ),
           statusCode: 403,
         })
@@ -257,7 +258,7 @@ describe("Authentication Middleware", () => {
         id: "123",
         email: "test@example.com",
         name: "Test User",
-        role: UserRole.MANAGER,
+        role: UserRoleEnum.MANAGER,
         permissions: {
           "inventory:read": true,
           "inventory:write": true,
@@ -268,7 +269,7 @@ describe("Authentication Middleware", () => {
         sessionId: "session-123",
       };
 
-      const middleware = requireRole([UserRole.MANAGER]);
+      const middleware = requireRole([UserRoleEnum.MANAGER]);
       middleware(
         mockRequest as Request,
         mockResponse as Response,

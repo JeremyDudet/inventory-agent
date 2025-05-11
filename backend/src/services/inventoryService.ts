@@ -1,19 +1,14 @@
 // backend/src/services/inventoryService.ts
-import { logSystemAction } from "./session/sessionLogsService";
-import { InventoryRepository } from "../repositories/InventoryRepository";
-import { InventoryItem, InventoryItemInsert } from "../types";
-import { NotFoundError, ValidationError } from "../errors";
-import { generateEmbedding } from "../utils/createEmbedding";
-import { preprocessText } from "../utils/preprocessText";
-import { getUnitType, convertQuantity } from "../utils/unitConversions";
-import websocketService from "./websocketService";
+import { logSystemAction } from "@/services/session/sessionLogsService";
+import { InventoryRepository } from "@/repositories/InventoryRepository";
+import { InventoryItem, InventoryItemInsert } from "@/types";
+import { NotFoundError, ValidationError } from "@/errors";
+import { generateEmbedding } from "@/utils/generateEmbedding";
+import { preprocessText } from "@/utils/preprocessText";
+import { getUnitType, convertQuantity } from "@/utils/unitConversions";
+import websocketService from "@/services/websocketService";
+import type { InventoryUpdate } from "@/types";
 
-interface InventoryUpdate {
-  action: string;
-  item: string;
-  quantity: number;
-  unit: string;
-}
 
 class InventoryService {
   private repository: InventoryRepository;
@@ -172,13 +167,13 @@ class InventoryService {
       let newQuantity: number;
       switch (update.action.toLowerCase()) {
         case "add":
-          newQuantity = Number(item.quantity) + quantityToUpdate;
+          newQuantity = Number(item.quantity) + Number(quantityToUpdate);
           break;
         case "remove":
-          newQuantity = Math.max(0, Number(item.quantity) - quantityToUpdate);
+          newQuantity = Math.max(0, Number(item.quantity) - Number(quantityToUpdate));
           break;
         case "set":
-          newQuantity = quantityToUpdate;
+          newQuantity = Number(quantityToUpdate);
           break;
         default:
           throw new ValidationError(`Invalid action: ${update.action}`);
@@ -312,7 +307,7 @@ class InventoryService {
       }
 
       const convertedQuantity = convertQuantity(
-        Number(item.quantity),
+        item.quantity ?? 0,
         item.unit,
         requestedUnit
       );
