@@ -22,30 +22,19 @@ console.log(
   `Initializing Supabase client with URL: ${supabaseUrl.substring(0, 20)}...`
 );
 
-// Initialize custom fetch function with IPv4 preference
-// We need to match the exact type signature expected by Supabase
-const customFetch = (
-  input: RequestInfo | URL,
-  init?: RequestInit
-): Promise<Response> => {
-  // Log the connection attempt to debug
-  const url = typeof input === "string" ? input : input.toString();
-  console.log(`Connecting to Supabase at: ${url}`);
-  
-  return fetch(input, init);
-};
-
 // Initialize Supabase client with anon key for auth operations
 const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false,
   },
+  db: {
+    schema: "public",
+  },
   global: {
     headers: {
       "x-application-name": "stockcount-backend",
     },
-    fetch: customFetch,
   },
 });
 
@@ -55,36 +44,29 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
     autoRefreshToken: false,
     persistSession: false,
   },
+  db: {
+    schema: "public",
+  },
   global: {
     headers: {
       "x-application-name": "stockcount-backend-admin",
     },
-    fetch: customFetch,
   },
 });
 
 // Test the connection
 export async function initializeSupabase() {
   try {
-    // Simple ping query to test connection
     const { data, error } = await supabaseAdmin
       .from("inventory_items")
-      .select("count(*)")
-      .limit(1);
-    
+      .select("*");
     if (error) throw error;
     console.log("✅ Supabase connection successful");
-    return true;
   } catch (err) {
-    console.error("⚠️ Supabase connection test error:", err);
-    // Log more details for debugging
-    if (err instanceof Error) {
-      console.error("Error details:", {
-        message: err.message,
-        stack: err.stack,
-      });
-    }
-    return false;
+    console.error(
+      "⚠️ Supabase connection test error:",
+      JSON.stringify(err, null, 2)
+    );
   }
 }
 
