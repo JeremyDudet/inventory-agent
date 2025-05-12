@@ -296,7 +296,7 @@ export default function Hero() {
               className="mt-10 text-pretty text-5xl font-semibold tracking-tight text-gray-900 dark:text-white sm:text-7xl"
               variants={itemVariants}
             >
-              Control food costs as easily as a conversation
+              Controlling food costs as easy as a conversation
             </motion.h1>
             <motion.p
               className="mt-8 text-pretty text-lg font-medium text-gray-500 dark:text-gray-400 sm:text-xl/8"
