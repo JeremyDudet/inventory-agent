@@ -99,8 +99,8 @@ function InventoryListWithStickyHeader({
       <div className="sm:flex-auto">
         {/* Header */}
         <div>
-          <Heading level={1}>Stock List</Heading>
-          <Text>Manually input your stock counts.</Text>
+          <Heading level={1}>Stock</Heading>
+          <Text>Input your stock counts</Text>
         </div>
 
         {/* Search and filter */}

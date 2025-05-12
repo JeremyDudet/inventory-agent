@@ -276,7 +276,7 @@ export default function Hero() {
             <motion.div className="flex" variants={itemVariants}>
               <div className="relative flex items-center gap-x-4 rounded-full bg-white dark:bg-zinc-800 px-4 py-1 text-sm/6 text-gray-600 dark:text-gray-300 ring-1 ring-gray-900/10 dark:ring-gray-100/10 hover:ring-gray-900/20 dark:hover:ring-gray-100/20">
                 <span className="font-semibold text-zinc-600 dark:text-zinc-400">
-                  In beta - version 0.1
+                  In Beta - Version 0.1
                 </span>
                 <span
                   aria-hidden="true"
@@ -296,14 +296,14 @@ export default function Hero() {
               className="mt-10 text-pretty text-5xl font-semibold tracking-tight text-gray-900 dark:text-white sm:text-7xl"
               variants={itemVariants}
             >
-              Inventory management as easy as a conversation
+              Control food costs as easily as a conversation
             </motion.h1>
             <motion.p
               className="mt-8 text-pretty text-lg font-medium text-gray-500 dark:text-gray-400 sm:text-xl/8"
               variants={itemVariants}
             >
-              StockCount listens, learns, and keeps your cafe's inventory
-              spot-on—without the hassle.
+              Identify top profits and losses to make smart decisions and
+              increase margins.
             </motion.p>
             <motion.div
               className="mt-10 flex items-center gap-x-6"
@@ -313,7 +313,7 @@ export default function Hero() {
                 to="/register"
                 className="rounded-md bg-zinc-950 dark:bg-zinc-100 px-3.5 py-2.5 text-sm font-bold text-white dark:text-zinc-950 shadow-sm hover:bg-zinc-800 dark:hover:bg-zinc-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 dark:focus-visible:outline-zinc-100"
               >
-                Get started
+                Join the Waitlist Now
               </Link>
               {/* <Link
                 to="/#features"

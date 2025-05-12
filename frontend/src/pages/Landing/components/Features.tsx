@@ -2,27 +2,31 @@ import {
   MicrophoneIcon,
   LightBulbIcon,
   ClockIcon,
+  InboxArrowDownIcon,
 } from "@heroicons/react/24/outline";
 
 const features = [
   {
-    name: "Voice-Driven Interface",
-    description:
-      "Update inventory with natural voice commands. Say 'Add 5 bags of flour,' and it's done instantly.",
+    name: "Inventory Management",
+    description: "Voice-Controlled Inventory: Update stock hands-free...",
     href: "#voice-interface",
     icon: MicrophoneIcon,
   },
   {
-    name: "Contextual Understanding",
-    description:
-      "StockCount.io learns your habits, making updates faster and smarter over time.",
+    name: "Invoice Processing",
+    description: "Automated Invoice Processing: Snap a photo...",
     href: "#contextual-understanding",
-    icon: LightBulbIcon,
+    icon: InboxArrowDownIcon,
   },
   {
-    name: "Quick Response Times",
-    description:
-      "Get accurate responses in under a second, even in a busy, noisy kitchen.",
+    name: "Cost Tracking",
+    description: "Real-Time Cost Tracking: See your food costs...",
+    href: "#quick-response",
+    icon: ClockIcon,
+  },
+  {
+    name: "Profitability Insights",
+    description: "Menu Profitability Insights: Know which dishes...",
     href: "#quick-response",
     icon: ClockIcon,
   },
@@ -34,13 +38,13 @@ export default function Features() {
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="mx-auto max-w-2xl lg:mx-0">
           <h2 className="text-pretty text-4xl font-semibold tracking-tight text-gray-900 dark:text-white sm:text-5xl">
-            Simplify your stock with tools that work for you
+            What Your Business Needs. Made Simple.
           </h2>
-          <p className="mt-6 text-lg/8 text-gray-600 dark:text-gray-400">
+          {/* <p className="mt-6 text-lg/8 text-gray-600 dark:text-gray-400">
             StockCount.io makes inventory management intuitive and stress-free.
             Our innovative features let you update and track stock effortlessly,
             so your team can focus on delighting customers.
-          </p>
+          </p> */}
         </div>
         <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none">
           <dl className="grid max-w-xl grid-cols-1 gap-x-8 gap-y-16 lg:max-w-none lg:grid-cols-3">

@@ -63,7 +63,7 @@ export default function ItemsPage() {
         <div className="flex justify-between">
           <div>
             <Heading level={1}>Items</Heading>
-            <Text>Manage item data.</Text>
+            <Text>Manage item data</Text>
           </div>
           {/* Add Item Button */}
           <div>
