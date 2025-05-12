@@ -1,7 +1,7 @@
 import { describe, it, expect, jest, beforeEach } from "@jest/globals";
 import { SessionStateContextProvider } from "@/services/session/sessionStateContextProvider";
 import { SessionStateService } from "@/services/session/sessionStateService";
-import { RecentCommand } from "@/types/session";
+import { RecentCommand } from "@/types";
 
 describe("SessionStateContextProvider", () => {
   let sessionStateService: SessionStateService;

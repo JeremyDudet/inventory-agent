@@ -1,7 +1,7 @@
 import { describe, it, expect, jest, beforeEach } from "@jest/globals";
 import TranscriptionBuffer from "@/services/speech/transcriptionBuffer";
 import { NlpService } from "@/services/speech/nlpService";
-import { NlpResult } from "@/types/nlp";
+import { NlpResult } from "@/types";
 import { SessionStateService } from "@/services/session/sessionStateService";
 
 type ProcessTranscriptionFn = (

@@ -1,5 +1,4 @@
 import speechFeedbackService from "@/services/speech/speechFeedbackService";
-import { FeedbackMode } from "@/services/confirmationService";
 
 describe("SpeechFeedbackService", () => {
   beforeEach(() => {

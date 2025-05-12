@@ -1,8 +1,6 @@
 import { NlpService } from "@/services/speech/nlpService";
 import inventoryService from "@/services/inventoryService";
-import confirmationService from "@/services/confirmationService";
-import { NlpResult } from "@/types/nlp";
-import { RecentCommand } from "@/types/session";
+import { InventoryUpdate, RecentCommand } from "@/types";
 
 // Mock dependencies
 jest.mock("@/services/inventoryService");
@@ -247,7 +245,7 @@ describe("Voice Command Processing", () => {
 
   describe("Inventory Updates", () => {
     test("should successfully update inventory with valid command", async () => {
-      const command = {
+      const command: InventoryUpdate = {
         action: "set",
         item: "whole milk",
         quantity: 20,
@@ -266,7 +264,7 @@ describe("Voice Command Processing", () => {
     });
 
     test("should handle missing quantity gracefully", async () => {
-      const command = {
+      const command: InventoryUpdate = {
         action: "add",
         item: "milk",
         quantity: 0,
@@ -283,7 +281,7 @@ describe("Voice Command Processing", () => {
     });
 
     test("should handle invalid quantities gracefully", async () => {
-      const command = {
+      const command: InventoryUpdate = {
         action: "set",
         item: "milk",
         quantity: -5,

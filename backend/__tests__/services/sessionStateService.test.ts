@@ -1,5 +1,5 @@
 import { SessionStateService } from "@/services/session/sessionStateService";
-import { SessionState } from "@/types/session";
+import { SessionState } from "@/types";
 
 describe("SessionStateService", () => {
   let sessionStateService: SessionStateService;

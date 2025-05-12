@@ -6,8 +6,7 @@ import {
   jest,
   afterEach,
 } from "@jest/globals";
-import { RecentCommand } from "@/types/session";
-import { NlpResult } from "@/types/nlp";
+import { RecentCommand, NlpResult } from "@/types";
 
 const mockProcessTranscription = jest.fn();
 

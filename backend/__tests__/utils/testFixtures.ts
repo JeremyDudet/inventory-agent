@@ -1,6 +1,5 @@
-import { InventoryItem } from "@/types/InventoryItem";
-import { User, UserRole } from "@/services/authService";
-import { NlpResult } from "@/types/nlp";
+import { UserRole } from "@/services/authService";
+import { InventoryItem, User, UserRoleEnum, NlpResult } from "@/types";
 import { describe, it, expect } from "@jest/globals";
 
 describe("Test Fixtures", () => {
@@ -22,8 +21,13 @@ export const createInventoryItem = (
   quantity: 10,
   unit: "units",
   category: "test",
-  lastupdated: new Date().toISOString(),
+  last_updated: new Date().toISOString(),
   embedding: [],
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  location_id: "test-location-id",
+  description: "Test description",
+  threshold: 10,
   ...overrides,
 });
 
@@ -34,7 +38,7 @@ export const createUser = (overrides: Partial<User> = {}): User => ({
   id: "test-user-id",
   email: "test@example.com",
   name: "Test User",
-  role: UserRole.STAFF,
+  role: UserRoleEnum.STAFF,
   permissions: {
     "inventory:read": true,
     "inventory:write": true,

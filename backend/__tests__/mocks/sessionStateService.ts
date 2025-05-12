@@ -1,4 +1,4 @@
-import { SessionState, SessionStateType, RecentCommand } from "@/types/session";
+import { SessionState, SessionStateType, RecentCommand } from "@/types";
 import { jest, describe, it, expect } from "@jest/globals";
 
 describe("Session State Service Mock", () => {

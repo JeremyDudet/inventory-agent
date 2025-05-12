@@ -8,7 +8,7 @@ import {
   afterEach,
 } from "@jest/globals";
 import { MockInventoryRepository } from "../mocks/inventoryRepository";
-import { InventoryItem } from "@/types/InventoryItem";
+import { InventoryItem } from "@/types";
 import { NotFoundError, ValidationError } from "@/errors";
 import inventoryService from "@/services/inventoryService";
 import websocketService from "@/services/websocketService";
@@ -34,8 +34,12 @@ describe("InventoryService", () => {
       unit: "bags",
       category: "Beverages",
       threshold: 5,
-      lastupdated: new Date().toISOString(),
+      last_updated: new Date().toISOString(),
       embedding: [0.1, 0.2, 0.3], // Placeholder embedding
+      location_id: "test-location-id",
+      description: "Test description",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     });
 
     await mockRepository.save({
@@ -45,8 +49,12 @@ describe("InventoryService", () => {
       unit: "bags",
       category: "Beverages",
       threshold: 5,
-      lastupdated: new Date().toISOString(),
+      last_updated: new Date().toISOString(),
       embedding: [0.1, 0.2, 0.25],
+      location_id: "test-location-id",
+      description: "Test description",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     });
 
     await mockRepository.save({
@@ -56,8 +64,12 @@ describe("InventoryService", () => {
       unit: "bags",
       category: "Beverages",
       threshold: 5,
-      lastupdated: new Date().toISOString(),
+      last_updated: new Date().toISOString(),
       embedding: [0.1, 0.2, 0.2],
+      location_id: "test-location-id",
+      description: "Test description",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     });
 
     await mockRepository.save({
@@ -67,8 +79,12 @@ describe("InventoryService", () => {
       unit: "bags",
       category: "Beverages",
       threshold: 5,
-      lastupdated: new Date().toISOString(),
+      last_updated: new Date().toISOString(),
       embedding: [0.15, 0.25, 0.35],
+      location_id: "test-location-id",
+      description: "Test description",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     });
   });
 
@@ -345,6 +361,8 @@ describe("InventoryService", () => {
         unit: "boxes",
         category: "Beverages",
         threshold: 3,
+        location_id: "test-location-id",
+        description: "Test description",
       };
 
       const result = await inventoryService.addItem(newItemData);
@@ -357,7 +375,11 @@ describe("InventoryService", () => {
           unit: "boxes",
           category: "Beverages",
           threshold: 3,
-          lastupdated: expect.any(String),
+          last_updated: expect.any(String),
+          location_id: "test-location-id",
+          description: "Test description",
+          created_at: expect.any(String),
+          updated_at: expect.any(String),
         })
       );
 
@@ -377,6 +399,8 @@ describe("InventoryService", () => {
           quantity: 10,
           unit: "units",
           category: "test",
+          location_id: "test-location-id",
+          description: "Test description",
         })
       ).rejects.toThrow(ValidationError);
     });

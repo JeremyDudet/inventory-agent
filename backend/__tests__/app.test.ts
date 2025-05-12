@@ -2,7 +2,7 @@ import { Server, Socket } from "socket.io";
 import http from "http";
 import { AddressInfo } from "net";
 import { io as Client } from "socket.io-client";
-import { ActionLog } from "@/types/actionLog";
+import { ActionLog } from "@/types";
 
 describe("WebSocket Handler - Action Log", () => {
   let io: Server;

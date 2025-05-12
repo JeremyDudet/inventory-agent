@@ -206,7 +206,7 @@ describe("InventoryRepository", () => {
       // Arrange
       const newItem = {
         name: "New Item",
-        quantity: "10",
+        quantity: 10,
         unit: "kg",
         category: "Test",
         location_id: "loc1"
@@ -229,7 +229,7 @@ describe("InventoryRepository", () => {
       expect(db.insert).toHaveBeenCalledWith(inventory_items);
       expect(mockInsertChain.values).toHaveBeenCalledWith(expect.objectContaining({
         name: "New Item",
-        quantity: "10",
+        quantity: 10,
         unit: "kg",
         category: "Test",
         location_id: "loc1",
@@ -244,7 +244,7 @@ describe("InventoryRepository", () => {
       // Arrange
       const invalidItem = {
         name: "",
-        quantity: "5",
+        quantity: 5,
         unit: "kg",
         category: "Test",
         location_id: "loc1"
@@ -260,7 +260,7 @@ describe("InventoryRepository", () => {
       // Arrange
       const invalidItem = {
         name: "Test Item",
-        quantity: "-5",
+        quantity: -5,
         unit: "kg",
         category: "Test",
         location_id: "loc1"
@@ -306,8 +306,8 @@ describe("InventoryRepository", () => {
     it("should get all inventory items with pagination", async () => {
       // Arrange
       const mockItems = [
-        { id: "1", name: "Item 1", quantity: "5" },
-        { id: "2", name: "Item 2", quantity: "10" },
+        { id: "1", name: "Item 1", quantity: 5 },
+        { id: "2", name: "Item 2", quantity: 10 },
       ];
       mockSelectChain.offset.mockResolvedValue(mockItems);
 
@@ -324,7 +324,7 @@ describe("InventoryRepository", () => {
 
     it("should handle different pagination parameters", async () => {
       // Arrange
-      const mockItems = [{ id: "3", name: "Item 3", quantity: "15" }];
+      const mockItems = [{ id: "3", name: "Item 3", quantity: 15 }];
       mockSelectChain.offset.mockResolvedValue(mockItems);
 
       // Act
@@ -402,14 +402,14 @@ describe("InventoryRepository", () => {
       // Arrange
       const updates = {
         name: "Updated Item",
-        quantity: "20",
-        threshold: "10",
+        quantity: 20,
+        threshold: 10,
       };
       const mockUpdatedItem = {
         id: "123",
         name: "Updated Item",
-        quantity: "20",
-        threshold: "10",
+        quantity: 20,
+        threshold: 10,
         updated_at: expect.any(String),
       };
       mockUpdateChain.returning.mockResolvedValue([mockUpdatedItem]);
@@ -421,8 +421,8 @@ describe("InventoryRepository", () => {
       expect(db.update).toHaveBeenCalledWith(inventory_items);
       expect(mockUpdateChain.set).toHaveBeenCalledWith({
         name: "Updated Item",
-        quantity: "20",
-        threshold: "10",
+        quantity: 20,
+        threshold: 10,
         updated_at: expect.any(String),
       });
       expect(mockUpdateChain.where).toHaveBeenCalled();
@@ -523,9 +523,9 @@ describe("InventoryRepository", () => {
       expect(mockInsertInventoryUpdate.values).toHaveBeenCalledWith({
         item_id: "item123",
         action: "add",
-        previous_quantity: "10",
-        new_quantity: "15",
-        quantity: "5",
+        previous_quantity: 10,
+        new_quantity: 15,
+        quantity: 5,
         unit: "kg",
         user_name: "John Doe",
         user_id: "user123",

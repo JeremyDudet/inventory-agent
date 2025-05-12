@@ -1,6 +1,5 @@
 import TranscriptionBuffer from "@/services/speech/transcriptionBuffer";
 import { NlpService } from "@/services/speech/nlpService";
-import { NlpResult } from "@/types/nlp";
 import { MockSessionStateService } from "../mocks/sessionStateService";
 
 jest.mock("@/services/speech/transcriptionBuffer", () => {

@@ -7,11 +7,9 @@ import {
   afterEach,
 } from "@jest/globals";
 import { NlpService } from "@/services/speech/nlpService";
-import { NlpResult } from "@/types/nlp";
+import { RecentCommand, ContextProvider } from "@/types";
 import { createNlpResult } from "../utils/testFixtures";
 import { MockSessionStateService } from "../mocks/sessionStateService";
-import { RecentCommand } from "@/types/session";
-import { ContextProvider } from "@/types/context";
 
 jest.mock("axios", () => ({
   post: jest.fn(),
@@ -222,7 +220,7 @@ describe("Enhanced NlpService Tests", () => {
               message: {
                 content: JSON.stringify([
                   createNlpResult({
-                    action: "update",
+                    action: "set",
                     item: "milk",
                     quantity: 10,
                     unit: "gallons",
@@ -245,7 +243,7 @@ describe("Enhanced NlpService Tests", () => {
       expect(results).toHaveLength(1);
       expect(results[0]).toEqual(
         expect.objectContaining({
-          action: "update",
+          action: "set",
           item: "milk",
           quantity: 10,
           unit: "gallons",

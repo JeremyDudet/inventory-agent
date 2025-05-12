@@ -1,9 +1,7 @@
 import { jest, describe, it, expect } from "@jest/globals";
 import { NlpService } from "@/services/speech/nlpService";
-import { NlpResult } from "@/types/nlp";
-import { InventoryRepository } from "@/repositories/InventoryRepository";
+import { NlpResult } from "@/types";
 import { MockInventoryRepository } from "../mocks/inventoryRepository";
-import { RecentCommand } from "@/types/session";
 
 describe("Mock Utilities", () => {
   it("should export mock creation functions", () => {

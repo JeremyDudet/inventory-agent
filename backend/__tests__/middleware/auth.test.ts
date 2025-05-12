@@ -6,7 +6,6 @@ import {
   UserRoleEnum,
   AuthTokenPayload,
 } from "@/types";
-import { UnauthorizedError, ForbiddenError } from "@/errors/AuthError";
 import authService from "@/services/authService";
 
 // Mock the auth service

@@ -7,8 +7,7 @@ import {
   afterEach,
 } from "@jest/globals";
 import { NlpService } from "@/services/speech/nlpService";
-import { RecentCommand } from "@/types/session";
-import { NlpResult } from "@/types/nlp";
+import { RecentCommand, NlpResult } from "@/types";
 import axios from "axios";
 
 jest.mock("axios");

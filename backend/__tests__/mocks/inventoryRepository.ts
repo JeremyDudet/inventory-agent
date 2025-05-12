@@ -89,7 +89,7 @@ export class MockInventoryRepository {
       return false;
     }
 
-    item.quantity = quantity.toString();
+    item.quantity = quantity;
     item.last_updated = new Date().toISOString();
     this.items.set(id, item);
     return true;
@@ -136,13 +136,13 @@ describe("MockInventoryRepository", () => {
     const testItem: InventoryItem = {
       id: "test-id",
       name: "Test Item",
-      quantity: "10",
+      quantity: 10,
       unit: "units",
       category: "Test",
       last_updated: new Date().toISOString(),
       embedding: [],
       location_id: "test-location-id",
-      threshold: "10",
+      threshold: 10,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       description: "Test description",
@@ -158,13 +158,13 @@ describe("MockInventoryRepository", () => {
     const testItem: InventoryItem = {
       id: "test-id",
       name: "Test Item",
-      quantity: "10",
+      quantity: 10,
       unit: "units",
       category: "Test",
       last_updated: new Date().toISOString(),
       embedding: [],
       location_id: "test-location-id",
-      threshold: "10",
+      threshold: 10,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       description: "Test description",
@@ -174,7 +174,7 @@ describe("MockInventoryRepository", () => {
 
     const updates = {
       name: "Updated Item",
-      quantity: "20",
+      quantity: 20,
     };
 
     const updatedItem = await mockRepo.update("test-id", updates);

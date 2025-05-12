@@ -2,7 +2,7 @@
 import { describe, it, expect, jest, beforeEach } from "@jest/globals";
 import axios from "axios";
 import { NlpService } from "@/services/speech/nlpService";
-import { RecentCommand } from "@/types/session";
+import { RecentCommand } from "@/types";
 
 jest.mock("axios");
 const mockedAxios = axios as jest.Mocked<typeof axios>;
