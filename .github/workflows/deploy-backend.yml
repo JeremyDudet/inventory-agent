@@ -55,6 +55,7 @@ jobs:
             echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" > /var/www/inventory-agent/backend/.env
             echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> /var/www/inventory-agent/backend/.env
             echo "SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }}" >> /var/www/inventory-agent/backend/.env
+            echo "SUPABASE_DB=${{ secrets.SUPABASE_DB }}" >> /var/www/inventory-agent/backend/.env
             echo "PORT=8080" >> /var/www/inventory-agent/backend/.env
             echo "DEEPGRAM_API_KEY=${{ secrets.DEEPGRAM_API_KEY }}" >> /var/www/inventory-agent/backend/.env
             echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> /var/www/inventory-agent/backend/.env
