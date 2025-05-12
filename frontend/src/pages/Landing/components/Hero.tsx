@@ -340,7 +340,7 @@ export default function Hero() {
                     clipPath:
                       "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 20% 20%, 80% 20%, 100% 40%, 80% 60%, 100% 80%, 80% 100%, 20% 100%, 0% 80%, 20% 60%, 0% 40%, 20% 20%)",
                   }}
-                  className="mx-auto aspect-[9/19.5] w-[320px] dark:w-[290px] bg-gradient-to-tr from-[#054ebb] to-[#374151] dark:from-[#ff80b5] dark:to-[#9089fc] dark:opacity-30 opacity-60"
+                  className="mx-auto aspect-[9/19.5] w-[320px] dark:w-[290px] bg-gradient-to-tr from-[#054ebb] to-[#374151] dark:from-[#5a5a5a] dark:to-[#2a2a2a] dark:opacity-60 opacity-60"
                 />
               </div>
               <div className="relative mx-auto w-[22.875rem] max-w-full">
