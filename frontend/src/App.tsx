@@ -23,6 +23,7 @@ import { useInventoryStore } from "./stores/inventoryStore";
 import Stock from "./pages/Stock";
 import { AuthInitializer } from "./components/AuthInitializer";
 import ChangeLog from "./pages/ChangeLog";
+import { Analytics } from "@vercel/analytics/next";
 
 // Protected route component that uses Supabase auth
 const ProtectedRoute = () => {
@@ -158,6 +159,7 @@ const App: React.FC = () => {
         <WebsocketListener />
         <AppRoutes />
       </AuthInitializer>
+      <Analytics />
     </Router>
   );
 };
