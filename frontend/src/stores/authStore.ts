@@ -2,7 +2,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { Session, AuthError } from "@supabase/supabase-js";
-import api from "../services/api";
+import { api } from "../services/api";
 
 interface UserProfile {
   id: string;

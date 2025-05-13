@@ -64,7 +64,7 @@ interface InventoryUpdateRequest {
 }
 
 // Helper function for making API requests
-const apiRequest = async <T>(
+export const apiRequest = async <T>(
   endpoint: string,
   method: "GET" | "POST" | "PUT" | "DELETE" = "GET",
   data?: any,
@@ -164,5 +164,3 @@ export const api = {
     return apiRequest<GetUserResponse>("/api/auth/me", "GET", undefined, token);
   },
 };
-
-export default api;

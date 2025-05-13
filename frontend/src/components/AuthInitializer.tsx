@@ -2,7 +2,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../stores/authStore";
-import api from "@/services/api";
+import { api } from "@/services/api";
 
 export const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({
   children,

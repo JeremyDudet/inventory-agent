@@ -1,10 +1,16 @@
-import { SessionState, SessionStateType, Command, ConfirmationResult, PendingConfirmation } from '../types/session';
+import {
+  SessionState,
+  SessionStateType,
+  Command,
+  ConfirmationResult,
+  PendingConfirmation,
+} from "../types";
 
 class SessionStateService {
   private state: SessionState = {
-    currentState: 'normal',
+    currentState: "normal",
     pendingConfirmation: null,
-    isProcessingVoiceCommand: false
+    isProcessingVoiceCommand: false,
   };
 
   private subscribers: ((state: SessionState) => void)[] = [];
@@ -16,7 +22,7 @@ class SessionStateService {
   setState(newState: Partial<SessionState>): void {
     this.state = {
       ...this.state,
-      ...newState
+      ...newState,
     };
     this.notifySubscribers();
   }
@@ -28,22 +34,22 @@ class SessionStateService {
 
   resetState(): void {
     this.setState({
-      currentState: 'normal',
+      currentState: "normal",
       pendingConfirmation: null,
-      isProcessingVoiceCommand: false
+      isProcessingVoiceCommand: false,
     });
   }
 
   subscribe(callback: (state: SessionState) => void): () => void {
     this.subscribers.push(callback);
     return () => {
-      this.subscribers = this.subscribers.filter(sub => sub !== callback);
+      this.subscribers = this.subscribers.filter((sub) => sub !== callback);
     };
   }
 
   private notifySubscribers(): void {
-    this.subscribers.forEach(callback => callback(this.getState()));
+    this.subscribers.forEach((callback) => callback(this.getState()));
   }
 }
 
-export const sessionStateService = new SessionStateService(); 
+export const sessionStateService = new SessionStateService();

@@ -27,7 +27,7 @@ export const WebsocketListener = () => {
     onDisconnect: (reason) => {
       console.log("Inventory WebSocket disconnected:", reason);
     },
-    onInventoryUpdated: (message) => {
+    onInventoryUpdate: (message) => {
       try {
         if (Array.isArray(message.data)) {
           console.log("Received bulk inventory update:", message.data);

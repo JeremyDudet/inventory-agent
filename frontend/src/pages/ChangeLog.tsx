@@ -13,6 +13,8 @@ import {
 import { ChevronDownIcon, XMarkIcon } from "@heroicons/react/20/solid";
 import { Heading } from "@/components/ui/heading";
 import { Text } from "@/components/ui/text";
+import { createClient } from "@supabase/supabase-js";
+
 interface InventoryUpdate {
   id: string;
   itemId: string;
@@ -27,6 +29,19 @@ interface InventoryUpdate {
   itemName?: string;
 }
 
+interface DatabaseInventoryUpdate {
+  id: string;
+  item_id: string;
+  action: "add" | "remove" | "set" | "check";
+  previous_quantity: number;
+  new_quantity: number;
+  quantity: number;
+  unit: string;
+  user_id: string;
+  user_name: string;
+  created_at: string;
+}
+
 export default function ChangeLog() {
   const [updates, setUpdates] = useState<InventoryUpdate[]>([]);
   const [filteredUpdates, setFilteredUpdates] = useState<InventoryUpdate[]>([]);
@@ -37,10 +52,10 @@ export default function ChangeLog() {
     setChangeLogSelectedUsers,
     setChangeLogSelectedActions,
   } = useFilterStore();
-  const { supabase } = useAuthStore();
+  const { session } = useAuthStore();
   const { items } = useInventoryStore();
 
-  const actions = ["add", "remove", "set", "check"];
+  const actions = ["add", "remove", "set", "check"] as const;
   const [users, setUsers] = useState<string[]>([]);
 
   useEffect(() => {
@@ -49,25 +64,43 @@ export default function ChangeLog() {
 
   const fetchUpdates = async () => {
     try {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+
       const { data: updatesData, error } = await supabase
         .from("inventory_updates")
         .select("*")
-        .order("createdAt", { ascending: false });
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
       // Get unique users
       const uniqueUsers = Array.from(
-        new Set(updatesData.map((update) => update.userName))
+        new Set(
+          updatesData.map((update: DatabaseInventoryUpdate) => update.user_name)
+        )
       );
 
       // Enrich updates with item names
-      const enrichedUpdates = updatesData.map((update) => ({
-        ...update,
-        itemName:
-          items.find((item) => item.id === update.itemId)?.name ||
-          "Unknown Item",
-      }));
+      const enrichedUpdates = updatesData.map(
+        (update: DatabaseInventoryUpdate) => ({
+          id: update.id,
+          itemId: update.item_id,
+          action: update.action,
+          previousQuantity: update.previous_quantity,
+          newQuantity: update.new_quantity,
+          quantity: update.quantity,
+          unit: update.unit,
+          userId: update.user_id,
+          userName: update.user_name,
+          createdAt: update.created_at,
+          itemName:
+            items.find((item) => item.id === update.item_id)?.name ||
+            "Unknown Item",
+        })
+      );
 
       setUpdates(enrichedUpdates);
       setFilteredUpdates(enrichedUpdates);
