@@ -13,21 +13,11 @@ export const WebsocketListener = () => {
   // Inventory socket management
   useInventorySocket({
     onConnect: () => {
-      console.log("Inventory WebSocket connected successfully");
+      console.log("Inventory WebSocket connected successfully"); // Already present
       setError(null);
     },
-    onConnectError: (error) => {
-      console.error("Inventory WebSocket connection error:", error);
-      setError("Failed to connect to inventory server");
-      addNotification(
-        "error",
-        "Failed to connect to inventory server. Please refresh the page."
-      );
-    },
-    onDisconnect: (reason) => {
-      console.log("Inventory WebSocket disconnected:", reason);
-    },
     onInventoryUpdate: (message) => {
+      console.log("Received inventory update:", message); // Add this log
       try {
         if (Array.isArray(message.data)) {
           console.log("Received bulk inventory update:", message.data);
@@ -38,7 +28,11 @@ export const WebsocketListener = () => {
           );
         } else {
           const { id, quantity, unit } = message.data;
-          console.log("Received inventory update:", message.data);
+          console.log("Processing inventory update for item:", {
+            id,
+            quantity,
+            unit,
+          });
           updateItem({ id, quantity, unit });
           addNotification(
             "success",
@@ -55,7 +49,6 @@ export const WebsocketListener = () => {
       }
     },
   });
-
   // Voice socket management
   useVoiceSocket({
     onConnect: () => {

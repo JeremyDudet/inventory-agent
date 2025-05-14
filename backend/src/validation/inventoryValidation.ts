@@ -26,9 +26,7 @@ export const inventoryItemSchema = z.object({
   unit: z.string().min(1, "Unit is required"),
   category: z.string().min(1, "Category is required"),
   location_id: z.string().min(1, "Location ID is required"),
-  threshold: z
-    .number()
-    .optional(),
+  threshold: z.number().optional(),
   last_updated: z.string().optional(), // Changed from 'lastupdated' to match DB schema
   embedding: z.array(z.number()).optional(),
   description: z.string().optional(),

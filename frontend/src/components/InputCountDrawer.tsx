@@ -44,12 +44,14 @@ interface InputCountDrawerProps {
     quantity: number;
     unit: string;
   };
+  location_id: string;
   children: React.ReactNode;
   onUpdate?: () => void;
 }
 
 export function InputCountDrawer({
   item,
+  location_id,
   children,
   onUpdate,
 }: InputCountDrawerProps) {
@@ -60,6 +62,8 @@ export function InputCountDrawer({
   // const userId = session?.user?.id;
   const [currentTime, setCurrentTime] = useState(new Date());
   const [newCount, setNewCount] = useState(item.quantity);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const updateItem = useInventoryStore((state) => state.updateItem);
   const { session } = useAuthStore();
   const { theme } = useThemeStore();
@@ -124,33 +128,36 @@ export function InputCountDrawer({
   }, []);
 
   const submitNewCount = async () => {
-    if (!session?.access_token) {
+    if (!newCount || newCount < 0) {
+      setError("Please enter a valid quantity");
       return;
     }
 
     try {
-      setSubmitting(true);
+      setLoading(true);
+      setError(null);
 
+      const token = session?.access_token;
+      if (!token) {
+        throw new Error("No authentication token found");
+      }
+
+      // Send only quantity
       await api.updateInventory(
         item.id,
-        { quantity: newCount },
-        session.access_token
+        { quantity: newCount }, // Remove location_id
+        token
       );
 
-      // Update local state
-      updateItem({
-        id: item.id,
-        quantity: newCount,
-      });
-
-      // Close the drawer after successful update
       setIsOpen(false);
       onUpdate?.();
-    } catch (error) {
-      if (error instanceof Error) {
-      }
+    } catch (err) {
+      console.error("Error updating inventory:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to update inventory"
+      );
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
   };
 

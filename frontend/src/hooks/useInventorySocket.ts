@@ -18,7 +18,6 @@ export const useInventorySocket = (events: InventorySocketEvents) => {
   const session = useAuthStore((state) => state.session);
 
   useEffect(() => {
-    // Only create socket connection if user is authenticated
     if (!user || !session?.access_token) {
       console.log(
         "User not authenticated, skipping inventory socket connection"
@@ -37,7 +36,7 @@ export const useInventorySocket = (events: InventorySocketEvents) => {
       socket.off("connect_error");
       socket.off("disconnect");
       socket.off("error");
-      socket.off("inventory-update");
+      socket.off("inventory-updated"); // Updated event name
 
       if (events.onConnect) {
         socket.on("connect", () => {
@@ -55,8 +54,6 @@ export const useInventorySocket = (events: InventorySocketEvents) => {
         socket.on("disconnect", (reason: string) => {
           if (isMountedRef.current && events.onDisconnect) {
             events.onDisconnect(reason);
-
-            // Auto-reconnect if server disconnected
             if (reason === "io server disconnect") {
               socket.connect();
             }
@@ -71,25 +68,24 @@ export const useInventorySocket = (events: InventorySocketEvents) => {
       }
 
       if (events.onInventoryUpdate) {
-        socket.on("inventory-update", (data: any) => {
+        socket.on("inventory-updated", (data: any) => {
+          // Changed from "inventory-update" to "inventory-updated"
           if (isMountedRef.current) events.onInventoryUpdate!(data);
         });
       }
 
       return () => {
         isMountedRef.current = false;
-        // Remove all event listeners for this component
         socket.off("connect");
         socket.off("connect_error");
         socket.off("disconnect");
         socket.off("error");
-        socket.off("inventory-update");
+        socket.off("inventory-updated"); // Updated event name
       };
     } catch (error) {
       console.error("Error creating inventory socket:", error);
-      // Handle error appropriately - maybe show a notification
     }
-  }, [user, session]); // Re-run when user auth status changes
+  }, [user, session]);
 
   return socketRef.current;
 };

@@ -1,5 +1,5 @@
 // backend/src/routes/inventory.ts
-import express from "express";
+import express, { NextFunction, Request, Response } from "express";
 import { InventoryItem, InventoryItemInsert } from "../types";
 import { authMiddleware, authorize } from "../middleware/auth";
 import inventoryService from "../services/inventoryService";
@@ -20,6 +20,19 @@ const isSupabaseConfigured = () => {
     process.env.SUPABASE_URL &&
     (process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY)
   );
+};
+
+// Middleware to load the inventory item and set locationId
+const loadItem = async (req: Request, res: Response, next: NextFunction) => {
+  const { id } = req.params;
+  try {
+    const item = await inventoryService.findById(id);
+    req.item = item as InventoryItem;
+    req.locationId = item.location_id; // Attach location_id to req
+    next();
+  } catch (error) {
+    next(error); // Pass NotFoundError or other errors to error handler
+  }
 };
 
 // Get all inventory items
@@ -88,6 +101,7 @@ router.get("/:id", async (req, res, next) => {
 // Update single inventory item
 router.post(
   "/update/:id",
+  loadItem,
   authMiddleware,
   authorize("inventory:write"),
   async (req, res, next) => {

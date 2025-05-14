@@ -7,13 +7,14 @@ import { UnauthorizedError, ForbiddenError } from "../errors/AuthError";
 import db from "../db";
 import { eq } from "drizzle-orm";
 import { user_locations, user_roles, locations } from "../db/schema";
-
+import { InventoryItem } from "../types";
 // Define custom request interface with user property
 declare global {
   namespace Express {
     interface Request {
       user?: AuthUser | AuthTokenPayload;
       locationId?: string;
+      item?: InventoryItem;
     }
   }
 }
@@ -102,14 +103,15 @@ export const authenticate = async (
 export const authorize = (permission: keyof UserPermissions) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      // Ensure user is authenticated
       if (!req.user) {
         throw new UnauthorizedError(
           "You must be logged in to access this resource."
         );
       }
 
-      const locationId = req.params.locationId || req.body.locationId;
+      // Use req.locationId if set (from loadItem), else fallback to params or body
+      const locationId =
+        req.locationId || req.params.locationId || req.body.location_id;
       if (!locationId) {
         throw new ForbiddenError(
           "Location ID is required for permission check"
@@ -131,7 +133,7 @@ export const authorize = (permission: keyof UserPermissions) => {
         );
       }
 
-      req.locationId = locationId;
+      req.locationId = locationId; // Set for downstream use if needed
       next();
     } catch (error) {
       next(error);

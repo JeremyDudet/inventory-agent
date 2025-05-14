@@ -38,7 +38,6 @@ interface InventoryItem {
 
 interface InventoryUpdateRequest {
   quantity: number;
-  locationId?: string; // Add locationId to the request
 }
 
 // Helper function for making API requests

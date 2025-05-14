@@ -12,6 +12,7 @@ export interface InventoryItem {
   createdat?: string;
   updatedat?: string;
   embedding: number[];
+  location_id: string;
 }
 
 export interface InventoryCategory {

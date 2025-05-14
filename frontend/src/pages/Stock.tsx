@@ -1,5 +1,5 @@
 // frontend/src/pages/StockList.tsx
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useInventoryStore } from "../stores/inventoryStore";
 import { useFilterStore } from "../stores/filterStore";
 import type {
@@ -26,7 +26,7 @@ import { XMarkIcon } from "@heroicons/react/24/outline";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
 import { motion } from "framer-motion";
 
-export default function StockList() {
+export default function Stock() {
   const { items, categories, error } = useInventoryStore();
   const {
     stockList: { searchQuery, selectedCategories },
@@ -248,6 +248,7 @@ function InventoryListWithStickyHeader({
                   >
                     <InputCountDrawer
                       item={item}
+                      location_id={item.location_id}
                       onUpdate={() => {
                         // The state will be automatically updated through the WebSocket listener
                         // and the inventory store
