@@ -61,8 +61,6 @@ export const useAuthStore = create<AuthState>()(
             name: response.user.name,
             locations: response.user.locations || [],
           };
-          console.log("Login response user:", response);
-          console.log("Created user:", user);
 
           // Create a session object
           const session: Session = {
