@@ -3,17 +3,10 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { Session, AuthError } from "@supabase/supabase-js";
 import { api } from "../services/api";
-
-interface UserProfile {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-  permissions?: Record<string, boolean>;
-}
+import { AuthUser } from "@/types";
 
 interface AuthState {
-  user: UserProfile | null;
+  user: AuthUser | null;
   session: Session | null;
   isLoading: boolean;
   login: (
@@ -21,23 +14,24 @@ interface AuthState {
     password: string
   ) => Promise<{
     error: AuthError | null;
-    data: { user: UserProfile | null; session: Session | null };
+    data: { user: AuthUser | null; session: Session | null };
   }>;
   register: (
     email: string,
     password: string,
     name: string,
-    inviteCode?: string
+    inviteCode?: string,
+    locationName?: string
   ) => Promise<{
-    data: { user: UserProfile | null; session: Session | null };
-    error: AuthError | { message: any } | null;
+    data: { user: AuthUser | null; session: Session | null };
+    error: AuthError | { message: string } | null;
   }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{
     data: {} | null;
     error: AuthError | null;
   }>;
-  setUser: (user: UserProfile | null) => void;
+  setUser: (user: AuthUser | null) => void;
   setSession: (session: Session | null) => void;
   setIsLoading: (isLoading: boolean) => void;
 }
@@ -45,7 +39,7 @@ interface AuthState {
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
-      user: null as UserProfile | null,
+      user: null as AuthUser | null,
       session: null as Session | null,
       isLoading: false,
 
@@ -61,15 +55,14 @@ export const useAuthStore = create<AuthState>()(
           });
 
           // Transform the response.user to match UserProfile interface
-          const userProfile: UserProfile = {
+          const user: AuthUser = {
             id: response.user.id,
             email: response.user.email,
             name: response.user.name,
-            role: response.user.role,
-            permissions: response.user.permissions || {},
+            locations: response.user.locations || [],
           };
-          console.log("Login response user:", response.user);
-          console.log("Created userProfile:", userProfile);
+          console.log("Login response user:", response);
+          console.log("Created user:", user);
 
           // Create a session object
           const session: Session = {
@@ -86,8 +79,8 @@ export const useAuthStore = create<AuthState>()(
             },
           } as Session;
 
-          set({ user: userProfile, session });
-          return { error: null, data: { user: userProfile, session } };
+          set({ user: user, session });
+          return { error: null, data: { user: user, session } };
         } catch (error: any) {
           const authError = new Error(
             error.message || "Login failed"
@@ -105,7 +98,8 @@ export const useAuthStore = create<AuthState>()(
         email: string,
         password: string,
         name: string,
-        inviteCode?: string
+        inviteCode?: string,
+        locationName?: string
       ) => {
         try {
           const response = await fetch("/api/auth/register", {
@@ -118,6 +112,7 @@ export const useAuthStore = create<AuthState>()(
               password,
               name,
               inviteCode,
+              locationName,
             }),
           });
 
@@ -131,12 +126,11 @@ export const useAuthStore = create<AuthState>()(
           }
 
           // Transform the response to match UserProfile interface
-          const userProfile: UserProfile = {
+          const user: AuthUser = {
             id: data.user.id,
             email: data.user.email,
             name: data.user.name,
-            role: data.user.role,
-            permissions: data.user.permissions || {},
+            locations: data.user.locations || [],
           };
 
           // Create a session object
@@ -153,8 +147,8 @@ export const useAuthStore = create<AuthState>()(
             },
           } as Session;
 
-          set({ user: userProfile, session });
-          return { error: null, data: { user: userProfile, session } };
+          set({ user: user, session });
+          return { error: null, data: { user: user, session } };
         } catch (error: any) {
           return {
             error: { message: error.message || "Registration failed" },

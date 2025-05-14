@@ -116,60 +116,40 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
             <SidebarHeader>
               <Dropdown>
                 <DropdownButton as={SidebarItem}>
-                  {(() => {
-                    const { theme } = useThemeStore();
-                    return (
-                      <Avatar
-                        src={
-                          theme === "dark"
-                            ? "/teams/logo-light.svg"
-                            : "/teams/logo-black.svg"
-                        }
-                        className="w-14 h-14 text-white"
-                      />
-                    );
-                  })()}
                   <SidebarLabel className="dark:text-white text-black">
-                    StockCount
+                    {user?.locations?.[0]?.name}
                   </SidebarLabel>
                   <ChevronDownIcon />
                 </DropdownButton>
                 <DropdownMenu
-                  className="min-w-80 lg:min-w-64"
+                  className="min-w-80 lg:min-w-64 z-[2001]"
                   anchor="bottom start"
                 >
                   <DropdownItem href="/settings">
                     <Cog8ToothIcon />
                     <DropdownLabel>Settings</DropdownLabel>
                   </DropdownItem>
-                  <DropdownDivider />
-                  <DropdownItem href="#">
-                    {(() => {
-                      const { theme } = useThemeStore();
-                      return (
-                        <Avatar
-                          src={
-                            theme === "dark"
-                              ? "/teams/logo-light.svg"
-                              : "/teams/logo-black.svg"
-                          }
-                        />
-                      );
-                    })()}
-                    <SidebarLabel>StockCount</SidebarLabel>
-                  </DropdownItem>
-                  <DropdownItem href="#">
-                    <Avatar
-                      slot="icon"
-                      initials="BE"
-                      className="bg-purple-500 text-white"
-                    />
-                    <DropdownLabel>Big Events</DropdownLabel>
-                  </DropdownItem>
-                  <DropdownDivider />
+                  {user?.locations && user.locations.length > 1 && (
+                    <>
+                      <DropdownDivider />
+                      {user.locations.map((location) => (
+                        <DropdownItem key={location.id} href="#">
+                          <Avatar
+                            slot="icon"
+                            initials={location.name
+                              .substring(0, 2)
+                              .toUpperCase()}
+                            className="bg-purple-500 text-white"
+                          />
+                          <DropdownLabel>{location.name}</DropdownLabel>
+                        </DropdownItem>
+                      ))}
+                      <DropdownDivider />
+                    </>
+                  )}
                   <DropdownItem href="#">
                     <PlusIcon />
-                    <DropdownLabel>New team…</DropdownLabel>
+                    <DropdownLabel>New location…</DropdownLabel>
                   </DropdownItem>
                 </DropdownMenu>
               </Dropdown>
@@ -212,7 +192,23 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
                 </SidebarItem>
                 <SidebarItem href="#">
                   <SparklesIcon />
-                  <SidebarLabel>Changelog</SidebarLabel>
+                  <SidebarLabel>Development</SidebarLabel>
+                </SidebarItem>
+                <SidebarItem href="#">
+                  {(() => {
+                    const { theme } = useThemeStore();
+                    return (
+                      <Avatar
+                        src={
+                          theme === "dark"
+                            ? "/teams/logo-light.svg"
+                            : "/teams/logo-black.svg"
+                        }
+                        className="w-14 h-14 text-white"
+                      />
+                    );
+                  })()}
+                  <SidebarLabel>StockCount</SidebarLabel>
                 </SidebarItem>
               </SidebarSection>
             </SidebarBody>

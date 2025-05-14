@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../stores/authStore";
 import { api } from "@/services/api";
+import { AuthUser } from "@/types";
 
 export const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -36,12 +37,11 @@ export const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({
 
           // The response already contains the user object with permissions
           // based on your api.ts and the /me endpoint structure
-          const userData = {
+          const userData: AuthUser = {
             id: response.user.id,
             email: response.user.email,
             name: response.user.name,
-            role: response.user.role,
-            permissions: response.permissions || {},
+            locations: response.user.locations || [],
           };
 
           // Update the user in the store

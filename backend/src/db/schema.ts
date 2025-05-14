@@ -146,10 +146,14 @@ export const inventory_items = pgTable(
       .notNull(),
     location_id: uuid("location_id").notNull(),
     name: text().notNull(),
-    quantity: decimal('quantity', { precision: 10, scale: 2, mode: 'number' }),
+    quantity: decimal("quantity", { precision: 10, scale: 2, mode: "number" }),
     unit: text().notNull(),
     category: text().notNull(),
-    threshold: decimal('threshold', { precision: 10, scale: 2, mode: 'number' }),
+    threshold: decimal("threshold", {
+      precision: 10,
+      scale: 2,
+      mode: "number",
+    }),
     last_updated: timestamp("last_updated", {
       withTimezone: true,
       mode: "string",
@@ -195,6 +199,9 @@ export const user_locations = pgTable(
     user_id: uuid("user_id").notNull(),
     location_id: uuid("location_id").notNull(),
     role_id: uuid("role_id").notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
     created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),
@@ -228,9 +235,21 @@ export const inventory_updates = pgTable(
       .notNull(),
     item_id: uuid("item_id").notNull(),
     action: text().notNull(),
-    previous_quantity: decimal('previous_quantity', { precision: 10, scale: 2, mode: 'number' }),
-    new_quantity: decimal('new_quantity', { precision: 10, scale: 2, mode: 'number' }),
-    quantity: decimal('quantity', { precision: 10, scale: 2, mode: 'number' }).notNull(),
+    previous_quantity: decimal("previous_quantity", {
+      precision: 10,
+      scale: 2,
+      mode: "number",
+    }),
+    new_quantity: decimal("new_quantity", {
+      precision: 10,
+      scale: 2,
+      mode: "number",
+    }),
+    quantity: decimal("quantity", {
+      precision: 10,
+      scale: 2,
+      mode: "number",
+    }).notNull(),
     unit: text().notNull(),
     user_id: uuid("user_id"),
     user_name: text("user_name"),
@@ -288,6 +307,7 @@ export const invite_codes = pgTable(
       .notNull(),
     code: text().notNull(),
     role: text().notNull(),
+    location_id: uuid("location_id").notNull(), // Added column
     created_by: uuid("created_by"),
     used_by: uuid("used_by"),
     used_at: timestamp("used_at", { withTimezone: true, mode: "string" }),
@@ -301,6 +321,11 @@ export const invite_codes = pgTable(
   },
   (table) => [
     unique("invite_codes_code_key").on(table.code),
+    foreignKey({
+      columns: [table.location_id],
+      foreignColumns: [locations.id],
+      name: "invite_codes_location_id_fkey",
+    }).onDelete("cascade"),
     foreignKey({
       columns: [table.created_by],
       foreignColumns: [profiles.id],

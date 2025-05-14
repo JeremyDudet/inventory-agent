@@ -1,43 +1,39 @@
 // backend/src/routes/auth.ts
 import express, { Request, Response, NextFunction } from "express";
-import authService from "@/services/authService";
+import { supabase } from "@/config/supabase";
 import db from "@/db";
 import { eq } from "drizzle-orm";
-import { AuthTokenPayload, UserPermissions, UserRoleEnum } from "@/types";
-import { user_roles } from "@/db/schema";
-import { supabase } from "@/config/supabase";
-
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-  permissions: UserPermissions;
-  sessionId?: string;
-}
+import { locations, user_locations, user_roles } from "@/db/schema";
+import authService from "@/services/authService";
+import {
+  AuthUser,
+  AuthTokenPayload,
+  UserPermissions,
+  UserRoleEnum,
+} from "@/types";
 
 // Update the req.user property to use the imported types
 declare global {
   namespace Express {
     interface Request {
-      user?: User | AuthTokenPayload;
+      user?: AuthUser | AuthTokenPayload;
     }
   }
 }
 
 // Type guards
-function isUser(user: User | AuthTokenPayload): user is User {
+function isUser(user: AuthUser | AuthTokenPayload): user is AuthUser {
   return "id" in user;
 }
 
 function isAuthTokenPayload(
-  user: User | AuthTokenPayload
+  user: AuthUser | AuthTokenPayload
 ): user is AuthTokenPayload {
   return "userId" in user;
 }
 
 // Helper to get user ID safely
-function getUserId(user: User | AuthTokenPayload): string {
+function getUserId(user: AuthUser | AuthTokenPayload): string {
   if (isUser(user)) {
     return user.id;
   } else if (isAuthTokenPayload(user)) {
@@ -88,81 +84,70 @@ router.post("/login", async (req: Request, res: Response) => {
 });
 
 // Register route
-router.post(
-  "/register",
-  async function (req: Request, res: Response, next: NextFunction) {
-    try {
-      const { email, password, name, inviteCode, paymentVerified } = req.body;
+router.post("/register", async (req: Request, res: Response) => {
+  try {
+    const { email, password, name, inviteCode, locationName } = req.body;
 
-      if (!email || !password || !name) {
-        return res.status(400).json({
-          error: {
-            code: "MISSING_FIELDS",
-            message: "Email, password, and name are required",
-          },
-        });
-      }
-
-      try {
-        // Register the user with invite code or payment verification
-        const result = await authService.registerUser(
-          email,
-          password,
-          name,
-          inviteCode,
-          paymentVerified
-        );
-
-        if (!result) {
-          return res.status(500).json({
-            error: {
-              code: "REGISTRATION_FAILED",
-              message: "Failed to register user",
-            },
-          });
-        }
-
-        res.status(201).json({
-          user: {
-            id: result.user.id,
-            email: result.user.email,
-            name: result.user.name,
-            role: result.user.role,
-          },
-          token: result.token,
-          permissions: result.user.permissions,
-          sessionId: result.sessionId,
-          message: "Registration successful",
-        });
-      } catch (error: any) {
-        // Handle specific error for invite code
-        if (error.message && error.message.includes("Invite code required")) {
-          return res.status(400).json({
-            error: {
-              code: "INVITE_CODE_REQUIRED",
-              message: "Invite code is required for staff and management roles",
-            },
-          });
-        } else if (
-          error.message &&
-          error.message.includes("Invalid or expired invite code")
-        ) {
-          return res.status(400).json({
-            error: {
-              code: "INVALID_INVITE_CODE",
-              message: "Invalid or expired invite code",
-            },
-          });
-        }
-
-        throw error; // Re-throw other errors to be caught by the catch block
-      }
-    } catch (error) {
-      console.error("Error during registration:", error);
-      next(error);
+    if (!email || !password || !name) {
+      return res.status(400).json({
+        error: {
+          code: "MISSING_FIELDS",
+          message: "Email, password, and name are required",
+        },
+      });
     }
+
+    const result = await authService.registerUser(
+      email,
+      password,
+      name,
+      inviteCode,
+      locationName
+    );
+
+    if (!result) {
+      return res.status(500).json({
+        error: {
+          code: "REGISTRATION_FAILED",
+          message: "Failed to register user",
+        },
+      });
+    }
+
+    res.status(201).json({
+      user: {
+        id: result.user.id,
+        email: result.user.email,
+        name: result.user.name,
+        locations: result.user.locations,
+      },
+      token: result.token,
+      sessionId: result.sessionId,
+      message: "Registration successful",
+    });
+  } catch (error: any) {
+    if (error.message?.includes("Invite code")) {
+      return res.status(400).json({
+        error: {
+          code: "INVALID_INVITE_CODE",
+          message: "Invalid or expired invite code",
+        },
+      });
+    } else if (error.message?.includes("Location name required")) {
+      return res.status(400).json({
+        error: {
+          code: "LOCATION_NAME_REQUIRED",
+          message: "Location name is required to create a new location",
+        },
+      });
+    }
+
+    console.error("Error during registration:", error);
+    res.status(500).json({
+      error: { code: "SERVER_ERROR", message: "Internal server error" },
+    });
   }
-);
+});
 
 // Verify token and get user info using Supabase Auth
 router.get(
@@ -185,23 +170,39 @@ router.get(
       const payload = await authService.verifyToken(token);
 
       if (payload) {
-        // Get fresh permissions for the user's role
-        const permissions = await authService.getPermissionsForRole(
-          payload.role
-        );
+        // Fetch user locations from the database
+        const userLocations = await db
+          .select({
+            location: locations,
+            role: user_roles,
+          })
+          .from(user_locations)
+          .innerJoin(locations, eq(user_locations.location_id, locations.id))
+          .innerJoin(user_roles, eq(user_locations.role_id, user_roles.id))
+          .where(eq(user_locations.user_id, payload.userId));
+
+        // Map locations data for the response
+        const locationsData = userLocations.map((ul) => ({
+          id: ul.location.id,
+          name: ul.location.name,
+          role: {
+            id: ul.role.id,
+            name: ul.role.name,
+            permissions: ul.role.permissions,
+          },
+        }));
 
         return res.status(200).json({
           user: {
             id: payload.userId,
             email: payload.email,
             name: payload.name,
-            role: payload.role,
+            locations: locationsData,
           },
-          permissions,
         });
       }
 
-      // If our JWT validation fails, try to validate with Supabase
+      // If JWT validation fails, try Supabase token validation
       const user = await authService.validateSupabaseToken(token);
 
       if (!user) {
@@ -213,14 +214,14 @@ router.get(
         });
       }
 
+      // Return user data with locations from Supabase validation
       res.status(200).json({
         user: {
           id: user.id,
           email: user.email,
           name: user.name,
-          role: user.role,
+          locations: user.locations,
         },
-        permissions: user.permissions,
       });
     } catch (error) {
       console.error("Error verifying token:", error);
@@ -287,16 +288,61 @@ export const requirePermission = (permission: string) => {
       // First try our own JWT token
       const payload = await authService.verifyToken(token);
 
-      if (
-        payload &&
-        payload.permissions &&
-        payload.permissions[permission as keyof typeof payload.permissions]
-      ) {
-        req.user = payload; // Set the user on the request
+      if (payload) {
+        // Get the location ID from the request
+        const locationId = req.params.locationId || req.body.locationId;
+
+        if (!locationId) {
+          return res.status(400).json({
+            error: {
+              code: "MISSING_LOCATION",
+              message: "Location ID is required for permission check",
+            },
+          });
+        }
+
+        // Get user's locations and roles
+        const userLocations = await db
+          .select({
+            location: locations,
+            role: user_roles,
+          })
+          .from(user_locations)
+          .innerJoin(locations, eq(user_locations.location_id, locations.id))
+          .innerJoin(user_roles, eq(user_locations.role_id, user_roles.id))
+          .where(eq(user_locations.user_id, payload.userId));
+
+        // Find the specific location's role
+        const locationRole = userLocations.find(
+          (ul) => ul.location.id === locationId
+        );
+
+        if (!locationRole) {
+          return res.status(403).json({
+            error: {
+              code: "LOCATION_ACCESS_DENIED",
+              message: "You do not have access to this location",
+            },
+          });
+        }
+
+        // Check if the role has the required permission
+        const rolePermissions = locationRole.role
+          .permissions as UserPermissions;
+        if (!rolePermissions[permission as keyof UserPermissions]) {
+          return res.status(403).json({
+            error: {
+              code: "INSUFFICIENT_PERMISSIONS",
+              message: `You do not have the required permission: ${permission} for this location`,
+            },
+          });
+        }
+
+        req.user = payload;
         return next();
       }
 
-      // If JWT fails or doesn't have permission, try Supabase token
+      // If JWT fails, try Supabase token
       const user = await authService.validateSupabaseToken(token);
 
       if (!user) {
@@ -308,19 +354,41 @@ export const requirePermission = (permission: string) => {
         });
       }
 
-      if (
-        !user.permissions ||
-        !user.permissions[permission as keyof typeof user.permissions]
-      ) {
-        return res.status(403).json({
+      // Get the location ID from the request
+      const locationId = req.params.locationId || req.body.locationId;
+
+      if (!locationId) {
+        return res.status(400).json({
           error: {
-            code: "INSUFFICIENT_PERMISSIONS",
-            message: `You do not have the required permission: ${permission}`,
+            code: "MISSING_LOCATION",
+            message: "Location ID is required for permission check",
           },
         });
       }
 
-      req.user = user; // Set the user on the request
+      // Find the specific location's role
+      const locationRole = user.locations?.find((loc) => loc.id === locationId);
+
+      if (!locationRole) {
+        return res.status(403).json({
+          error: {
+            code: "LOCATION_ACCESS_DENIED",
+            message: "You do not have access to this location",
+          },
+        });
+      }
+
+      // Check if the role has the required permission
+      if (!locationRole.role.permissions[permission as keyof UserPermissions]) {
+        return res.status(403).json({
+          error: {
+            code: "INSUFFICIENT_PERMISSIONS",
+            message: `You do not have the required permission: ${permission} for this location`,
+          },
+        });
+      }
+
+      req.user = user;
       next();
     } catch (error) {
       console.error("Error in permission middleware:", error);
@@ -510,7 +578,7 @@ router.put(
       // Get the user's role from the request
       let userRole: string = "";
       if (isUser(req.user!)) {
-        userRole = req.user!.role;
+        userRole = req.user!.locations?.[0]?.role.name || UserRoleEnum.READONLY;
       } else if (isAuthTokenPayload(req.user!)) {
         userRole = req.user!.role;
       }
@@ -604,7 +672,7 @@ router.delete(
       // Get the user's role from the request
       let userRole: string = "";
       if (isUser(req.user!)) {
-        userRole = req.user!.role;
+        userRole = req.user!.locations?.[0]?.role.name || UserRoleEnum.READONLY;
       } else if (isAuthTokenPayload(req.user!)) {
         userRole = req.user!.role;
       }
@@ -789,7 +857,7 @@ router.post(
       // Get the user's role from the request
       let userRole: string = "";
       if (isUser(req.user)) {
-        userRole = req.user.role;
+        userRole = req.user.locations?.[0]?.role.name || UserRoleEnum.READONLY;
       } else if (isAuthTokenPayload(req.user)) {
         userRole = req.user.role;
       }

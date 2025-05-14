@@ -1,0 +1,1 @@
+ALTER TABLE "user_locations" ADD COLUMN "updated_at" timestamp with time zone DEFAULT now() NOT NULL;

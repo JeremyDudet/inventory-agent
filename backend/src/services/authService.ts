@@ -4,7 +4,6 @@ import {
   AuthUser,
   AuthTokenPayload,
   UserPermissions,
-  User,
 } from "@/types";
 import { supabase, supabaseAdmin } from "../config/supabase";
 import jwt from "jsonwebtoken";
@@ -109,17 +108,17 @@ class AuthService {
   /**
    * Validate if a user has a specific permission
    */
-  hasPermission(user: User, permission: keyof UserPermissions): boolean {
-    if (!user.permissions) {
-      return false;
-    }
-    return user.permissions[permission] === true;
-  }
+  // hasPermission(user: AuthUser, permission: keyof UserPermissions): boolean {
+  //   if (!user.permissions) {
+  //     return false;
+  //   }
+  //   return user.permissions[permission] === true;
+  // }
 
   /**
    * Generate a JWT token for a user with session management
    */
-  generateToken(user: User, sessionId?: string): string {
+  generateToken(user: AuthUser, sessionId?: string): string {
     if (!this.isJwtConfigured()) {
       throw new Error("JWT secret is not configured");
     }
@@ -134,10 +133,7 @@ class AuthService {
       userId: user.id,
       email: user.email,
       name: user.name,
-      role: user.role,
-      permissions: user.permissions,
       sessionId: session,
-      // Remove jti from here - let the library handle it
     };
 
     // Log the session creation if sessionLogsService is available
@@ -308,28 +304,17 @@ class AuthService {
         return null;
       }
 
-      // Get permissions
-      const permissions = await this.getUserPermissions(user.id);
-
-      // Get primary role from first location or metadata
-      const primaryRole =
-        userProfile.locations?.[0]?.role.name ||
-        user.user_metadata?.role ||
-        UserRoleEnum.STAFF;
-
       const authUser: AuthUser = {
         id: userProfile.id,
         email: userProfile.email!,
         name: userProfile.name || "",
-        role: primaryRole,
-        permissions,
         locations: userProfile.locations?.map((ul: any) => ({
           id: ul.location.id,
           name: ul.location.name,
           role: {
             id: ul.role.id,
             name: ul.role.name,
-            permissions: ul.role.permissions as Record<string, boolean>,
+            permissions: ul.role.permissions as UserPermissions,
           },
         })),
       };
@@ -424,7 +409,20 @@ class AuthService {
     email: string | null;
     name: string;
   }): Promise<any> {
+    console.log("Attempting to create profile for ID:", data.id);
     try {
+      // Check if profile already exists
+      const [existingProfile] = await db
+        .select()
+        .from(profiles)
+        .where(eq(profiles.id, data.id))
+        .limit(1);
+
+      if (existingProfile) {
+        console.log("Found existing profile:", existingProfile);
+        throw new Error("Profile already exists for this user");
+      }
+
       const [profile] = await db
         .insert(profiles)
         .values({
@@ -447,7 +445,11 @@ class AuthService {
   async authenticateUser(
     email: string,
     password: string
-  ): Promise<{ user: User; token: string; sessionId: string } | null> {
+  ): Promise<{
+    user: AuthUser;
+    token: string;
+    sessionId: string;
+  } | null> {
     try {
       console.log("Attempting to authenticate user:", email);
 
@@ -473,34 +475,48 @@ class AuthService {
 
       console.log("Supabase authentication successful for:", email);
 
-      // Get user's role from metadata or default to staff
-      const role =
-        (data.user.user_metadata?.role as string) || UserRoleEnum.STAFF;
+      // Get user's profile with locations
+      const userProfile = await this.getUserWithProfile(data.user.id);
 
-      // Get permissions for the role
-      const permissions = await this.getPermissionsForRole(role);
+      if (!userProfile) {
+        console.error("User profile not found");
+        return null;
+      }
 
-      // Create user object
-      const user: User = {
-        id: data.user.id,
-        email: data.user.email!,
-        name: data.user.user_metadata?.name || "User",
-        role,
-        permissions,
+      // Create AuthUser object with locations
+      const authUser: AuthUser = {
+        id: userProfile.id,
+        email: userProfile.email!,
+        name: userProfile.name || "User",
+        locations:
+          userProfile.locations?.map((ul: any) => ({
+            id: ul.location.id,
+            name: ul.location.name,
+            role: {
+              id: ul.role.id,
+              name: ul.role.name,
+              permissions: ul.role.permissions as UserPermissions,
+            },
+          })) || [],
       };
-
-      console.log("User object created:", user);
 
       // Generate a new session ID for this login
       const sessionId = crypto.randomBytes(16).toString("hex");
 
+      // Create a User object for token generation (without locations)
+      const userForToken: AuthUser = {
+        id: authUser.id,
+        email: authUser.email,
+        name: authUser.name,
+      };
+
       // Generate our own JWT with the session ID
-      const token = this.generateToken(user, sessionId);
+      const token = this.generateToken(userForToken, sessionId);
 
       console.log("Generated token:");
 
       return {
-        user,
+        user: authUser,
         token,
         sessionId,
       };
@@ -515,6 +531,7 @@ class AuthService {
    */
   async createInviteCode(
     role: string,
+    locationId: string,
     createdBy: string,
     expiresInDays: number = 7
   ): Promise<InviteCode | null> {
@@ -522,15 +539,14 @@ class AuthService {
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + expiresInDays);
 
-      // Generate a random invite code
       const code = Math.random().toString(36).substring(2, 10).toUpperCase();
 
-      // Insert the invite code into the database
       const [inviteData] = await db
         .insert(invite_codes)
         .values({
           code: code,
           role: role,
+          location_id: locationId,
           created_by: createdBy,
           expires_at: expiresAt.toISOString(),
         })
@@ -548,11 +564,12 @@ class AuthService {
    */
   async validateInviteCode(
     code: string
-  ): Promise<{ valid: boolean; role?: string }> {
+  ): Promise<{ valid: boolean; role?: string; locationId?: string }> {
     try {
       const [inviteCodeData] = await db
         .select({
           role: invite_codes.role,
+          location_id: invite_codes.location_id,
           expires_at: invite_codes.expires_at,
           used_by: invite_codes.used_by,
         })
@@ -570,7 +587,11 @@ class AuthService {
         return { valid: false };
       }
 
-      return { valid: true, role: inviteCodeData.role };
+      return {
+        valid: true,
+        role: inviteCodeData.role,
+        locationId: inviteCodeData.location_id,
+      };
     } catch (error) {
       console.error("Error validating invite code:", error);
       return { valid: false };
@@ -605,35 +626,59 @@ class AuthService {
     password: string,
     name: string,
     inviteCode?: string,
-    paymentVerified?: boolean
+    locationName?: string
   ): Promise<{ user: AuthUser; token: string; sessionId: string } | null> {
     try {
-      let role = UserRoleEnum.READONLY; // Default to readonly
-
-      // Determine the appropriate role based on input parameters
-      if (inviteCode) {
-        // If invite code is provided, validate it
-        const { valid, role: inviteRole } = await this.validateInviteCode(
-          inviteCode
+      // Check if user with this email already exists
+      const { data: users, error: listError } =
+        await supabaseAdmin.auth.admin.listUsers();
+      if (listError) {
+        console.error("Error listing users:", listError);
+        throw new Error("Failed to check existing users");
+      }
+      const existingUser = users.users.find((u) => u.email === email);
+      if (existingUser) {
+        console.log(
+          `User with email ${email} already exists:`,
+          existingUser.id
         );
-        if (!valid) {
-          throw new Error("Invalid or expired invite code");
-        }
-        role = (inviteRole as UserRoleEnum) || UserRoleEnum.STAFF;
-      } else if (paymentVerified) {
-        // If payment is verified and no invite code, they can be an owner
-        role = UserRoleEnum.OWNER;
-      } else if (role !== UserRoleEnum.READONLY) {
-        // Per the App Flow Document, all non-readonly roles require either an invite code or payment verification
-        throw new Error("Invite code required for staff and management roles");
+        throw new Error("User with this email already exists");
       }
 
-      // Register with Supabase Auth using the admin client
+      // Proceed with role and location setup
+      let role = UserRoleEnum.READONLY;
+      let locationId: string | undefined;
+
+      if (inviteCode) {
+        const {
+          valid,
+          role: inviteRole,
+          locationId: inviteLocationId,
+        } = await this.validateInviteCode(inviteCode);
+        if (!valid) throw new Error("Invalid or expired invite code");
+        role = inviteRole as UserRoleEnum;
+        locationId = inviteLocationId;
+      } else if (locationName) {
+        const [newLocation] = await db
+          .insert(locations)
+          .values({
+            name: locationName,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .returning();
+        locationId = newLocation.id;
+        role = UserRoleEnum.OWNER;
+      } else {
+        throw new Error("Either invite code or location name is required");
+      }
+
+      // Register user with Supabase
       const { data, error } = await supabaseAdmin.auth.admin.createUser({
         email,
         password,
         user_metadata: { name, role },
-        email_confirm: true, // Auto-confirm email for simplicity
+        email_confirm: true,
       });
 
       if (error || !data.user) {
@@ -641,45 +686,97 @@ class AuthService {
         throw new Error("Registration failed");
       }
 
-      // Create user profile in our database
-      const profile = await this.createUserProfile({
-        id: data.user.id,
-        email: data.user.email!,
-        name: name,
-      });
+      const userId = data.user.id;
 
-      // If invite code was provided, mark it as used
-      if (inviteCode) {
-        await this.markInviteCodeAsUsed(inviteCode, data.user.id);
+      // Verify user exists in auth.users
+      const { data: userCheck } = await supabaseAdmin.auth.admin.getUserById(
+        userId
+      );
+      if (!userCheck.user) {
+        console.error("User not found in auth.users after creation:", userId);
+        throw new Error("User creation failed or user not found");
       }
 
-      // Get permissions for the role
-      const permissions = await this.getPermissionsForRole(role);
+      // Fetch the existing profile (created by the trigger)
+      const [profile] = await db
+        .select()
+        .from(profiles)
+        .where(eq(profiles.id, userId))
+        .limit(1);
 
-      // Create auth user object
+      if (!profile) {
+        console.error("Profile not found after user creation:", userId);
+        await supabaseAdmin.auth.admin.deleteUser(userId);
+        throw new Error("Profile not created");
+      }
+
+      // Get role data
+      const [roleData] = await db
+        .select()
+        .from(user_roles)
+        .where(eq(user_roles.name, role))
+        .limit(1);
+
+      if (!roleData) {
+        console.error(`Role ${role} not found`);
+        await supabaseAdmin.auth.admin.deleteUser(userId);
+        throw new Error(`Role ${role} not found`);
+      }
+
+      // Assign user to location
+      if (locationId) {
+        await db.insert(user_locations).values({
+          user_id: userId,
+          location_id: locationId,
+          role_id: roleData.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+      }
+
+      // Mark invite code as used
+      if (inviteCode) {
+        await this.markInviteCodeAsUsed(inviteCode, userId);
+      }
+
+      // Fetch location name
+      let locName = locationName;
+      if (inviteCode && locationId) {
+        const [loc] = await db
+          .select({ name: locations.name })
+          .from(locations)
+          .where(eq(locations.id, locationId))
+          .limit(1);
+        locName = loc?.name;
+      }
+
+      // Create auth user
       const authUser: AuthUser = {
         id: profile.id,
         email: profile.email!,
         name: profile.name || "",
-        role: role,
-        permissions: permissions,
-        locations: [],
+        locations: locationId
+          ? [
+              {
+                id: locationId,
+                name: locName || "",
+                role: {
+                  id: roleData.id,
+                  name: role,
+                  permissions: roleData.permissions as UserPermissions,
+                },
+              },
+            ]
+          : [],
       };
 
-      // Generate session
       const sessionId = crypto.randomBytes(16).toString("hex");
+      const token = this.generateToken(authUser, sessionId);
 
-      // Generate JWT
-      const token = this.generateToken(authUser as User, sessionId);
-
-      return {
-        user: authUser,
-        token,
-        sessionId,
-      };
+      return { user: authUser, token, sessionId };
     } catch (error) {
       console.error("Error registering user:", error);
-      throw error; // Re-throw to be caught by the route handler
+      throw error;
     }
   }
 }

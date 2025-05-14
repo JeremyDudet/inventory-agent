@@ -3,42 +3,19 @@
  * API service for making calls to the backend
  */
 
+import { AuthUser } from "@/types";
 // API base URL using Vite environment variables
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 // Types
-type User = {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-  permissions: Record<string, boolean>;
-};
-
-interface GetUserResponse {
-  user: {
-    id: string;
-    email: string;
-    name: string;
-    role: string;
-  };
-  permissions: Record<string, boolean>;
-}
 interface LoginCredentials {
   email: string;
   password: string;
 }
 
 interface LoginResponse {
+  user: AuthUser;
   token: string;
-  user: {
-    id: string;
-    email: string;
-    name: string;
-    role: string;
-    permissions: Record<string, boolean>; // Add permissions inside user
-  };
-  // Remove permissions from root level
   sessionId: string;
   message: string;
 }
@@ -61,6 +38,7 @@ interface InventoryItem {
 
 interface InventoryUpdateRequest {
   quantity: number;
+  locationId?: string; // Add locationId to the request
 }
 
 // Helper function for making API requests
@@ -160,7 +138,7 @@ export const api = {
   },
 
   // Get user - Fix the return type to match what the backend actually sends
-  getUser: async (token: string): Promise<GetUserResponse> => {
-    return apiRequest<GetUserResponse>("/api/auth/me", "GET", undefined, token);
+  getUser: async (token: string): Promise<LoginResponse> => {
+    return apiRequest<LoginResponse>("/api/auth/me", "GET", undefined, token);
   },
 };

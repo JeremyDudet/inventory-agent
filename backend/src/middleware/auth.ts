@@ -1,15 +1,19 @@
 // backend/src/middleware/auth.ts
 import { Request, Response, NextFunction } from "express";
 import authService from "../services/authService";
-import { AuthTokenPayload, UserPermissions, User } from "../types";
+import { AuthTokenPayload, UserPermissions, AuthUser } from "../types";
 // import { asyncMiddleware } from "./utils";
 import { UnauthorizedError, ForbiddenError } from "../errors/AuthError";
+import db from "../db";
+import { eq } from "drizzle-orm";
+import { user_locations, user_roles, locations } from "../db/schema";
 
 // Define custom request interface with user property
 declare global {
   namespace Express {
     interface Request {
-      user?: User | AuthTokenPayload;
+      user?: AuthUser | AuthTokenPayload;
+      locationId?: string;
     }
   }
 }
@@ -39,17 +43,33 @@ export const authenticate = async (
     const payload = await authService.verifyToken(token);
 
     if (payload) {
-      // Get fresh permissions for the user's role
-      const permissions = await authService.getPermissionsForRole(payload.role);
+      // Get user's locations and roles
+      const userLocations = await db
+        .select({
+          location: {
+            id: locations.id,
+            name: locations.name,
+          },
+          role: user_roles,
+        })
+        .from(user_locations)
+        .innerJoin(locations, eq(user_locations.location_id, locations.id))
+        .innerJoin(user_roles, eq(user_locations.role_id, user_roles.id))
+        .where(eq(user_locations.user_id, payload.userId));
 
-      // Attach user info to request
       req.user = {
         id: payload.userId,
         email: payload.email,
         name: payload.name,
-        role: payload.role,
-        permissions,
-        sessionId: payload.sessionId,
+        locations: userLocations.map((ul) => ({
+          id: ul.location.id,
+          name: ul.location.name,
+          role: {
+            id: ul.role.id,
+            name: ul.role.name,
+            permissions: ul.role.permissions as UserPermissions,
+          },
+        })),
       };
 
       return next();
@@ -80,7 +100,7 @@ export const authenticate = async (
  * @param permission - The permission to check
  */
 export const authorize = (permission: keyof UserPermissions) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
     try {
       // Ensure user is authenticated
       if (!req.user) {
@@ -89,14 +109,29 @@ export const authorize = (permission: keyof UserPermissions) => {
         );
       }
 
-      // Check if user has required permission
-      if (!req.user.permissions || !(req.user.permissions as any)[permission]) {
+      const locationId = req.params.locationId || req.body.locationId;
+      if (!locationId) {
         throw new ForbiddenError(
-          `You don't have the required ${permission} permission`
+          "Location ID is required for permission check"
         );
       }
 
-      // User has permission, continue
+      if (!("locations" in req.user)) {
+        throw new ForbiddenError("User data is incomplete");
+      }
+
+      const location = req.user.locations?.find((loc) => loc.id === locationId);
+      if (!location) {
+        throw new ForbiddenError("You don't have access to this location");
+      }
+
+      if (!location.role.permissions[permission]) {
+        throw new ForbiddenError(
+          `You don't have the required ${permission} permission for this location`
+        );
+      }
+
+      req.locationId = locationId;
       next();
     } catch (error) {
       next(error);
@@ -110,7 +145,7 @@ export const authorize = (permission: keyof UserPermissions) => {
  * @param roles - Array of allowed roles
  */
 export const requireRole = (roles: string[]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
     try {
       // Ensure user is authenticated
       if (!req.user) {
@@ -119,18 +154,31 @@ export const requireRole = (roles: string[]) => {
         );
       }
 
-      // Check if user has required role
-      if (!roles.includes(req.user.role)) {
+      const locationId = req.params.locationId || req.body.locationId;
+      if (!locationId) {
+        throw new ForbiddenError("Location ID is required for role check");
+      }
+
+      if (!("locations" in req.user)) {
+        throw new ForbiddenError("User data is incomplete");
+      }
+
+      const location = req.user.locations?.find((loc) => loc.id === locationId);
+      if (!location) {
+        throw new ForbiddenError("You don't have access to this location");
+      }
+
+      if (!roles.includes(location.role.name)) {
         throw new ForbiddenError(
           `Access denied. Your role (${
-            req.user.role
+            location.role.name
           }) doesn't have permission for this action. Required role: ${roles.join(
             " or "
           )}`
         );
       }
 
-      // User has the required role, continue
+      req.locationId = locationId;
       next();
     } catch (error) {
       next(error);
