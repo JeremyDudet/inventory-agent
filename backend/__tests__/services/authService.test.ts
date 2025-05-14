@@ -96,7 +96,7 @@ describe("AuthService", () => {
   beforeEach(() => {
     authService = AuthService;
     jest.clearAllMocks();
-    
+
     // Reset the chain returns
     mockDb.select.mockReturnValue(mockDb);
     mockDb.from.mockReturnValue(mockDb);
@@ -124,8 +124,7 @@ describe("AuthService", () => {
           userId: mockUser.id,
           email: mockUser.email,
           name: mockUser.name,
-          role: mockUser.role,
-          permissions: mockUser.permissions,
+          locations: mockUser.locations,
           sessionId: mockSessionId,
         }),
         "test-secret",
@@ -241,29 +240,32 @@ describe("AuthService", () => {
       const mockUser = createUser();
       const mockSessionId = "test-session-id";
 
-      (mockSupabase.auth.signInWithPassword as jest.Mock).mockImplementation(() =>
-        Promise.resolve({
-          data: {
-            user: {
-              id: mockUser.id,
-              email: mockUser.email,
-              user_metadata: {
-                name: mockUser.name,
-                role: mockUser.role,
+      (mockSupabase.auth.signInWithPassword as jest.Mock).mockImplementation(
+        () =>
+          Promise.resolve({
+            data: {
+              user: {
+                id: mockUser.id,
+                email: mockUser.email,
+                user_metadata: {
+                  name: mockUser.name,
+                  role: mockUser.locations![0].role.name,
+                },
+              },
+              session: {
+                access_token: "supabase-token",
               },
             },
-            session: {
-              access_token: "supabase-token",
-            },
-          },
-          error: null,
-        })
+            error: null,
+          })
       );
 
       // Mock getPermissionsForRole
-      mockDb.limit.mockResolvedValue([{
-        permissions: mockUser.permissions,
-      }]);
+      mockDb.limit.mockResolvedValue([
+        {
+          permissions: mockUser.locations![0].role.permissions,
+        },
+      ]);
 
       const result = await authService.authenticateUser(
         "test@example.com",
@@ -274,8 +276,8 @@ describe("AuthService", () => {
         user: expect.objectContaining({
           id: mockUser.id,
           email: mockUser.email,
-          role: mockUser.role,
-          permissions: mockUser.permissions,
+          role: mockUser.locations![0].role.name,
+          permissions: mockUser.locations![0].role.permissions,
         }),
         token: "mock-token",
         sessionId: expect.any(String),
@@ -287,11 +289,12 @@ describe("AuthService", () => {
     });
 
     it("should return null on failed login", async () => {
-      (mockSupabase.auth.signInWithPassword as jest.Mock).mockImplementation(() =>
-        Promise.resolve({
-          data: { user: null, session: null },
-          error: { message: "Invalid login credentials" },
-        })
+      (mockSupabase.auth.signInWithPassword as jest.Mock).mockImplementation(
+        () =>
+          Promise.resolve({
+            data: { user: null, session: null },
+            error: { message: "Invalid login credentials" },
+          })
       );
 
       const result = await authService.authenticateUser(
@@ -303,9 +306,11 @@ describe("AuthService", () => {
     });
 
     it("should handle exceptions during authentication", async () => {
-      (mockSupabase.auth.signInWithPassword as jest.Mock).mockImplementation(() => {
-        throw new Error("Network error");
-      });
+      (mockSupabase.auth.signInWithPassword as jest.Mock).mockImplementation(
+        () => {
+          throw new Error("Network error");
+        }
+      );
 
       const result = await authService.authenticateUser(
         "test@example.com",
@@ -319,13 +324,23 @@ describe("AuthService", () => {
   describe("hasPermission", () => {
     it("should return true when user has the permission", () => {
       const mockUser = createUser({
-        permissions: {
-          "inventory:read": true,
-          "inventory:write": true,
-          "inventory:delete": false,
-          "user:read": false,
-          "user:write": false,
-        },
+        locations: [
+          {
+            id: "test-location-id",
+            name: "Test Location",
+            role: {
+              id: "test-role-id",
+              name: UserRoleEnum.STAFF,
+              permissions: {
+                "inventory:read": true,
+                "inventory:write": true,
+                "inventory:delete": false,
+                "user:read": false,
+                "user:write": false,
+              },
+            },
+          },
+        ],
       });
 
       const result = authService.hasPermission(mockUser, "inventory:write");
@@ -335,13 +350,23 @@ describe("AuthService", () => {
 
     it("should return false when user does not have the permission", () => {
       const mockUser = createUser({
-        permissions: {
-          "inventory:read": true,
-          "inventory:write": false,
-          "inventory:delete": false,
-          "user:read": false,
-          "user:write": false,
-        },
+        locations: [
+          {
+            id: "test-location-id",
+            name: "Test Location",
+            role: {
+              id: "test-role-id",
+              name: UserRoleEnum.STAFF,
+              permissions: {
+                "inventory:read": true,
+                "inventory:write": false,
+                "inventory:delete": false,
+                "user:read": false,
+                "user:write": false,
+              },
+            },
+          },
+        ],
       });
 
       const result = authService.hasPermission(mockUser, "inventory:write");
@@ -351,7 +376,7 @@ describe("AuthService", () => {
 
     it("should return false when permission does not exist", () => {
       const mockUser = createUser();
-      mockUser.permissions = undefined as any;
+      mockUser.locations![0].role.permissions = undefined as any;
 
       const result = authService.hasPermission(
         mockUser,
@@ -374,7 +399,9 @@ describe("AuthService", () => {
 
       mockDb.limit.mockResolvedValue([{ permissions: mockPermissions }]);
 
-      const result = await authService.getPermissionsForRole(UserRoleEnum.MANAGER);
+      const result = await authService.getPermissionsForRole(
+        UserRoleEnum.MANAGER
+      );
 
       expect(result).toEqual(mockPermissions);
       expect(mockDb.select).toHaveBeenCalled();
@@ -384,20 +411,24 @@ describe("AuthService", () => {
 
     it("should create default permissions when role not found", async () => {
       mockDb.limit.mockResolvedValue([]);
-      
-      // Mock insertMissingRole - returning should resolve to an array
-      mockDb.returning.mockResolvedValue([{
-        name: UserRoleEnum.STAFF,
-        permissions: {
-          "inventory:read": true,
-          "inventory:write": true,
-          "inventory:delete": false,
-          "user:read": false,
-          "user:write": false,
-        }
-      }]);
 
-      const result = await authService.getPermissionsForRole(UserRoleEnum.STAFF);
+      // Mock insertMissingRole - returning should resolve to an array
+      mockDb.returning.mockResolvedValue([
+        {
+          name: UserRoleEnum.STAFF,
+          permissions: {
+            "inventory:read": true,
+            "inventory:write": true,
+            "inventory:delete": false,
+            "user:read": false,
+            "user:write": false,
+          },
+        },
+      ]);
+
+      const result = await authService.getPermissionsForRole(
+        UserRoleEnum.STAFF
+      );
 
       expect(result).toEqual(
         expect.objectContaining({
@@ -450,11 +481,13 @@ describe("AuthService", () => {
 
   describe("validateInviteCode", () => {
     it("should validate a valid invite code", async () => {
-      mockDb.limit.mockResolvedValue([{
-        role: UserRoleEnum.STAFF,
-        expires_at: new Date(Date.now() + 86400000).toISOString(),
-        used_by: null,
-      }]);
+      mockDb.limit.mockResolvedValue([
+        {
+          role: UserRoleEnum.STAFF,
+          expires_at: new Date(Date.now() + 86400000).toISOString(),
+          used_by: null,
+        },
+      ]);
 
       const result = await authService.validateInviteCode("VALID123");
 
@@ -559,12 +592,14 @@ describe("AuthService", () => {
         valid: false,
       });
 
-      await expect(authService.registerUser(
-        "newuser@example.com",
-        "password123",
-        "New User",
-        "INVALID123"
-      )).rejects.toThrow("Invalid or expired invite code");
+      await expect(
+        authService.registerUser(
+          "newuser@example.com",
+          "password123",
+          "New User",
+          "INVALID123"
+        )
+      ).rejects.toThrow("Invalid or expired invite code");
     });
 
     it("should register an owner with payment verification", async () => {
@@ -667,14 +702,22 @@ describe("AuthService", () => {
         id: mockUser.id,
         email: mockUser.email,
         name: "Test User",
-        locations: [{
-          location: { id: "loc1", name: "Location 1" },
-          role: { id: "role1", name: UserRoleEnum.STAFF, permissions: mockPermissions },
-        }],
+        locations: [
+          {
+            location: { id: "loc1", name: "Location 1" },
+            role: {
+              id: "role1",
+              name: UserRoleEnum.STAFF,
+              permissions: mockPermissions,
+            },
+          },
+        ],
       });
 
       // Mock getUserPermissions
-      jest.spyOn(authService as any, "getUserPermissions").mockResolvedValue(mockPermissions);
+      jest
+        .spyOn(authService as any, "getUserPermissions")
+        .mockResolvedValue(mockPermissions);
 
       const result = await authService.validateSupabaseToken(
         "valid-supabase-token"
@@ -719,7 +762,10 @@ describe("AuthService", () => {
       mockDb.update.mockReturnValue(mockDb);
       mockDb.where.mockResolvedValue({ count: 1 });
 
-      const result = await authService.markInviteCodeAsUsed("CODE123", "user123");
+      const result = await authService.markInviteCodeAsUsed(
+        "CODE123",
+        "user123"
+      );
 
       expect(result).toBe(true);
       expect(mockDb.update).toHaveBeenCalled();
@@ -736,7 +782,10 @@ describe("AuthService", () => {
         throw new Error("Database error");
       });
 
-      const result = await authService.markInviteCodeAsUsed("CODE123", "user123");
+      const result = await authService.markInviteCodeAsUsed(
+        "CODE123",
+        "user123"
+      );
 
       expect(result).toBe(false);
     });
