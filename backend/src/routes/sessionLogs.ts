@@ -59,8 +59,10 @@ const getUserSessionsHandler = async (
       const id = "userId" in req.user ? req.user.userId : req.user.id;
       if (
         id !== userId &&
-        req.user.role !== UserRoleEnum.OWNER &&
-        req.user.role !== UserRoleEnum.MANAGER
+        ("userId" in req.user
+          ? req.user.role !== UserRoleEnum.OWNER &&
+            req.user.role !== UserRoleEnum.MANAGER
+          : false)
       ) {
         return res
           .status(403)

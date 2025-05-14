@@ -1,5 +1,5 @@
 import { UserRole } from "@/services/authService";
-import { InventoryItem, User, UserRoleEnum, NlpResult } from "@/types";
+import { InventoryItem, AuthUser, UserRoleEnum, NlpResult } from "@/types";
 import { describe, it, expect } from "@jest/globals";
 
 describe("Test Fixtures", () => {
@@ -34,18 +34,27 @@ export const createInventoryItem = (
 /**
  * Factory for creating test users
  */
-export const createUser = (overrides: Partial<User> = {}): User => ({
+export const createUser = (overrides: Partial<AuthUser> = {}): AuthUser => ({
   id: "test-user-id",
   email: "test@example.com",
   name: "Test User",
-  role: UserRoleEnum.STAFF,
-  permissions: {
-    "inventory:read": true,
-    "inventory:write": true,
-    "inventory:delete": false,
-    "user:read": false,
-    "user:write": false,
-  },
+  locations: [
+    {
+      id: "test-location-id",
+      name: "Test Location",
+      role: {
+        id: "test-role-id",
+        name: UserRoleEnum.STAFF,
+        permissions: {
+          "inventory:read": true,
+          "inventory:write": true,
+          "inventory:delete": false,
+          "user:read": false,
+          "user:write": false,
+        },
+      },
+    },
+  ],
   ...overrides,
 });
 
