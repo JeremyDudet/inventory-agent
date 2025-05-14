@@ -7,7 +7,7 @@ import { generateEmbedding } from "@/utils/generateEmbedding";
 async function updateEmbeddings() {
   try {
     console.log("Starting embedding update process...");
-    
+
     // Get items without embeddings
     const items = await db
       .select()
@@ -24,7 +24,11 @@ async function updateEmbeddings() {
 
     for (let i = 0; i < items.length; i += batchSize) {
       const batch = items.slice(i, i + batchSize);
-      console.log(`Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(items.length / batchSize)}...`);
+      console.log(
+        `Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(
+          items.length / batchSize
+        )}...`
+      );
 
       await Promise.all(
         batch.map(async (item) => {
@@ -40,14 +44,17 @@ async function updateEmbeddings() {
             await db
               .update(inventory_items)
               .set({
-                embedding: sql`${`[${embedding.join(',')}]`}::vector(1536)`,
-                updated_at: new Date().toISOString()
+                embedding: sql`ARRAY[${sql.join(embedding)}]::vector(1536)`,
+                updated_at: new Date().toISOString(),
               })
               .where(sql`${inventory_items.id} = ${item.id}`);
 
             console.log(`✓ Updated embedding for item: ${item.name}`);
           } catch (error) {
-            console.error(`✗ Failed to update embedding for item: ${item.name}`, error);
+            console.error(
+              `✗ Failed to update embedding for item: ${item.name}`,
+              error
+            );
           }
         })
       );
@@ -73,8 +80,9 @@ async function updateEmbeddings() {
     console.log("\n=== Summary ===");
     console.log(`Total items: ${stats.total_items}`);
     console.log(`Items with embeddings: ${stats.items_with_embeddings}`);
-    console.log(`Items still without embeddings: ${stats.items_without_embeddings}`);
-    
+    console.log(
+      `Items still without embeddings: ${stats.items_without_embeddings}`
+    );
   } catch (error) {
     console.error("Error in updateEmbeddings:", error);
     throw error;

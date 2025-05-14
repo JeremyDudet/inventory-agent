@@ -25,7 +25,6 @@ export const useVoiceSocket = (events: VoiceSocketEvents) => {
   useEffect(() => {
     // Only create socket connection if user is authenticated
     if (!user || !session?.access_token) {
-      console.log("User not authenticated, skipping voice socket connection");
       return;
     }
 
@@ -53,6 +52,11 @@ export const useVoiceSocket = (events: VoiceSocketEvents) => {
         socket.on("connect_error", (error: Error) => {
           if (isMountedRef.current) events.onConnectError!(error);
         });
+      }
+
+      // If socket is already connected, trigger the onConnect callback
+      if (socket.connected && events.onConnect) {
+        events.onConnect();
       }
 
       if (events.onDisconnect) {

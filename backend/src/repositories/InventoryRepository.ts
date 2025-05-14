@@ -24,15 +24,17 @@ export class InventoryRepository {
     embedding: number[],
     limit: number = 5
   ): Promise<{ item: InventoryItem; similarity: number }[]> {
-    // Note: Drizzle doesn't have built-in support for pgvector operations,
-    // so we'll use raw SQL for similarity search
     const result = await db.execute(sql`
       SELECT *,
-        1 - (embedding <=> ${embedding}::vector) as similarity
+        1 - (embedding <=> ARRAY[${sql.join(
+          embedding
+        )}]::vector(1536)) as similarity
       FROM ${inventory_items}
       WHERE embedding IS NOT NULL
-        AND 1 - (embedding <=> ${embedding}::vector) > 0.7
-      ORDER BY embedding <=> ${embedding}::vector
+        AND 1 - (embedding <=> ARRAY[${sql.join(
+          embedding
+        )}]::vector(1536)) > 0.7
+      ORDER BY embedding <=> ARRAY[${sql.join(embedding)}]::vector(1536)
       LIMIT ${limit}
     `);
 

@@ -30,7 +30,7 @@ class WebSocketService {
     const SOCKET_URL = `${import.meta.env.VITE_API_URL}/${namespace}`;
     const session = useAuthStore.getState().session;
 
-    return io(SOCKET_URL, {
+    const socket = io(SOCKET_URL, {
       path: "/socket.io/",
       transports: ["websocket", "polling"],
       reconnection: true,
@@ -44,6 +44,8 @@ class WebSocketService {
         token: session?.access_token || "",
       },
     });
+
+    return socket;
   }
 
   private isAuthenticated(): boolean {
@@ -59,6 +61,11 @@ class WebSocketService {
     if (!this.voiceSocket) {
       this.voiceSocket = this.createSocket("voice");
       this.voiceSocket.connect(); // Manually connect
+    } else {
+      // If socket exists but is disconnected, reconnect
+      if (!this.voiceSocket.connected) {
+        this.voiceSocket.connect();
+      }
     }
     return this.voiceSocket;
   }

@@ -33,8 +33,6 @@ export const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({
           // Verify the session with our backend using the api service
           const response = await api.getUser(state.session.access_token);
 
-          console.log("User data from /me endpoint:", response);
-
           // The response already contains the user object with permissions
           // based on your api.ts and the /me endpoint structure
           const userData: AuthUser = {
@@ -49,8 +47,6 @@ export const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({
 
           // Keep the existing session with the token
           setSession(state.session);
-
-          console.log("User data set in store:", userData);
         } catch (error: any) {
           console.error("Error verifying session:", error);
           // If the session is invalid, clear it

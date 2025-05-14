@@ -280,6 +280,7 @@ export function VoiceModal() {
   const streamRef = useRef<MediaStream | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const user = useAuthStore((state) => state.user);
+  const session = useAuthStore((state) => state.session);
 
   if (!user) {
     return null;
@@ -411,16 +412,12 @@ export function VoiceModal() {
 
       const getMimeType = () => {
         if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
-          console.log("Using audio/webm;codecs=opus");
           return "audio/webm;codecs=opus";
         } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
-          console.log("Using audio/mp4");
           return "audio/mp4";
         } else if (MediaRecorder.isTypeSupported("audio/mpeg")) {
-          console.log("Using audio/mpeg");
           return "audio/mpeg";
         }
-        console.log("No supported MIME type found");
         return "";
       };
 
@@ -436,7 +433,6 @@ export function VoiceModal() {
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0 && socket && isConnected) {
           socket.emit("voice-stream", event.data);
-          console.log("Sent audio data as Blob, size:", event.data.size);
         }
       };
 
@@ -445,7 +441,6 @@ export function VoiceModal() {
         setFeedback("Listening...");
         setTranscription("");
         setIsFinalTranscription(false);
-        console.log("Emitting start-recording event");
         socket.emit("start-recording");
       };
 
@@ -504,7 +499,9 @@ export function VoiceModal() {
                 ? "bg-zinc-500 dark:bg-zinc-700 text-white dark:text-zinc-200 hover:bg-zinc-600 dark:hover:bg-zinc-600"
                 : "bg-zinc-500 dark:bg-zinc-600 text-white dark:text-zinc-200 hover:bg-zinc-600 dark:hover:bg-zinc-500"
             }`}
-            onClick={() => setIsOpen(true)}
+            onClick={() => {
+              setIsOpen(true);
+            }}
             data-primary-action
             layoutId="cta"
             whileTap={{ scale: 0.95 }}
@@ -597,7 +594,9 @@ function Dialog({
             </button>
             <motion.button
               layoutId="cta"
-              onClick={onStartClick}
+              onClick={(e) => {
+                onStartClick();
+              }}
               className={`confirm rounded-xl ${
                 buttonState === "error"
                   ? "bg-zinc-400 dark:bg-zinc-700 text-white dark:text-zinc-200"
@@ -618,7 +617,14 @@ function Dialog({
               </motion.span>
             </motion.button>
           </div>
-          <button className="closeButton" aria-label="Close" onClick={close}>
+          <button
+            className="closeButton"
+            aria-label="Close"
+            onClick={(e) => {
+              e.stopPropagation();
+              close();
+            }}
+          >
             <XMarkIcon />
           </button>
         </motion.div>
