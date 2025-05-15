@@ -1,3 +1,4 @@
+// frontend/src/pages/Landing/components/Pricing.tsx
 import { useState } from "react";
 import { CheckIcon } from "@heroicons/react/20/solid";
 
@@ -10,13 +11,19 @@ const tiers = [
     priceYearly: "$313", // 29 * 12 * 0.9 = 313.2, rounded to 313
     description: "For home-based chefs and solo operators.",
     features: [
-      "Track up to 500 items",
-      "3 user",
       "Voice-controlled stock counting",
       "Invoice processing",
-      "Business COGS tracking",
-      "Shopping lists",
+      "COGS tracking",
+      "Cost per Menu Item",
+      "Auto Generated Shopping lists",
+      "Activity logging",
+      "Up to 3 users",
     ],
+    notBuiltFeatures: [
+      "Recipe management",
+      "POS integration",
+      "AI agent - for asking general questions and perform actions using simple voice commands",
+    ], // No not-built features for Starter
     featured: false,
   },
   {
@@ -24,20 +31,23 @@ const tiers = [
     id: "tier-small",
     href: "#",
     priceMonthly: "$79",
-    priceYearly: "$853", // 79 * 12 * 0.9 = 852.6, rounded to 853
+    priceYearly: "$849", // 79 * 12 * 0.9 = 852.6, rounded to 853
     description: "Ideal for small cafes and restaurants.",
     features: [
-      "Track up to 2,000 items",
-      "Up to 10 users",
       "Voice-controlled stock counting",
       "Invoice processing",
-      "Business COGS tracking",
-      "Shopping lists",
-      "Team member management",
+      "COGS tracking",
+      "Cost per Menu Item",
+      "Auto Generated Shopping lists",
       "Activity logging",
+      "Up to 10 users",
+    ],
+    notBuiltFeatures: [
+      "Recipe management",
+      "Labor Cost tracking",
       "POS integration",
-      "Menu item COGS analysis",
-      "Vendor-specific shopping lists",
+      "Accounting Software Integration",
+      "AI agent - for asking general questions and perform actions using simple voice commands",
     ],
     featured: true,
   },
@@ -45,23 +55,26 @@ const tiers = [
     name: "Medium Business",
     id: "tier-medium",
     href: "#",
-    priceMonthly: "$199",
-    priceYearly: "$2,149", // 199 * 12 * 0.9 = 2149.2, rounded to 2149
-    description: "For growing businesses with multiple locations.",
+    priceMonthly: "$189",
+    priceYearly: "$2,039", // 189 * 12 * 0.9 = 2079.6, rounded to 2079
+    description: "For scaling your business with multiple locations.",
     features: [
-      "Track up to 10,000 items",
-      "Up to 20 users",
       "Voice-controlled stock counting",
       "Invoice processing",
-      "Business COGS tracking",
-      "Shopping lists",
-      "Team member management",
-      "Activity logging",
-      "POS integration",
+      "COGS tracking",
       "Menu item COGS analysis",
+      "Shopping lists",
+      "Activity logging",
       "Vendor-specific shopping lists",
       "Usage trend analytics",
-      "Multi-location support",
+      "Up to 20 users",
+    ],
+    notBuiltFeatures: [
+      "Recipe management",
+      "Labor Cost tracking",
+      "POS integration",
+      "Accounting Software Integration",
+      "AI agent - for asking general questions and perform actions using simple voice commands",
     ],
     featured: false,
   },
@@ -175,6 +188,27 @@ export default function Pricing() {
                 </li>
               ))}
             </ul>
+            {tier.notBuiltFeatures.length > 0 && (
+              <>
+                <h4 className="mt-6 text-sm font-semibold text-gray-900 dark:text-white">
+                  Coming soon
+                </h4>
+                <ul
+                  role="list"
+                  className="mt-2 space-y-3 text-sm/6 text-gray-500 dark:text-gray-400"
+                >
+                  {tier.notBuiltFeatures.map((feature) => (
+                    <li key={feature} className="flex gap-x-3">
+                      <CheckIcon
+                        aria-hidden="true"
+                        className="h-6 w-5 flex-none text-gray-300 dark:text-gray-600"
+                      />
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
             <a
               href={tier.href}
               aria-describedby={tier.id}

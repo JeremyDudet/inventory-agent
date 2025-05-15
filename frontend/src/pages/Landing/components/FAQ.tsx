@@ -17,7 +17,7 @@ const faqs = [
   {
     question: "How does the shopping list generation feature work?",
     answer:
-      "StockCount analyzes your stock counts and usage trends to generate tailored shopping lists, ensuring you order the right quantities from vendors without missing items.",
+      "StockCount analyzes your stock counts and usage trends to continuously generate tailored shopping lists, ensuring you always know what to order and in the right quantities from vendors.",
   },
   {
     question: "Can I add team members to help with inventory management?",
