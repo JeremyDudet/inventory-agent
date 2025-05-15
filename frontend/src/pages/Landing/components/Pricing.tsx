@@ -1,12 +1,13 @@
 // frontend/src/pages/Landing/components/Pricing.tsx
 import { useState } from "react";
 import { CheckIcon } from "@heroicons/react/20/solid";
+import { SparklesIcon } from "@heroicons/react/24/outline";
 
 const tiers = [
   {
     name: "Starter",
     id: "tier-starter",
-    href: "#",
+    href: "/register",
     priceMonthly: "$29",
     priceYearly: "$313", // 29 * 12 * 0.9 = 313.2, rounded to 313
     description: "For home-based chefs and solo operators.",
@@ -30,7 +31,7 @@ const tiers = [
   {
     name: "Small Business",
     id: "tier-small",
-    href: "#",
+    href: "/register",
     priceMonthly: "$79",
     priceYearly: "$849", // 79 * 12 * 0.9 = 852.6, rounded to 853
     description: "Ideal for small cafes and restaurants.",
@@ -56,7 +57,7 @@ const tiers = [
   {
     name: "Medium Business",
     id: "tier-medium",
-    href: "#",
+    href: "/register",
     priceMonthly: "$189",
     priceYearly: "$2,039", // 189 * 12 * 0.9 = 2079.6, rounded to 2079
     description: "For scaling your business with multiple locations.",
@@ -174,6 +175,14 @@ export default function Pricing() {
                 {billingCycle === "monthly" ? "/month" : "/year"}
               </span>
             </p>
+            {billingCycle === "monthly" && (
+              <div className="mt-4 flex items-center justify-center gap-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1">
+                <SparklesIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                  15-day free trial
+                </p>
+              </div>
+            )}
             <p className="mt-6 text-base/7 text-gray-600 dark:text-gray-400">
               {tier.description}
             </p>
@@ -218,11 +227,11 @@ export default function Pricing() {
               className={classNames(
                 tier.featured
                   ? "bg-zinc-950 dark:bg-zinc-500 text-white shadow hover:bg-zinc-800 dark:hover:bg-zinc-400"
-                  : "text-zinc-600 dark:text-zinc-400 ring-1 ring-inset ring-zinc-200 dark:ring-zinc-800 hover:ring-zinc-300 dark:hover:ring-zinc-700",
+                  : "bg-zinc-950 dark:bg-zinc-500 text-white shadow hover:bg-zinc-800 dark:hover:bg-zinc-400",
                 "mt-8 block rounded-md px-3.5 py-2.5 text-center text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 dark:focus-visible:outline-zinc-400 sm:mt-10"
               )}
             >
-              Get started today
+              {billingCycle === "monthly" ? "Start Free Trial" : "Get started today"}
             </a>
           </div>
         ))}
