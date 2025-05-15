@@ -1,37 +1,67 @@
+import { useState } from "react";
 import { CheckIcon } from "@heroicons/react/20/solid";
 
 const tiers = [
   {
-    name: "Small Business",
-    id: "tier-personal",
+    name: "Solo",
+    id: "tier-solo",
     href: "#",
-    priceMonthly: "$49",
-    description: "The perfect plan if you're just one location.",
+    priceMonthly: "$29",
+    priceYearly: "$313", // 29 * 12 * 0.9 = 313.2, rounded to 313
+    description: "For home-based chefs and solo operators.",
     features: [
-      "Track an inventory of up to 2,000 items",
-      "Up to 10 users",
+      "Track up to 500 items",
+      "1 user",
       "Voice-controlled stock counting",
       "Invoice processing",
-      "Menu Analysis",
-      "Food costs control",
-      "Food usage tracking",
+      "Business COGS tracking",
+      "Shopping lists",
+    ],
+    featured: false,
+  },
+  {
+    name: "Small Business",
+    id: "tier-small",
+    href: "#",
+    priceMonthly: "$79",
+    priceYearly: "$853", // 79 * 12 * 0.9 = 852.6, rounded to 853
+    description: "Ideal for small cafes and restaurants.",
+    features: [
+      "Track up to 2,000 items",
+      "Up to 5 users",
+      "Voice-controlled stock counting",
+      "Invoice processing",
+      "Business COGS tracking",
+      "Shopping lists",
+      "Team member management",
+      "Activity logging",
       "POS integration",
+      "Menu item COGS analysis",
+      "Vendor-specific shopping lists",
     ],
     featured: true,
   },
   {
     name: "Medium Business",
-    id: "tier-team",
+    id: "tier-medium",
     href: "#",
-    priceMonthly: "$99",
-    description: "A plan that scales with your rapidly growing business.",
+    priceMonthly: "$199",
+    priceYearly: "$2,149", // 199 * 12 * 0.9 = 2149.2, rounded to 2149
+    description: "For growing businesses with multiple locations.",
     features: [
-      "Track an inventory of up to 10,000 items",
-      "Up to 30 users",
+      "Track up to 10,000 items",
+      "Up to 20 users",
       "Voice-controlled stock counting",
-      "Real-time analytics",
       "Invoice processing",
-      "POS system integration",
+      "Business COGS tracking",
+      "Shopping lists",
+      "Team member management",
+      "Activity logging",
+      "POS integration",
+      "Menu item COGS analysis",
+      "Vendor-specific shopping lists",
+      "Usage trend analytics",
+      "Multi-location support",
     ],
     featured: false,
   },
@@ -42,6 +72,12 @@ function classNames(...classes: string[]) {
 }
 
 export default function Pricing() {
+  const [billingCycle, setBillingCycle] = useState("monthly");
+
+  const handleBillingCycleChange = (cycle: string) => {
+    setBillingCycle(cycle);
+  };
+
   return (
     <div
       id="pricing"
@@ -63,24 +99,46 @@ export default function Pricing() {
         <h2 className="text-5xl sm:text-6xl font-semibold text-zinc-900 dark:text-white">
           Pricing
         </h2>
-        <p className="mt-2 text-balance text-base sm:text-md font-semibold tracking-tight text-gray-900 dark:text-zinc-200 ">
+        <p className="mt-2 text-balance text-base sm:text-md font-semibold tracking-tight text-gray-900 dark:text-zinc-200">
           Choose the right plan for you
         </p>
       </div>
 
-      <div className="mx-auto mt-16 grid max-w-lg grid-cols-1 items-center gap-y-6 sm:mt-20 sm:gap-y-0 lg:max-w-4xl lg:grid-cols-2">
-        {tiers.map((tier, tierIdx) => (
+      <div className="mt-8 flex justify-center">
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={() => handleBillingCycleChange("monthly")}
+            className={classNames(
+              billingCycle === "monthly"
+                ? "bg-zinc-950 dark:bg-zinc-500 text-white"
+                : "bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400",
+              "rounded-md px-4 py-2 text-sm font-semibold"
+            )}
+          >
+            Monthly
+          </button>
+          <button
+            onClick={() => handleBillingCycleChange("yearly")}
+            className={classNames(
+              billingCycle === "yearly"
+                ? "bg-zinc-950 dark:bg-zinc-500 text-white"
+                : "bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400",
+              "rounded-md px-4 py-2 text-sm font-semibold"
+            )}
+          >
+            Yearly (Save 10%)
+          </button>
+        </div>
+      </div>
+
+      <div className="mx-auto mt-16 grid max-w-lg grid-cols-1 items-center gap-y-6 sm:mt-20 sm:gap-y-0 lg:max-w-5xl lg:grid-cols-3 lg:gap-x-6">
+        {tiers.map((tier) => (
           <div
             key={tier.id}
             className={classNames(
               tier.featured
                 ? "relative bg-white dark:bg-zinc-800 shadow-2xl"
-                : "bg-white/60 dark:bg-zinc-800/60 sm:mx-8 lg:mx-0",
-              tier.featured
-                ? ""
-                : tierIdx === 0
-                ? "rounded-t-3xl sm:rounded-b-none lg:rounded-bl-3xl lg:rounded-tr-none"
-                : "sm:rounded-t-none lg:rounded-bl-none lg:rounded-tr-3xl",
+                : "bg-white/60 dark:bg-zinc-800/60",
               "rounded-3xl p-8 ring-1 ring-gray-900/10 dark:ring-gray-100/10 sm:p-10"
             )}
           >
@@ -92,10 +150,12 @@ export default function Pricing() {
             </h3>
             <p className="mt-4 flex items-baseline gap-x-2">
               <span className="text-5xl font-semibold tracking-tight text-gray-900 dark:text-white">
-                {tier.priceMonthly}
+                {billingCycle === "monthly"
+                  ? tier.priceMonthly
+                  : tier.priceYearly}
               </span>
               <span className="text-base text-gray-500 dark:text-gray-400">
-                /month
+                {billingCycle === "monthly" ? "/month" : "/year"}
               </span>
             </p>
             <p className="mt-6 text-base/7 text-gray-600 dark:text-gray-400">

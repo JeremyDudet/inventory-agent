@@ -2,12 +2,27 @@ const faqs = [
   {
     question: "What is voice-controlled stock counting?",
     answer:
-      "Speak your inventory updates, like '5 gallons of whole milk,' and StockCount instantly records it, replacing manual checklists with easy voice input.",
+      "Voice-controlled stock counting lets you update your inventory by speaking, like saying '5 gallons of whole milk.' StockCount records it instantly, replacing manual checklists with easy voice input.",
   },
   {
-    question: "How do you make holy water?",
+    question: "How does invoice processing work in StockCount?",
     answer:
-      "You boil the hell out of it. Lorem ipsum dolor sit amet consectetur adipisicing elit. Quas cupiditate laboriosam fugiat.",
+      "Upload your invoices to StockCount, and our system will parse them to identify prices for your inventory items, helping you track true costs and profit margins.",
+  },
+  {
+    question: "Can StockCount help me track my cost of goods sold (COGS)?",
+    answer:
+      "Yes, StockCount calculates your business's total COGS and per-menu-item costs using inventory counts and invoice data, giving you insights into profitability.",
+  },
+  {
+    question: "How does the shopping list generation feature work?",
+    answer:
+      "StockCount analyzes your stock counts and usage trends to generate tailored shopping lists, ensuring you order the right quantities from vendors without missing items.",
+  },
+  {
+    question: "Can I add team members to help with inventory management?",
+    answer:
+      "Yes, you can invite team members to use StockCount, assigning roles for tasks like stock counting or invoice processing, streamlining collaboration.",
   },
 ];
 
