@@ -5,6 +5,9 @@ import {
   InboxArrowDownIcon,
   ChevronUpIcon,
   ChevronDownIcon,
+  UserGroupIcon,
+  ShoppingCartIcon,
+  CurrencyDollarIcon,
 } from "@heroicons/react/24/outline";
 import { useState } from "react";
 
@@ -70,7 +73,7 @@ const features = [
       </span>
     ),
     href: "#cost-tracking",
-    icon: ClockIcon,
+    icon: CurrencyDollarIcon,
   },
   {
     name: "Auto-generated shopping lists",
@@ -97,7 +100,7 @@ const features = [
       </>
     ),
     href: "#auto-generated-shopping-lists",
-    icon: ClockIcon,
+    icon: ShoppingCartIcon,
   },
   {
     name: "Team collaboration",
@@ -122,7 +125,7 @@ const features = [
       </>
     ),
     href: "#team-collaboration",
-    icon: ClockIcon,
+    icon: UserGroupIcon,
   },
 ];
 

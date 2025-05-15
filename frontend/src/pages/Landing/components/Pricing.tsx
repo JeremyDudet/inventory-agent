@@ -3,15 +3,15 @@ import { CheckIcon } from "@heroicons/react/20/solid";
 
 const tiers = [
   {
-    name: "Solo",
-    id: "tier-solo",
+    name: "Starter",
+    id: "tier-starter",
     href: "#",
     priceMonthly: "$29",
     priceYearly: "$313", // 29 * 12 * 0.9 = 313.2, rounded to 313
     description: "For home-based chefs and solo operators.",
     features: [
       "Track up to 500 items",
-      "1 user",
+      "3 user",
       "Voice-controlled stock counting",
       "Invoice processing",
       "Business COGS tracking",
@@ -28,7 +28,7 @@ const tiers = [
     description: "Ideal for small cafes and restaurants.",
     features: [
       "Track up to 2,000 items",
-      "Up to 5 users",
+      "Up to 10 users",
       "Voice-controlled stock counting",
       "Invoice processing",
       "Business COGS tracking",
