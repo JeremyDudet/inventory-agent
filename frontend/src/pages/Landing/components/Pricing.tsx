@@ -23,6 +23,7 @@ const tiers = [
       "Recipe management",
       "POS integration",
       "AI agent - for asking general questions and perform actions using simple voice commands",
+      "Multi-language support",
     ], // No not-built features for Starter
     featured: false,
   },
@@ -48,6 +49,7 @@ const tiers = [
       "POS integration",
       "Accounting Software Integration",
       "AI agent - for asking general questions and perform actions using simple voice commands",
+      "Multi-language support",
     ],
     featured: true,
   },
@@ -75,6 +77,7 @@ const tiers = [
       "POS integration",
       "Accounting Software Integration",
       "AI agent - for asking general questions and perform actions using simple voice commands",
+      "Multi-language support",
     ],
     featured: false,
   },
