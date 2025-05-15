@@ -115,7 +115,7 @@ const ForgotPassword: React.FC = () => {
             to="/register"
             className="font-semibold text-zinc-900 dark:text-zinc-50 underline"
           >
-            Sign up
+            Join the waitlist
           </Link>
         </p>
       </form>

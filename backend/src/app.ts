@@ -7,6 +7,7 @@ import cors from "cors";
 
 import authRoutes from "./routes/auth";
 import inventoryRoutes from "./routes/inventory";
+import waitingListRoutes from "./routes/waitingList";
 
 import { errorHandler } from "./middleware/errorHandler";
 
@@ -516,6 +517,7 @@ inventoryNamespace.on("connection", (socket: Socket) => {
 
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/waiting-list", waitingListRoutes);
 
 app.get("/", (req, res) => {
   res.json({ status: "Server running" });

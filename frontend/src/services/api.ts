@@ -13,6 +13,14 @@ interface LoginCredentials {
   password: string;
 }
 
+interface WaitingListFormData {
+  email: string;
+  name: string;
+  phone: string;
+  businessType: string;
+  inventoryMethod: string;
+  softwareName: string | undefined;
+}
 interface LoginResponse {
   user: AuthUser;
   token: string;
@@ -139,5 +147,12 @@ export const api = {
   // Get user - Fix the return type to match what the backend actually sends
   getUser: async (token: string): Promise<LoginResponse> => {
     return apiRequest<LoginResponse>("/api/auth/me", "GET", undefined, token);
+  },
+
+  // Add a new user to the waiting list
+  addUserToWaitingList: async (
+    formData: WaitingListFormData
+  ): Promise<void> => {
+    return apiRequest<void>("/api/waiting-list", "POST", formData);
   },
 };

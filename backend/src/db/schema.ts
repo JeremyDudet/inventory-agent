@@ -370,3 +370,26 @@ export const revoked_tokens = pgTable(
     }).onDelete("cascade"),
   ]
 );
+
+export const waiting_list = pgTable(
+  "waiting_list",
+  {
+    id: uuid()
+      .default(sql`uuid_generate_v4()`)
+      .primaryKey()
+      .notNull(),
+    email: text().notNull(),
+    name: text().notNull(),
+    phone: text(),
+    business_type: text().notNull(),
+    inventory_method: text(),
+    software_name: text(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [unique("waiting_list_email_key").on(table.email)]
+);
