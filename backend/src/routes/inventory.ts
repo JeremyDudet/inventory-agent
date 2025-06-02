@@ -121,30 +121,21 @@ router.post(
       const { quantity } = validationResult.data;
       const { id } = req.params;
 
-      // Update the item quantity
-      const updatedItem = await inventoryRepository.updateQuantity(
-        id,
-        quantity
-      );
-      if (!updatedItem) {
-        throw new ValidationError("Failed to update inventory quantity");
+      // The loadItem middleware ensures req.item exists, but TypeScript doesn't know that
+      if (!req.item) {
+        throw new ValidationError("Item not found");
       }
 
-      // Send WebSocket notification
-      const successMessage = {
-        type: "stockUpdate",
-        status: "success",
-        data: {
-          item: updatedItem.name,
-          quantity: updatedItem.quantity,
-          unit: updatedItem.unit,
-          id: updatedItem.id,
+      // Use the inventory service to update, which will handle websocket notifications properly
+      await inventoryService.updateInventoryCount(
+        {
+          action: "set",
+          item: id,
+          quantity: quantity,
+          unit: req.item.unit, // Use the item's unit from the middleware
         },
-        timestamp: Date.now(),
-      };
-      websocketService.broadcastToInventoryClients(
-        "inventory-updated",
-        successMessage
+        req, // Pass the request object to include user info
+        "ui" // Method is UI since this is a direct API call from the UI
       );
 
       res.status(200).json({
@@ -171,7 +162,7 @@ router.post(
       }
 
       const newItem = validationResult.data;
-      const item = await inventoryService.addItem(newItem);
+      const item = await inventoryService.addItem(newItem, req);
 
       res.status(201).json({
         item,
@@ -184,6 +175,20 @@ router.post(
   }
 );
 
+// Get inventory updates/changelog
+router.get("/updates/changelog", authMiddleware, async (req, res, next) => {
+  try {
+    const updates = await inventoryRepository.getInventoryUpdates();
+
+    res.status(200).json({
+      updates,
+      source: "database",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Delete an inventory item
 router.delete(
   "/:id",
@@ -193,7 +198,7 @@ router.delete(
     try {
       const { id } = req.params;
 
-      await inventoryService.deleteItem(id);
+      await inventoryService.deleteItem(id, req);
 
       res.status(200).json({
         message: "Item deleted successfully",

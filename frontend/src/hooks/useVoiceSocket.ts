@@ -14,6 +14,26 @@ interface VoiceSocketEvents {
     confidence?: number;
   }) => void;
   onVoiceCommand?: (message: any) => void;
+  onCommandProcessed?: (data: {
+    command: {
+      action: string;
+      item: string;
+      quantity: number;
+      unit: string;
+    };
+    actionLog: any;
+  }) => void;
+  onNlpResponse?: (data: {
+    action: string;
+    item: string;
+    quantity: number;
+    unit: string;
+    confidence: number;
+    isComplete: boolean;
+    confirmationType?: string;
+    feedbackMode?: string;
+    speechFeedback?: string;
+  }) => void;
 }
 
 export const useVoiceSocket = (events: VoiceSocketEvents) => {
@@ -41,6 +61,8 @@ export const useVoiceSocket = (events: VoiceSocketEvents) => {
       socket.off("error");
       socket.off("transcription");
       socket.off("voice-command");
+      socket.off("command-processed");
+      socket.off("nlp-response");
 
       if (events.onConnect) {
         socket.on("connect", () => {
@@ -93,6 +115,18 @@ export const useVoiceSocket = (events: VoiceSocketEvents) => {
         });
       }
 
+      if (events.onCommandProcessed) {
+        socket.on("command-processed", (data: any) => {
+          if (isMountedRef.current) events.onCommandProcessed!(data);
+        });
+      }
+
+      if (events.onNlpResponse) {
+        socket.on("nlp-response", (data: any) => {
+          if (isMountedRef.current) events.onNlpResponse!(data);
+        });
+      }
+
       return () => {
         isMountedRef.current = false;
         // Remove all event listeners for this component
@@ -102,6 +136,8 @@ export const useVoiceSocket = (events: VoiceSocketEvents) => {
         socket.off("error");
         socket.off("transcription");
         socket.off("voice-command");
+        socket.off("command-processed");
+        socket.off("nlp-response");
       };
     } catch (error) {
       console.error("Error creating voice socket:", error);

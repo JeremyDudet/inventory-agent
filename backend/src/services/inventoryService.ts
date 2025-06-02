@@ -9,7 +9,6 @@ import { getUnitType, convertQuantity } from "@/utils/unitConversions";
 import websocketService from "@/services/websocketService";
 import type { InventoryUpdate } from "@/types";
 
-
 class InventoryService {
   private repository: InventoryRepository;
 
@@ -93,7 +92,8 @@ class InventoryService {
 
   async updateInventoryCount(
     update: InventoryUpdate,
-    req?: any
+    req?: any,
+    method: "ui" | "voice" | "api" = "ui"
   ): Promise<void> {
     console.log(
       `📦 Updating inventory: ${update.action} ${update.quantity} ${
@@ -170,7 +170,10 @@ class InventoryService {
           newQuantity = Number(item.quantity) + Number(quantityToUpdate);
           break;
         case "remove":
-          newQuantity = Math.max(0, Number(item.quantity) - Number(quantityToUpdate));
+          newQuantity = Math.max(
+            0,
+            Number(item.quantity) - Number(quantityToUpdate)
+          );
           break;
         case "set":
           newQuantity = Number(quantityToUpdate);
@@ -179,6 +182,9 @@ class InventoryService {
           throw new ValidationError(`Invalid action: ${update.action}`);
       }
 
+      // Store the previous quantity before updating
+      const previousQuantity = Number(item.quantity);
+
       const updatedItem = await this.repository.updateQuantity(
         item.id,
         newQuantity
@@ -186,12 +192,26 @@ class InventoryService {
       if (!updatedItem) {
         throw new ValidationError("Failed to update inventory quantity");
       }
+
+      // Track inventory updates for changelog
+      await this.repository.createInventoryUpdate(
+        item.id,
+        update.action.toLowerCase() as "add" | "remove" | "set",
+        previousQuantity,
+        newQuantity,
+        quantityToUpdate,
+        item.unit,
+        req?.user?.id || req?.user?.userId,
+        req?.user?.name || req?.user?.email || "System",
+        method
+      );
+
       console.log(
         `📦 Successfully updated ${updatedItem.name} to ${updatedItem.quantity} ${updatedItem.unit}`
       );
       await logSystemAction(
         "Inventory Update",
-        `${"User"} ${update.action}ed ${quantityToUpdate} ${
+        `${req?.user?.name || "User"} ${update.action}ed ${quantityToUpdate} ${
           updatedItem.unit
         } of ${updatedItem.name}`,
         "success",
@@ -205,10 +225,15 @@ class InventoryService {
         data: {
           ...updatedItem,
           action: update.action,
+          previousQuantity: previousQuantity,
+          changeQuantity: quantityToUpdate,
+          userId: req?.user?.id || req?.user?.userId,
+          userName: req?.user?.name || req?.user?.email || "System",
+          method: method,
         },
         timestamp: Date.now(),
       };
-      websocketService.broadcastToVoiceClients(
+      websocketService.broadcastToInventoryClients(
         "inventory-updated",
         successMessage
       );
@@ -246,7 +271,7 @@ class InventoryService {
     return this.repository.getAllItems();
   }
 
-  async addItem(item: InventoryItemInsert): Promise<InventoryItem> {
+  async addItem(item: InventoryItemInsert, req?: any): Promise<InventoryItem> {
     try {
       const embedding = await generateEmbedding(item.name);
       const newItem = await this.repository.createItem({
@@ -257,6 +282,19 @@ class InventoryService {
       if (!newItem) {
         throw new ValidationError("Failed to create inventory item");
       }
+
+      // Track the initial inventory for changelog
+      await this.repository.createInventoryUpdate(
+        newItem.id,
+        "set",
+        0,
+        newItem.quantity || 0,
+        newItem.quantity || 0,
+        newItem.unit,
+        req?.user?.id || req?.user?.userId,
+        req?.user?.name || req?.user?.email || "System"
+      );
+
       return newItem;
     } catch (error) {
       console.error("Error adding inventory item:", error);
@@ -264,12 +302,30 @@ class InventoryService {
     }
   }
 
-  async deleteItem(id: string): Promise<void> {
+  async deleteItem(id: string, req?: any): Promise<void> {
     try {
+      // Get the item before deleting to track the change
+      const item = await this.repository.findById(id);
+      if (!item) {
+        throw new NotFoundError(`Item with id ${id} not found`);
+      }
+
       const success = await this.repository.deleteItem(id);
       if (!success) {
         throw new ValidationError("Failed to delete inventory item");
       }
+
+      // Track the deletion for changelog
+      await this.repository.createInventoryUpdate(
+        id,
+        "set",
+        item.quantity || 0,
+        0,
+        item.quantity || 0,
+        item.unit,
+        req?.user?.id || req?.user?.userId,
+        req?.user?.name || req?.user?.email || "System"
+      );
     } catch (error) {
       console.error("Error deleting inventory item:", error);
       throw new ValidationError("Failed to delete inventory item");

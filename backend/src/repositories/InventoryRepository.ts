@@ -24,17 +24,16 @@ export class InventoryRepository {
     embedding: number[],
     limit: number = 5
   ): Promise<{ item: InventoryItem; similarity: number }[]> {
+    // Format the embedding array as a PostgreSQL vector literal with square brackets
+    const embeddingVector = `[${embedding.join(",")}]`;
+
     const result = await db.execute(sql`
       SELECT *,
-        1 - (embedding <=> ARRAY[${sql.join(
-          embedding
-        )}]::vector(1536)) as similarity
+        1 - (embedding <=> ${embeddingVector}::vector(1536)) as similarity
       FROM ${inventory_items}
       WHERE embedding IS NOT NULL
-        AND 1 - (embedding <=> ARRAY[${sql.join(
-          embedding
-        )}]::vector(1536)) > 0.7
-      ORDER BY embedding <=> ARRAY[${sql.join(embedding)}]::vector(1536)
+        AND 1 - (embedding <=> ${embeddingVector}::vector(1536)) > 0.7
+      ORDER BY embedding <=> ${embeddingVector}::vector(1536)
       LIMIT ${limit}
     `);
 
@@ -206,7 +205,8 @@ export class InventoryRepository {
     quantity: number,
     unit: string,
     user_id?: string,
-    user_name?: string
+    user_name?: string,
+    method: "ui" | "voice" | "api" = "ui"
   ): Promise<void> {
     await db.insert(inventory_updates).values({
       item_id: itemId,
@@ -217,7 +217,37 @@ export class InventoryRepository {
       unit,
       user_name: user_name,
       user_id: user_id,
+      method: method,
       created_at: new Date().toISOString(),
     });
+  }
+
+  // Method to get inventory updates
+  async getInventoryUpdates(): Promise<any[]> {
+    const updates = await db
+      .select({
+        id: inventory_updates.id,
+        item_id: inventory_updates.item_id,
+        action: inventory_updates.action,
+        previous_quantity: inventory_updates.previous_quantity,
+        new_quantity: inventory_updates.new_quantity,
+        quantity: inventory_updates.quantity,
+        unit: inventory_updates.unit,
+        user_id: inventory_updates.user_id,
+        user_name: inventory_updates.user_name,
+        method: inventory_updates.method,
+        created_at: inventory_updates.created_at,
+        item_name: inventory_items.name,
+        item_category: inventory_items.category,
+      })
+      .from(inventory_updates)
+      .leftJoin(
+        inventory_items,
+        eq(inventory_updates.item_id, inventory_items.id)
+      )
+      .orderBy(desc(inventory_updates.created_at))
+      .limit(1000);
+
+    return updates;
   }
 }

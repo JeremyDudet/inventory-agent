@@ -253,6 +253,7 @@ export const inventory_updates = pgTable(
     unit: text().notNull(),
     user_id: uuid("user_id"),
     user_name: text("user_name"),
+    method: text().default("ui").notNull(),
     created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),
@@ -294,6 +295,10 @@ export const inventory_updates = pgTable(
     check(
       "inventory_updates_action_check",
       sql`action = ANY (ARRAY['add'::text, 'remove'::text, 'set'::text, 'check'::text])`
+    ),
+    check(
+      "inventory_updates_method_check",
+      sql`method = ANY (ARRAY['ui'::text, 'voice'::text, 'api'::text])`
     ),
   ]
 );

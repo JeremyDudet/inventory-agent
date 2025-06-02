@@ -40,14 +40,16 @@ async function updateEmbeddings() {
 
             const embedding = await generateEmbedding(textForEmbedding);
 
-            // Use Drizzle's update method for better type safety
-            await db
-              .update(inventory_items)
-              .set({
-                embedding: sql`ARRAY[${sql.join(embedding)}]::vector(1536)`,
-                updated_at: new Date().toISOString(),
-              })
-              .where(sql`${inventory_items.id} = ${item.id}`);
+            // Format the embedding array as a PostgreSQL vector literal with square brackets
+            const embeddingVector = `[${embedding.join(",")}]`;
+
+            // Use raw SQL with the properly formatted vector
+            await db.execute(sql`
+              UPDATE ${inventory_items}
+              SET embedding = ${embeddingVector}::vector(1536),
+                  updated_at = ${new Date().toISOString()}
+              WHERE id = ${item.id}
+            `);
 
             console.log(`✓ Updated embedding for item: ${item.name}`);
           } catch (error) {

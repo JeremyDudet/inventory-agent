@@ -28,6 +28,7 @@ import { SessionStateContextProvider } from "./services/session/sessionStateCont
 import { ActionLog, NlpResult } from "@/types";
 
 import { ValidationError } from "./errors";
+import authService from "./services/authService";
 
 dotenv.config();
 
@@ -80,6 +81,54 @@ const PORT = process.env.PORT || 8080;
 
 const voiceNamespace = io.of("/voice");
 const inventoryNamespace = io.of("/inventory");
+
+// Websocket authentication middleware
+const authenticateSocket = async (
+  socket: Socket,
+  next: (err?: any) => void
+) => {
+  try {
+    const token = socket.handshake.auth.token;
+    if (!token) {
+      return next(new Error("Authentication token required"));
+    }
+
+    // Try to verify the token
+    const jwtPayload = await authService.verifyToken(token);
+
+    if (jwtPayload) {
+      // Token is valid, attach user info to socket
+      socket.data.user = {
+        id: jwtPayload.userId,
+        email: jwtPayload.email,
+        name: jwtPayload.name,
+      };
+      return next();
+    }
+
+    // If JWT fails, try Supabase token
+    const supabaseUser = await authService.validateSupabaseToken(token);
+
+    if (supabaseUser) {
+      socket.data.user = {
+        id: supabaseUser.id,
+        email: supabaseUser.email,
+        name: supabaseUser.name,
+      };
+      return next();
+    }
+
+    // No valid auth
+    return next(new Error("Invalid authentication token"));
+  } catch (error) {
+    console.error("Socket authentication error:", error);
+    return next(new Error("Authentication failed"));
+  }
+};
+
+// Apply authentication middleware to both namespaces
+voiceNamespace.use(authenticateSocket);
+inventoryNamespace.use(authenticateSocket);
 
 // Add session action logs storage
 const sessionActionLogs = new Map<string, ActionLog[]>();
@@ -198,12 +247,23 @@ voiceNamespace.on("connection", (socket: Socket) => {
             });
 
             try {
-              await inventoryService.updateInventoryCount({
-                action: nlpResult.action,
-                item: nlpResult.item,
-                quantity: nlpResult.quantity || 0,
-                unit: nlpResult.unit,
-              });
+              await inventoryService.updateInventoryCount(
+                {
+                  action: nlpResult.action,
+                  item: nlpResult.item,
+                  quantity: nlpResult.quantity || 0,
+                  unit: nlpResult.unit,
+                },
+                // Use authenticated user info from socket
+                {
+                  user: socket.data.user || {
+                    id: socket.id,
+                    email: "voice@user.com",
+                    name: "Voice User",
+                  },
+                },
+                "voice" // Method is voice since this is from voice commands
+              );
               console.log(
                 `📝 Updated inventory: ${nlpResult.item} ${nlpResult.quantity} ${nlpResult.unit}`
               );
@@ -388,6 +448,38 @@ voiceNamespace.on("connection", (socket: Socket) => {
       socketConnectionIds.delete(socket.id);
     }
   });
+
+  socket.on(
+    "process-text",
+    async (data: { text: string; isFinal: boolean; source?: string }) => {
+      console.log(`📝 Processing text input for ${socket.id}: "${data.text}"`);
+
+      try {
+        // Emit the transcription event to maintain consistency with voice flow
+        socket.emit("transcription", {
+          text: data.text,
+          isFinal: data.isFinal,
+          confidence: 1.0,
+          source: data.source || "text-input",
+        });
+
+        // Process the text through the same pipeline as voice transcriptions
+        if (data.isFinal && data.text.trim()) {
+          sessionState.setProcessingVoiceCommand(true);
+
+          // Add to user's conversation history
+          sessionState.addUserMessage(data.text);
+
+          // Process through transcription buffer which handles NLP
+          await transcriptionBuffer.addTranscription(data.text);
+        }
+      } catch (error) {
+        console.error("Error processing text input:", error);
+        socket.emit("error", { message: "Failed to process text input" });
+        sessionState.setProcessingVoiceCommand(false);
+      }
+    }
+  );
 
   socket.on("confirm-command", async (command) => {
     console.log(`🔊 User confirmed command via UI: ${JSON.stringify(command)}`);

@@ -19,24 +19,35 @@ export const WebsocketListener = () => {
     onInventoryUpdate: (message) => {
       console.log("Received inventory update:", message); // Add this log
       try {
-        if (Array.isArray(message.data)) {
-          console.log("Received bulk inventory update:", message.data);
-          updateItems(message.data);
+        // Handle both the data being in message.data or directly in message
+        const updateData = message.data || message;
+
+        if (Array.isArray(updateData)) {
+          console.log("Received bulk inventory update:", updateData);
+          updateItems(updateData);
           addNotification(
             "success",
-            `Updated ${message.data.length} inventory items`
+            `Updated ${updateData.length} inventory items`
           );
-        } else {
-          const { id, quantity, unit } = message.data;
+        } else if (updateData && typeof updateData === "object") {
+          // Extract the relevant fields, handling different possible structures
+          const itemData = updateData.data || updateData;
+          const { id, quantity, unit, name, item } = itemData;
+
           console.log("Processing inventory update for item:", {
             id,
             quantity,
             unit,
+            name: name || item,
           });
+
           updateItem({ id, quantity, unit });
+
+          // Use the item name if available for better notifications
+          const itemName = name || item || `Item ${id}`;
           addNotification(
             "success",
-            `Inventory item ${id} updated to ${quantity} ${unit}`
+            `${itemName} updated to ${quantity} ${unit}`
           );
         }
       } catch (error) {
@@ -63,6 +74,43 @@ export const WebsocketListener = () => {
     },
     onDisconnect: (reason) => {
       console.log("Voice WebSocket disconnected:", reason);
+    },
+    onCommandProcessed: (data) => {
+      try {
+        console.log("Received command-processed event:", data);
+        // Handle the processed command
+        if (data.command) {
+          const { action, item, quantity, unit } = data.command;
+
+          // For now, we'll use a simple notification
+          // The actual inventory update happens on the backend
+          addNotification(
+            "success",
+            `Command processed: ${action} ${quantity} ${unit} of ${item}`
+          );
+
+          // The inventory will be updated via the inventory socket
+          // when the backend broadcasts the change
+        }
+      } catch (error) {
+        console.error("Error processing command:", error);
+        addNotification(
+          "error",
+          "Failed to process command. Please try again."
+        );
+      }
+    },
+    onNlpResponse: (data) => {
+      try {
+        console.log("Received NLP response:", data);
+        // Handle NLP response for feedback purposes
+        if (data.speechFeedback) {
+          // You can display the speech feedback if needed
+          console.log("Speech feedback:", data.speechFeedback);
+        }
+      } catch (error) {
+        console.error("Error processing NLP response:", error);
+      }
     },
     onVoiceCommand: (message) => {
       try {

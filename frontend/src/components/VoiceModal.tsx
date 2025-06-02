@@ -13,15 +13,16 @@ import {
   useTransform,
 } from "motion/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import { PaperAirplaneIcon } from "@heroicons/react/24/outline";
 
 const WaveformIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 256 256"
+    viewBox="0 0 24 24"
     fill="currentColor"
     className="w-full h-full"
   >
-    <path d="M56,96v64a8,8,0,0,1-16,0V96a8,8,0,0,1,16,0ZM88,24a8,8,0,0,0-8,8V224a8,8,0,0,0,16,0V32A8,8,0,0,0,88,24Zm40,32a8,8,0,0,0-8,8V192a8,8,0,0,0,16,0V64A8,8,0,0,0,128,56Zm40,32a8,8,0,0,0-8,8v64a8,8,0,0,0,16,0V96A8,8,0,0,0,168,88Zm40-16a8,8,0,0,0-8,8v96a8,8,0,0,0,16,0V80A8,8,0,0,0,208,72Z"></path>
+    <path d="M12 2C6.48 2 2 6.48 2 12c0 1.54.36 3.04.97 4.43L1 22l5.57-1.97C8.96 21.64 10.46 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2z" />
   </svg>
 );
 
@@ -275,6 +276,8 @@ export function VoiceModal() {
   const [transcription, setTranscription] = useState("");
   const [isFinalTranscription, setIsFinalTranscription] = useState(false);
   const [isInCooldown, setIsInCooldown] = useState(false);
+  const [textInput, setTextInput] = useState("");
+  const [isProcessingText, setIsProcessingText] = useState(false);
   const { theme } = useThemeStore();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -305,6 +308,7 @@ export function VoiceModal() {
     },
     onError: (data) => {
       setFeedback(`Error: ${data.message}`);
+      setIsProcessingText(false);
       stopRecording();
     },
     onTranscription: (data) => {
@@ -314,6 +318,7 @@ export function VoiceModal() {
 
         if (data.isFinal) {
           setFeedback(`Heard: ${data.text}`);
+          setIsProcessingText(false);
         } else {
           setFeedback("Listening...");
         }
@@ -363,11 +368,42 @@ export function VoiceModal() {
     }
   }, [isListening, isConnected, isInCooldown]);
 
-  const handleStartClick = () => {
+  const handleVoiceClick = () => {
     if (isConnected) {
       setIsOpen(false);
       setIsWarpActive(true);
       startRecording();
+    }
+  };
+
+  const handleTextSubmit = () => {
+    if (textInput.trim() && !isProcessingText) {
+      setIsProcessingText(true);
+      setFeedback(`Processing: ${textInput.trim()}`);
+
+      // Process text input the same way as voice transcription
+      // Send as final transcription to maintain same processing pipeline
+      if (socket && isConnected) {
+        // Emit the text as if it were a final transcription
+        socket.emit("process-text", {
+          text: textInput.trim(),
+          isFinal: true,
+          source: "text-input",
+        });
+
+        // Clear input after sending
+        setTextInput("");
+
+        // Don't close modal immediately - wait for processing to complete
+        // The modal will close when we receive the response or after a timeout
+        setTimeout(() => {
+          setIsOpen(false);
+          setIsProcessingText(false);
+        }, 2000);
+      } else {
+        setFeedback("Not connected to server");
+        setIsProcessingText(false);
+      }
     }
   };
 
@@ -511,7 +547,7 @@ export function VoiceModal() {
               id="openButton-text"
               className="flex justify-center items-center lg:gap-2"
             >
-              <span className="hidden lg:block">{STATES[buttonState]}</span>
+              <span className="hidden lg:block">AI Assistant</span>
               <Icon state={buttonState} />
             </motion.span>
           </motion.button>
@@ -523,7 +559,11 @@ export function VoiceModal() {
             close={() => setIsOpen(false)}
             theme={theme}
             buttonState={buttonState}
-            onStartClick={handleStartClick}
+            onVoiceClick={handleVoiceClick}
+            textInput={textInput}
+            setTextInput={setTextInput}
+            onTextSubmit={handleTextSubmit}
+            isProcessingText={isProcessingText}
           />
         )}
       </AnimatePresence>
@@ -545,77 +585,115 @@ function Dialog({
   close,
   theme,
   buttonState,
-  onStartClick,
+  onVoiceClick,
+  textInput,
+  setTextInput,
+  onTextSubmit,
+  isProcessingText,
 }: {
   close: () => void;
   theme: string;
   buttonState: keyof typeof STATES;
-  onStartClick: () => void;
+  onVoiceClick: () => void;
+  textInput: string;
+  setTextInput: (value: string) => void;
+  onTextSubmit: () => void;
+  isProcessingText: boolean;
 }) {
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      onTextSubmit();
+    }
+  };
+
   return (
     <motion.div
-      className="modal-overlay bg-black/40 backdrop-blur-[1px] -webkit-backdrop-blur-[1px]"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.2, ease: "linear" }}
-      onClick={close}
+      className="fixed flex justify-center items-end z-50 bottom-5 right-0"
+      style={{ left: "var(--sidebar-width)" }}
+      initial={{ opacity: 0, y: 100 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 100 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
     >
       <motion.div
-        className="modal-content rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"
+        className="modal-content rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xl"
         layoutId="modal"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
         style={{ overflow: "hidden" }}
-        onClick={(e) => e.stopPropagation()}
       >
         <motion.div
           layout
-          initial={{ y: 100 }}
+          initial={{ y: 20 }}
           animate={{ y: 0 }}
-          exit={{ y: 100 }}
+          exit={{ y: 20 }}
         >
           <h2 className="title h2 font-semibold text-xl text-zinc-900 dark:text-zinc-100">
             <QuestionMarkIcon theme={theme} />
-            Confirm
+            AI Assistant
           </h2>
-          <p className="text-base">Activate voice control?</p>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 flex items-center mt-2">
-            Use headphones with a built-in microphone for best experience.
-          </p>
+          <p className="text-base mb-3">How can I help you?</p>
+
+          {/* Text Input Area */}
+          <div className="mb-3">
+            <textarea
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Type your message here..."
+              className="w-full p-2 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-500 dark:placeholder-zinc-400 resize-none focus:outline-none focus:ring-2 focus:ring-zinc-500 dark:focus:ring-zinc-400"
+              rows={2}
+            />
+          </div>
+
           <div className="controls">
             <button
               onClick={close}
               className="cancel bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl"
-              style={{}}
             >
               Cancel
             </button>
-            <motion.button
-              layoutId="cta"
-              onClick={(e) => {
-                onStartClick();
-              }}
-              className={`confirm rounded-xl ${
-                buttonState === "error"
-                  ? "bg-zinc-400 dark:bg-zinc-700 text-white dark:text-zinc-200"
-                  : buttonState === "loading"
-                  ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 outline outline-zinc-400 dark:outline-zinc-600"
-                  : "bg-zinc-500 dark:bg-zinc-700 text-white dark:text-zinc-200 hover:bg-zinc-600 dark:hover:bg-zinc-600"
-              }`}
-              style={{}}
-              disabled={buttonState === "loading" || buttonState === "error"}
-            >
-              <motion.span
-                layoutId="cta-text"
-                className="flex justify-center items-center gap-2"
-                style={{ gap: 8 }}
+
+            <div className="flex gap-2 items-center">
+              {/* Voice Mode Button - Secondary/Smaller */}
+              <button
+                onClick={onVoiceClick}
+                className={`voice-mode-secondary rounded-lg text-sm ${
+                  buttonState === "error"
+                    ? "bg-zinc-300 dark:bg-zinc-600 text-zinc-500 dark:text-zinc-400"
+                    : buttonState === "loading"
+                    ? "bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400"
+                    : "bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-600"
+                }`}
+                disabled={buttonState === "loading" || buttonState === "error"}
+                title="Voice Mode"
               >
-                {STATES.confirmation}
-                <Check />
-              </motion.span>
-            </motion.button>
+                <Microphone />
+              </button>
+
+              {/* Text Submit Button - Primary/Main */}
+              <motion.button
+                layoutId="cta"
+                onClick={onTextSubmit}
+                disabled={!textInput.trim() || isProcessingText}
+                className={`text-submit-primary rounded-xl flex items-center gap-2 ${
+                  textInput.trim() && !isProcessingText
+                    ? "bg-blue-500 dark:bg-blue-600 text-white hover:bg-blue-600 dark:hover:bg-blue-500"
+                    : "bg-zinc-200 dark:bg-zinc-700 text-zinc-400 dark:text-zinc-500 cursor-not-allowed"
+                }`}
+              >
+                {isProcessingText ? (
+                  <>
+                    <Loader className="w-4 h-4" />
+                    Processing
+                  </>
+                ) : (
+                  <>
+                    <PaperAirplaneIcon className="w-4 h-4" />
+                    Send
+                  </>
+                )}
+              </motion.button>
+            </div>
           </div>
           <button
             className="closeButton"
@@ -670,54 +748,61 @@ function StyleSheet({ theme }: { theme: string }) {
     left: var(--sidebar-width);
   }
 
-  .modal-overlay {
-    position: fixed;
-    left: 0;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    display: flex;
-    justify-content: center;
-    align-items: flex-end;
-    z-index: 100;
-    border-radius: inherit;
-  }
-
   .modal-content {
     width: 100%;
-    max-width: 400px;
-    margin-bottom: 20px;
+    max-width: 480px;
+    margin-bottom: 0px;
     margin-left: 8px;
     margin-right: 8px;
-    padding: 20px;
+    padding: 16px;
     position: relative;
     transform: translateY(0);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 25px 50px -12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
   }
 
   .controls button {
-    width: 100%;
-    max-width: 300px;
     font-size: 16px;
     padding: 10px 20px;
     cursor: pointer;
   }
 
   .controls {
-    padding-top: 20px;
+    padding-top: 16px;
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
     gap: 10px;
+  }
+
+  .controls .cancel {
+    width: auto;
+    min-width: 80px;
+  }
+
+  .controls .text-submit-primary {
+    padding: 10px 20px;
+    min-width: 120px;
+    font-weight: 500;
+  }
+
+  .controls .voice-mode-secondary {
+    padding: 8px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .closeButton {
     position: absolute;
-    top: 20px;
-    right: 20px;
+    top: 16px;
+    right: 16px;
     color: ${theme === "dark" ? "#f6f6f6" : "#374151"};
   }
 
   .title {
-    margin: 0 0 20px;
+    margin: 0 0 16px;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -726,7 +811,6 @@ function StyleSheet({ theme }: { theme: string }) {
   .text-base {
     color: ${theme === "dark" ? "#9ca3af" : "#6b7280"};
   }
-
 
   `}</style>
   );
