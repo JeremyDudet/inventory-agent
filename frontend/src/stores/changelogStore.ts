@@ -32,6 +32,7 @@ interface ChangelogState {
   updateItemNames: (items: any[]) => void;
   forceRefresh: () => void;
   resetStore: () => void;
+  removeNewFlag: (updateId: string) => void;
 }
 
 export const useChangelogStore = create<ChangelogState>((set, get) => ({
@@ -82,4 +83,11 @@ export const useChangelogStore = create<ChangelogState>((set, get) => ({
       lastFetchTime: null,
       hasInitiallyLoaded: false,
     }),
+
+  removeNewFlag: (updateId) =>
+    set((state) => ({
+      updates: state.updates.map((update) =>
+        update.id === updateId ? { ...update, isNew: false } : update
+      ),
+    })),
 }));

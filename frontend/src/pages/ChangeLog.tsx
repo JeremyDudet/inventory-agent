@@ -72,6 +72,7 @@ export default function ChangeLog() {
     addLiveUpdate,
     updateItemNames,
     forceRefresh,
+    removeNewFlag,
   } = useChangelogStore();
 
   const actions = ["add", "remove", "set", "check"] as const;
@@ -120,11 +121,8 @@ export default function ChangeLog() {
 
         // Remove the "new" flag after animation
         setTimeout(() => {
-          setUpdates(
-            updates.map((u) =>
-              u.id === newUpdate.id ? { ...u, isNew: false } : u
-            )
-          );
+          // Use a new store action that only updates the specific item
+          removeNewFlag(newUpdate.id);
         }, 3000);
       }
     },
