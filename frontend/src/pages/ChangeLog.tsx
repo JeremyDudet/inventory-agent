@@ -3,6 +3,7 @@ import { useInventoryStore } from "@/stores/inventoryStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useFilterStore } from "@/stores/filterStore";
 import { useNotificationStore } from "@/stores/notificationStore";
+import { useChangelogStore } from "@/stores/changelogStore";
 import { Input } from "@/components/ui/input";
 import { Combobox } from "@/components/ui/combobox";
 import {
@@ -47,11 +48,7 @@ interface DatabaseInventoryUpdate {
 }
 
 export default function ChangeLog() {
-  const [updates, setUpdates] = useState<InventoryUpdate[]>([]);
   const [filteredUpdates, setFilteredUpdates] = useState<InventoryUpdate[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
-  const isInitialLoad = useRef(true);
   const {
     changeLog: { searchQuery, dateRange, selectedUsers, selectedActions },
     setChangeLogSearchQuery,
@@ -62,9 +59,22 @@ export default function ChangeLog() {
   const { session } = useAuthStore();
   const { items } = useInventoryStore();
   const { addNotification } = useNotificationStore();
+  const {
+    updates,
+    users,
+    isLoading,
+    lastFetchTime,
+    hasInitiallyLoaded,
+    setUpdates,
+    setUsers,
+    setIsLoading,
+    setLastFetchTime,
+    addLiveUpdate,
+    updateItemNames,
+    forceRefresh,
+  } = useChangelogStore();
 
   const actions = ["add", "remove", "set", "check"] as const;
-  const [users, setUsers] = useState<string[]>([]);
 
   // Listen for live inventory updates
   useInventorySocket({
@@ -105,19 +115,13 @@ export default function ChangeLog() {
           isNew: true,
         };
 
-        // Add the new update to the beginning of the list
-        setUpdates((prev) => [newUpdate, ...prev]);
-        setFilteredUpdates((prev) => [newUpdate, ...prev]);
+        // Add the new update to the store
+        addLiveUpdate(newUpdate);
 
         // Remove the "new" flag after animation
         setTimeout(() => {
-          setUpdates((prev) =>
-            prev.map((u) =>
-              u.id === newUpdate.id ? { ...u, isNew: false } : u
-            )
-          );
-          setFilteredUpdates((prev) =>
-            prev.map((u) =>
+          setUpdates(
+            updates.map((u) =>
               u.id === newUpdate.id ? { ...u, isNew: false } : u
             )
           );
@@ -127,23 +131,18 @@ export default function ChangeLog() {
   });
 
   useEffect(() => {
-    fetchUpdates(); // Initial load - not a live update
-  }, []);
-
-  // Refetch when items change (to update item names)
-  useEffect(() => {
-    if (updates.length > 0) {
-      // Re-enrich updates with new item names
-      const enrichedUpdates = updates.map((update) => ({
-        ...update,
-        itemName:
-          items.find((item) => item.id === update.itemId)?.name ||
-          update.itemName ||
-          "Unknown Item",
-      }));
-      setUpdates(enrichedUpdates);
+    // Only fetch if we haven't loaded data yet
+    if (!hasInitiallyLoaded) {
+      fetchUpdates();
     }
-  }, [items]);
+  }, [hasInitiallyLoaded]);
+
+  // Update item names when items change
+  useEffect(() => {
+    if (updates.length > 0 && items.length > 0) {
+      updateItemNames(items);
+    }
+  }, [items, updates.length, updateItemNames]);
 
   const fetchUpdates = async () => {
     try {
@@ -204,9 +203,8 @@ export default function ChangeLog() {
       );
 
       setUpdates(enrichedUpdates);
-      setFilteredUpdates(enrichedUpdates);
       setUsers(uniqueUsers);
-      setLastUpdateTime(new Date());
+      setLastFetchTime(new Date());
     } catch (error) {
       console.error("Error fetching updates:", error);
     } finally {
@@ -365,6 +363,10 @@ export default function ChangeLog() {
     }
   };
 
+  const handleRefresh = () => {
+    forceRefresh();
+  };
+
   return (
     <div className="">
       <div className="sm:flex sm:items-center sm:justify-between">
@@ -372,13 +374,35 @@ export default function ChangeLog() {
           <Heading level={1}>Change Log</Heading>
           <Text>Track all changes made to your inventory.</Text>
         </div>
-        {lastUpdateTime && (
-          <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+        <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none flex items-center gap-4">
+          {lastFetchTime && (
             <Text className="text-sm text-zinc-500 dark:text-zinc-400">
-              Last updated: {lastUpdateTime.toLocaleTimeString()}
+              Last updated: {lastFetchTime.toLocaleTimeString()}
             </Text>
-          </div>
-        )}
+          )}
+          <button
+            onClick={handleRefresh}
+            disabled={isLoading}
+            className="inline-flex items-center px-3 py-2 border border-zinc-300 dark:border-zinc-600 shadow-sm text-sm leading-4 font-medium rounded-md text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-zinc-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <svg
+              className={`-ml-0.5 mr-2 h-4 w-4 ${
+                isLoading ? "animate-spin" : ""
+              }`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+            {isLoading ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
       </div>
 
       {/* Filters */}

@@ -29,6 +29,61 @@ import { Analytics } from "@vercel/analytics/react";
 // Protected route component that uses Supabase auth
 const ProtectedRoute = () => {
   const { user, isLoading } = useAuthStore();
+  const {
+    hasInitiallyLoaded,
+    setItems,
+    setCategories,
+    setIsLoading: setInventoryLoading,
+  } = useInventoryStore();
+
+  useEffect(() => {
+    // Only fetch inventory if authenticated and not already loaded
+    if (user && !hasInitiallyLoaded) {
+      const fetchInventory = async () => {
+        try {
+          setInventoryLoading(true);
+          const response = await fetch(
+            `${import.meta.env.VITE_API_URL}/api/inventory`,
+            {
+              credentials: "include",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            }
+          );
+          if (!response.ok) throw new Error("Failed to fetch inventory");
+          const data = await response.json();
+          setItems(data.items);
+        } catch (error) {
+          console.error("Failed to fetch inventory:", error);
+        } finally {
+          setInventoryLoading(false);
+        }
+      };
+
+      const fetchCategories = async () => {
+        try {
+          const response = await fetch(
+            `${import.meta.env.VITE_API_URL}/api/inventory/categories`,
+            {
+              credentials: "include",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            }
+          );
+          if (!response.ok) throw new Error("Failed to fetch categories");
+          const data = await response.json();
+          setCategories(data.categories);
+        } catch (error) {
+          console.error("Failed to fetch categories:", error);
+        }
+      };
+
+      fetchInventory();
+      fetchCategories();
+    }
+  }, [user, hasInitiallyLoaded, setItems, setCategories, setInventoryLoading]);
 
   if (isLoading) {
     return <LoadingSpinner fullScreen text="Loading..." />;
@@ -98,57 +153,12 @@ const AppRoutes = () => {
 };
 
 const App: React.FC = () => {
-  const setItems = useInventoryStore((state) => state.setItems);
-  const setCategories = useInventoryStore((state) => state.setCategories);
   const { theme } = useThemeStore();
 
   useEffect(() => {
     // Initialize theme
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
-
-  useEffect(() => {
-    const fetchInventory = async () => {
-      try {
-        const response = await fetch(
-          `${import.meta.env.VITE_API_URL}/api/inventory`,
-          {
-            credentials: "include",
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
-        );
-        if (!response.ok) throw new Error("Failed to fetch inventory");
-        const data = await response.json();
-        setItems(data.items);
-      } catch (error) {
-        console.error("Failed to fetch inventory:", error);
-      }
-    };
-
-    const fetchCategories = async () => {
-      try {
-        const response = await fetch(
-          `${import.meta.env.VITE_API_URL}/api/inventory/categories`,
-          {
-            credentials: "include",
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
-        );
-        if (!response.ok) throw new Error("Failed to fetch categories");
-        const data = await response.json();
-        setCategories(data.categories);
-      } catch (error) {
-        console.error("Failed to fetch categories:", error);
-      }
-    };
-
-    fetchInventory();
-    fetchCategories();
-  }, [setItems, setCategories]);
 
   return (
     <Router

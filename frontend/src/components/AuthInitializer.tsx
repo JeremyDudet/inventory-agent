@@ -8,12 +8,17 @@ import { AuthUser } from "@/types";
 export const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const { setUser, setSession, setIsLoading } = useAuthStore();
+  const { user, setUser, setSession, setIsLoading } = useAuthStore();
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchSession = async () => {
       try {
+        // Only check if we don't have a user but have a stored session
+        if (user) {
+          return; // User already authenticated, no need to check
+        }
+
         setIsLoading(true);
 
         // Get the stored session from localStorage
@@ -29,33 +34,36 @@ export const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({
           return;
         }
 
-        try {
-          // Verify the session with our backend using the api service
-          const response = await api.getUser(state.session.access_token);
+        // Only verify if we have a session but no user
+        if (!state.user) {
+          try {
+            // Verify the session with our backend using the api service
+            const response = await api.getUser(state.session.access_token);
 
-          // The response already contains the user object with permissions
-          // based on your api.ts and the /me endpoint structure
-          const userData: AuthUser = {
-            id: response.user.id,
-            email: response.user.email,
-            name: response.user.name,
-            locations: response.user.locations || [],
-          };
+            // The response already contains the user object with permissions
+            // based on your api.ts and the /me endpoint structure
+            const userData: AuthUser = {
+              id: response.user.id,
+              email: response.user.email,
+              name: response.user.name,
+              locations: response.user.locations || [],
+            };
 
-          // Update the user in the store
-          setUser(userData);
+            // Update the user in the store
+            setUser(userData);
 
-          // Keep the existing session with the token
-          setSession(state.session);
-        } catch (error: any) {
-          console.error("Error verifying session:", error);
-          // If the session is invalid, clear it
-          setSession(null);
-          setUser(null);
+            // Keep the existing session with the token
+            setSession(state.session);
+          } catch (error: any) {
+            console.error("Error verifying session:", error);
+            // If the session is invalid, clear it
+            setSession(null);
+            setUser(null);
 
-          // If it's an auth error, redirect to login
-          if (error.isAuthError || error.status === 401) {
-            navigate("/login");
+            // If it's an auth error, redirect to login
+            if (error.isAuthError || error.status === 401) {
+              navigate("/login");
+            }
           }
         }
       } catch (error) {
@@ -68,7 +76,7 @@ export const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({
     };
 
     fetchSession();
-  }, [setUser, setSession, setIsLoading, navigate]);
+  }, []); // Empty dependency array - only run once on mount
 
   return <>{children}</>;
 };

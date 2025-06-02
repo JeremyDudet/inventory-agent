@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useInventoryStore } from "../stores/inventoryStore";
 import { useFilterStore } from "../stores/filterStore";
+import { useInventoryData } from "../hooks/useInventoryData";
 import type {
   InventoryItem,
   InventoryCategory,
@@ -27,7 +28,9 @@ import { ChevronDownIcon } from "@heroicons/react/20/solid";
 import { motion } from "framer-motion";
 
 export default function Stock() {
-  const { items, categories, error } = useInventoryStore();
+  // Ensure inventory data is loaded
+  const { items, categories } = useInventoryData();
+  const { error } = useInventoryStore();
   const {
     stockList: { searchQuery, selectedCategories },
     setStockListSearchQuery,

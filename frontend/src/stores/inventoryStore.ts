@@ -24,6 +24,9 @@ export interface InventoryCategory {
 interface InventoryState {
   items: InventoryItem[];
   categories: InventoryCategory[];
+  isLoading: boolean;
+  hasInitiallyLoaded: boolean;
+  lastFetchTime: Date | null;
   setItems: (items: InventoryItem[]) => void;
   setCategories: (categories: InventoryCategory[]) => void;
   updateItem: (updatedItem: Partial<InventoryItem> & { id: string }) => void;
@@ -32,6 +35,9 @@ interface InventoryState {
   ) => void;
   error: string | null;
   setError: (error: string | null) => void;
+  setIsLoading: (isLoading: boolean) => void;
+  setHasInitiallyLoaded: (loaded: boolean) => void;
+  setLastFetchTime: (time: Date | null) => void;
 }
 
 // Create the Zustand store
@@ -39,9 +45,16 @@ export const useInventoryStore = create<InventoryState>((set) => ({
   items: [],
   categories: [],
   error: null,
-  setItems: (items) => set({ items }),
+  isLoading: false,
+  hasInitiallyLoaded: false,
+  lastFetchTime: null,
+  setItems: (items) =>
+    set({ items, hasInitiallyLoaded: true, lastFetchTime: new Date() }),
   setCategories: (categories) => set({ categories }),
   setError: (error) => set({ error }),
+  setIsLoading: (isLoading) => set({ isLoading }),
+  setHasInitiallyLoaded: (loaded) => set({ hasInitiallyLoaded: loaded }),
+  setLastFetchTime: (time) => set({ lastFetchTime: time }),
   updateItem: (updatedItem) =>
     set((state) => ({
       items: state.items.map((item) =>
