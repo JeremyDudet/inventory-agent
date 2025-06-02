@@ -71,6 +71,7 @@ export default function ChangeLog() {
     setLastFetchTime,
     addLiveUpdate,
     updateItemNames,
+    removeNewFlag,
     forceRefresh,
   } = useChangelogStore();
 
@@ -120,11 +121,7 @@ export default function ChangeLog() {
 
         // Remove the "new" flag after animation
         setTimeout(() => {
-          setUpdates(
-            updates.map((u) =>
-              u.id === newUpdate.id ? { ...u, isNew: false } : u
-            )
-          );
+          removeNewFlag(newUpdate.id);
         }, 3000);
       }
     },

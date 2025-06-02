@@ -30,6 +30,7 @@ interface ChangelogState {
   setLastFetchTime: (time: Date) => void;
   addLiveUpdate: (update: InventoryUpdate) => void;
   updateItemNames: (items: any[]) => void;
+  removeNewFlag: (updateId: string) => void;
   forceRefresh: () => void;
   resetStore: () => void;
 }
@@ -67,6 +68,13 @@ export const useChangelogStore = create<ChangelogState>((set, get) => ({
           update.itemName ||
           "Unknown Item",
       })),
+    })),
+
+  removeNewFlag: (updateId) =>
+    set((state) => ({
+      updates: state.updates.map((update) =>
+        update.id === updateId ? { ...update, isNew: false } : update
+      ),
     })),
 
   forceRefresh: () =>
