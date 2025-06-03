@@ -15,6 +15,7 @@ import {
   foreignKey,
   primaryKey,
   decimal,
+  integer,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -462,4 +463,184 @@ export const waiting_list = pgTable(
       .notNull(),
   },
   (table) => [unique("waiting_list_email_key").on(table.email)]
+);
+
+// Stripe-related tables
+export const subscription_plans = pgTable(
+  "subscription_plans",
+  {
+    id: uuid()
+      .default(sql`uuid_generate_v4()`)
+      .primaryKey()
+      .notNull(),
+    stripe_price_id: text("stripe_price_id").notNull(),
+    stripe_product_id: text("stripe_product_id").notNull(),
+    name: text().notNull(),
+    description: text(),
+    price: decimal("price", {
+      precision: 10,
+      scale: 2,
+      mode: "number",
+    }).notNull(),
+    currency: text().default("usd").notNull(),
+    interval: text().notNull(), // 'month' or 'year'
+    interval_count: integer("interval_count").default(1).notNull(),
+    trial_period_days: integer("trial_period_days").default(0),
+    max_locations: integer("max_locations").default(1).notNull(),
+    max_team_members: integer("max_team_members").default(1).notNull(),
+    features: jsonb().default([]).notNull(),
+    is_active: boolean("is_active").default(true).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    unique("subscription_plans_stripe_price_id_key").on(table.stripe_price_id),
+    unique("subscription_plans_stripe_product_id_key").on(
+      table.stripe_product_id
+    ),
+    check(
+      "subscription_plans_interval_check",
+      sql`interval = ANY (ARRAY['month'::text, 'year'::text])`
+    ),
+  ]
+);
+
+export const customers = pgTable(
+  "customers",
+  {
+    id: uuid()
+      .default(sql`uuid_generate_v4()`)
+      .primaryKey()
+      .notNull(),
+    user_id: uuid("user_id").notNull(),
+    stripe_customer_id: text("stripe_customer_id").notNull(),
+    email: text().notNull(),
+    name: text(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    unique("customers_user_id_key").on(table.user_id),
+    unique("customers_stripe_customer_id_key").on(table.stripe_customer_id),
+    foreignKey({
+      columns: [table.user_id],
+      foreignColumns: [profiles.id],
+      name: "customers_user_id_fkey",
+    }).onDelete("cascade"),
+  ]
+);
+
+export const subscriptions = pgTable(
+  "subscriptions",
+  {
+    id: uuid()
+      .default(sql`uuid_generate_v4()`)
+      .primaryKey()
+      .notNull(),
+    customer_id: uuid("customer_id").notNull(),
+    plan_id: uuid("plan_id").notNull(),
+    stripe_subscription_id: text("stripe_subscription_id").notNull(),
+    status: text().notNull(),
+    current_period_start: timestamp("current_period_start", {
+      withTimezone: true,
+      mode: "string",
+    }).notNull(),
+    current_period_end: timestamp("current_period_end", {
+      withTimezone: true,
+      mode: "string",
+    }).notNull(),
+    trial_end: timestamp("trial_end", { withTimezone: true, mode: "string" }),
+    cancel_at_period_end: boolean("cancel_at_period_end")
+      .default(false)
+      .notNull(),
+    canceled_at: timestamp("canceled_at", {
+      withTimezone: true,
+      mode: "string",
+    }),
+    ended_at: timestamp("ended_at", { withTimezone: true, mode: "string" }),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    unique("subscriptions_stripe_subscription_id_key").on(
+      table.stripe_subscription_id
+    ),
+    foreignKey({
+      columns: [table.customer_id],
+      foreignColumns: [customers.id],
+      name: "subscriptions_customer_id_fkey",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.plan_id],
+      foreignColumns: [subscription_plans.id],
+      name: "subscriptions_plan_id_fkey",
+    }).onDelete("restrict"),
+    index("subscriptions_customer_id_idx").using(
+      "btree",
+      table.customer_id.asc().nullsLast().op("uuid_ops")
+    ),
+    index("subscriptions_status_idx").using(
+      "btree",
+      table.status.asc().nullsLast().op("text_ops")
+    ),
+    check(
+      "subscriptions_status_check",
+      sql`status = ANY (ARRAY['active'::text, 'canceled'::text, 'incomplete'::text, 'incomplete_expired'::text, 'past_due'::text, 'paused'::text, 'trialing'::text, 'unpaid'::text])`
+    ),
+  ]
+);
+
+export const subscription_usage = pgTable(
+  "subscription_usage",
+  {
+    id: uuid()
+      .default(sql`uuid_generate_v4()`)
+      .primaryKey()
+      .notNull(),
+    subscription_id: uuid("subscription_id").notNull(),
+    metric: text().notNull(), // 'locations', 'team_members', 'api_calls', etc.
+    value: integer().default(0).notNull(),
+    period_start: timestamp("period_start", {
+      withTimezone: true,
+      mode: "string",
+    }).notNull(),
+    period_end: timestamp("period_end", {
+      withTimezone: true,
+      mode: "string",
+    }).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.subscription_id],
+      foreignColumns: [subscriptions.id],
+      name: "subscription_usage_subscription_id_fkey",
+    }).onDelete("cascade"),
+    unique("subscription_usage_subscription_metric_period_key").on(
+      table.subscription_id,
+      table.metric,
+      table.period_start
+    ),
+    index("subscription_usage_subscription_id_idx").using(
+      "btree",
+      table.subscription_id.asc().nullsLast().op("uuid_ops")
+    ),
+  ]
 );

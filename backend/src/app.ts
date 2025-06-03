@@ -10,6 +10,7 @@ import inventoryRoutes from "./routes/inventory";
 import waitingListRoutes from "./routes/waitingList";
 import locationsRoutes from "./routes/locations";
 import undoRoutes from "./routes/undo";
+import subscriptionRoutes from "./routes/subscriptions";
 
 import { errorHandler } from "./middleware/errorHandler";
 
@@ -734,6 +735,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/waiting-list", waitingListRoutes);
 app.use("/api/locations", locationsRoutes);
 app.use("/api/undo", undoRoutes);
+app.use("/api/subscriptions", subscriptionRoutes);
 
 app.get("/", (req, res) => {
   res.json({ status: "Server running" });
