@@ -268,6 +268,7 @@ const Icon = ({ state }: { state: keyof typeof STATES }) => {
 
 export function VoiceModal() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
   const [buttonState, setButtonState] = useState<keyof typeof STATES>("idle");
   const [isConnected, setIsConnected] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -456,6 +457,7 @@ export function VoiceModal() {
 
   const handleStopVoice = () => {
     setIsVoiceModeActive(false);
+    setIsMinimized(false); // Reset minimized state when stopping voice
     stopRecording();
     // Clear transcription and ambiguous matches when stopping
     setTranscription("");
@@ -467,6 +469,22 @@ export function VoiceModal() {
     setTimeout(() => {
       setIsInCooldown(false);
     }, 5000);
+  };
+
+  const handleMinimize = () => {
+    setIsMinimized(true);
+  };
+
+  const handleExpand = () => {
+    setIsMinimized(false);
+  };
+
+  const handleClose = () => {
+    setIsOpen(false);
+    setIsMinimized(false);
+    if (isVoiceModeActive) {
+      handleStopVoice();
+    }
   };
 
   const startRecording = async () => {
@@ -602,9 +620,10 @@ export function VoiceModal() {
         </motion.div>
       )}
       <AnimatePresence>
-        {isOpen && (
+        {isOpen && !isMinimized && (
           <Dialog
-            close={() => setIsOpen(false)}
+            close={handleClose}
+            minimize={handleMinimize}
             theme={theme}
             buttonState={buttonState}
             onVoiceClick={handleVoiceClick}
@@ -620,6 +639,16 @@ export function VoiceModal() {
             isFinalTranscription={isFinalTranscription}
             onSuggestionClick={handleSuggestionClick}
             ambiguousMatch={ambiguousMatch}
+          />
+        )}
+        {isOpen && isMinimized && isVoiceModeActive && (
+          <ListeningIndicator
+            onExpand={handleExpand}
+            onStop={handleStopVoice}
+            feedback={feedback}
+            transcription={transcription}
+            isListening={isListening}
+            theme={theme}
           />
         )}
       </AnimatePresence>
@@ -708,6 +737,7 @@ function RippleEffect({ isActive }: { isActive: boolean }) {
 // Dialog and other components remain the same...
 function Dialog({
   close,
+  minimize,
   theme,
   buttonState,
   onVoiceClick,
@@ -725,6 +755,7 @@ function Dialog({
   ambiguousMatch,
 }: {
   close: () => void;
+  minimize: () => void;
   theme: string;
   buttonState: keyof typeof STATES;
   onVoiceClick: () => void;
@@ -765,12 +796,28 @@ function Dialog({
         layoutId="modal"
         style={{ overflow: "hidden" }}
       >
-        <motion.div
-          layout
-          initial={{ y: 20 }}
-          animate={{ y: 0 }}
-          exit={{ y: 20 }}
-        >
+        {/* Top Right Buttons - Moved outside animated container */}
+        <div className="topRightButtons">
+          {/* Voice Mode Button - Hide when voice mode is active */}
+          {!isVoiceModeActive && (
+            <button
+              onClick={onVoiceClick}
+              className={`voice-mode-topright rounded-lg ${
+                buttonState === "error"
+                  ? "bg-zinc-300 dark:bg-zinc-600 text-zinc-500 dark:text-zinc-400"
+                  : buttonState === "loading"
+                  ? "bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400"
+                  : "bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-600"
+              }`}
+              disabled={buttonState === "loading" || buttonState === "error"}
+              title="Voice Mode"
+            >
+              <Microphone />
+            </button>
+          )}
+        </div>
+
+        <motion.div initial={{ y: 20 }} animate={{ y: 0 }} exit={{ y: 20 }}>
           <h2 className="title h2 font-semibold text-xl text-zinc-900 dark:text-zinc-100">
             <QuestionMarkIcon theme={theme} />
             AI Assistant
@@ -836,10 +883,10 @@ function Dialog({
 
           <div className="controls">
             <button
-              onClick={close}
+              onClick={isVoiceModeActive ? minimize : close}
               className="cancel bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl"
             >
-              Cancel
+              {isVoiceModeActive ? "Minimize" : "Cancel"}
             </button>
 
             {isVoiceModeActive ? (
@@ -878,28 +925,100 @@ function Dialog({
               </motion.button>
             )}
           </div>
-
-          {/* Top Right Buttons */}
-          <div className="topRightButtons">
-            {/* Voice Mode Button - Hide when voice mode is active */}
-            {!isVoiceModeActive && (
-              <button
-                onClick={onVoiceClick}
-                className={`voice-mode-topright rounded-lg ${
-                  buttonState === "error"
-                    ? "bg-zinc-300 dark:bg-zinc-600 text-zinc-500 dark:text-zinc-400"
-                    : buttonState === "loading"
-                    ? "bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400"
-                    : "bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-600"
-                }`}
-                disabled={buttonState === "loading" || buttonState === "error"}
-                title="Voice Mode"
-              >
-                <Microphone />
-              </button>
-            )}
-          </div>
         </motion.div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// Listening Indicator Component
+function ListeningIndicator({
+  onExpand,
+  onStop,
+  feedback,
+  transcription,
+  isListening,
+  theme,
+}: {
+  onExpand: () => void;
+  onStop: () => void;
+  feedback: string;
+  transcription: string;
+  isListening: boolean;
+  theme: string;
+}) {
+  return (
+    <motion.div
+      className="fixed flex justify-center items-end z-50 bottom-5 right-0"
+      style={{ left: "var(--sidebar-width)" }}
+      initial={{ opacity: 0, y: 100, scale: 0.8 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 100, scale: 0.8 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+    >
+      <motion.div
+        className="listening-indicator rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 shadow-2xl p-4 max-w-sm mx-2"
+        layoutId="modal"
+        style={{ overflow: "hidden" }}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <motion.div
+              animate={isListening ? { scale: [1, 1.2, 1] } : {}}
+              transition={{ repeat: Infinity, duration: 1.5 }}
+              className="text-blue-500 dark:text-blue-400"
+            >
+              <Microphone className="w-5 h-5" />
+            </motion.div>
+            <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+              Listening...
+            </span>
+          </div>
+          <div className="flex gap-1">
+            <motion.button
+              onClick={onExpand}
+              className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              title="Expand"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                />
+              </svg>
+            </motion.button>
+            <motion.button
+              onClick={onStop}
+              className="p-1.5 rounded-lg bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-800 transition-colors"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              title="Stop Voice"
+            >
+              <X className="w-4 h-4" />
+            </motion.button>
+          </div>
+        </div>
+
+        {transcription && (
+          <div className="text-xs text-blue-600 dark:text-blue-400 bg-white dark:bg-blue-900 rounded-lg p-2 border border-blue-200 dark:border-blue-700">
+            <span className="font-medium">"{transcription}"</span>
+          </div>
+        )}
+
+        {feedback && !transcription && (
+          <div className="text-xs text-blue-600 dark:text-blue-400">
+            {feedback}
+          </div>
+        )}
       </motion.div>
     </motion.div>
   );
@@ -952,6 +1071,17 @@ function StyleSheet({ theme }: { theme: string }) {
     position: relative;
     transform: translateY(0);
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 25px 50px -12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  }
+
+  .listening-indicator {
+    width: 100%;
+    max-width: 320px;
+    margin-bottom: 0px;
+    margin-left: 8px;
+    margin-right: 8px;
+    position: relative;
+    transform: translateY(0);
+    box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.15), 0 10px 25px -5px rgba(59, 130, 246, 0.1), 0 0 0 1px rgba(59, 130, 246, 0.1);
   }
 
   .controls button {
