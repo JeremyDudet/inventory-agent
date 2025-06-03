@@ -20,7 +20,21 @@ export type InsertUserLocation = typeof user_locations.$inferInsert;
 export type InsertLocation = typeof locations.$inferInsert;
 
 export type InventoryItem = typeof inventory_items.$inferSelect;
-export type InventoryItemInsert = typeof inventory_items.$inferInsert;
+export type InventoryItemInsert = {
+  name: string;
+  id?: string;
+  created_at?: string;
+  updated_at?: string;
+  location_id: string;
+  sku: string;
+  quantity: number | null;
+  unit: string;
+  category: string;
+  threshold: number | null;
+  last_updated: string;
+  embedding: number[] | null;
+  description: string | null;
+};
 
 // Custom types for auth
 export type UserWithProfile = Profile & {

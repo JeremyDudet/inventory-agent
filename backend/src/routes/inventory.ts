@@ -179,7 +179,10 @@ router.post(
   authorize("inventory:write"),
   async (req, res, next) => {
     try {
-      const validationResult = inventoryItemSchema.safeParse(req.body);
+      const validationResult = inventoryItemSchema.safeParse({
+        ...req.body,
+        last_updated: new Date().toISOString(),
+      });
 
       if (!validationResult.success) {
         throw new ValidationError("Invalid input data");

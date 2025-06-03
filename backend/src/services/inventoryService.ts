@@ -344,10 +344,13 @@ class InventoryService {
   async addItem(item: InventoryItemInsert, req?: any): Promise<InventoryItem> {
     try {
       const embedding = await generateEmbedding(item.name);
+      const now = new Date().toISOString();
       const newItem = await this.repository.createItem({
         ...item,
         embedding, // Store the embedding
-        last_updated: new Date().toISOString(),
+        last_updated: now,
+        created_at: now,
+        updated_at: now,
       });
       if (!newItem) {
         throw new ValidationError("Failed to create inventory item");
