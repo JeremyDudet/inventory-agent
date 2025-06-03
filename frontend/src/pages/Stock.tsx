@@ -121,7 +121,7 @@ function InventoryListWithStickyHeader({
           <div className="bg-inherit mt-2">
             <div className="max-w-7xl sm:flex sm:items-center sm:px-6 lg:px-8">
               <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                Filters
+                Active Filters:
                 <span className="sr-only">, active</span>
               </h3>
 

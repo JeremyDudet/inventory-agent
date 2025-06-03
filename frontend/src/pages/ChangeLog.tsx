@@ -8,6 +8,12 @@ import { useUndoStore } from "@/stores/undoStore";
 import { Input } from "@/components/ui/input";
 import { Combobox } from "@/components/ui/combobox";
 import {
+  Dialog,
+  DialogBackdrop,
+  DialogPanel,
+  Disclosure,
+  DisclosureButton,
+  DisclosurePanel,
   Popover,
   PopoverButton,
   PopoverPanel,
@@ -20,6 +26,7 @@ import {
 } from "@heroicons/react/20/solid";
 import { Heading } from "@/components/ui/heading";
 import { Text } from "@/components/ui/text";
+import { motion } from "framer-motion";
 
 interface InventoryUpdate {
   id: string;
@@ -191,13 +198,15 @@ export default function ChangeLog() {
 
     // Filter by date range
     if (dateRange.start) {
+      const startDate = new Date(dateRange.start + "T00:00:00");
       filtered = filtered.filter(
-        (update) => new Date(update.createdAt) >= new Date(dateRange.start)
+        (update) => new Date(update.createdAt) >= startDate
       );
     }
     if (dateRange.end) {
+      const endDate = new Date(dateRange.end + "T23:59:59.999");
       filtered = filtered.filter(
-        (update) => new Date(update.createdAt) <= new Date(dateRange.end)
+        (update) => new Date(update.createdAt) <= endDate
       );
     }
 
@@ -368,8 +377,10 @@ export default function ChangeLog() {
     }
   };
 
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
   return (
-    <div className="">
+    <div className="min-h-screen bg-inherit max-w-7xl">
       <div className="sm:flex sm:items-center sm:justify-between">
         <div className="sm:flex-auto">
           <Heading level={1}>Change Log</Heading>
@@ -406,240 +417,305 @@ export default function ChangeLog() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="mt-8 flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row gap-4">
-          {/* Search */}
-          <div className="flex-1">
-            <Input
-              type="search"
-              placeholder="Search items or users..."
-              value={searchQuery}
-              onChange={(e) => setChangeLogSearchQuery(e.target.value)}
+      {/* Search and filter */}
+      <div className="flex flex-col gap-2 mt-12 w-full justify-center">
+        <div className="flex gap-2">
+          <SearchBar value={searchQuery} onChange={setChangeLogSearchQuery} />
+
+          {/* Mobile filter button */}
+          <button
+            type="button"
+            onClick={() => setMobileFiltersOpen(true)}
+            className="inline-flex items-center text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-300 sm:hidden"
+          >
+            Filters
+            {(selectedActions.length > 0 || selectedUsers.length > 0) && (
+              <span className="ml-1.5 flex items-center rounded bg-zinc-200 dark:bg-zinc-700 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-zinc-700 dark:text-zinc-300">
+                {selectedActions.length + selectedUsers.length}
+              </span>
+            )}
+          </button>
+
+          {/* Desktop filter buttons */}
+          <div className="hidden sm:flex gap-2">
+            <FilterButton
+              label="Actions"
+              selectedCount={selectedActions.length}
+              options={actions}
+              selectedOptions={selectedActions}
+              onToggle={handleActionToggle}
+            />
+            <FilterButton
+              label="Users"
+              selectedCount={selectedUsers.length}
+              options={users}
+              selectedOptions={selectedUsers}
+              onToggle={handleUserToggle}
             />
           </div>
+        </div>
 
-          {/* Date Range */}
-          <div className="flex gap-2">
+        {/* Date Range */}
+        <div className="hidden sm:flex gap-2 justify-end">
+          <div className="flex flex-col">
+            <label
+              htmlFor="date-start"
+              className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1"
+            >
+              Start Date
+            </label>
             <Input
+              id="date-start"
               type="date"
               value={dateRange.start}
               onChange={(e) =>
                 setChangeLogDateRange({ ...dateRange, start: e.target.value })
               }
+              className="w-40 max-w-48"
             />
+          </div>
+          <div className="flex flex-col">
+            <label
+              htmlFor="date-end"
+              className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1"
+            >
+              End Date
+            </label>
             <Input
+              id="date-end"
               type="date"
               value={dateRange.end}
               onChange={(e) =>
                 setChangeLogDateRange({ ...dateRange, end: e.target.value })
               }
+              className="w-40 max-w-48"
             />
           </div>
         </div>
 
-        {/* Action and User Filters */}
-        <div className="flex flex-wrap gap-4">
-          <PopoverGroup className="flex items-center divide-x divide-zinc-200 dark:divide-zinc-700">
-            {/* Action Filter */}
-            <Popover className="relative inline-block px-4 text-left">
-              <PopoverButton className="group inline-flex items-center justify-center text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-300">
-                <span>Actions</span>
-                {selectedActions.length > 0 && (
-                  <span className="ml-1.5 flex items-center rounded bg-zinc-200 dark:bg-zinc-700 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-zinc-700 dark:text-zinc-300">
-                    {selectedActions.length}
+        {/* Active filters */}
+        <div className="bg-inherit mt-2">
+          <div className="max-w-7xl sm:flex sm:items-center sm:px-6 lg:px-8">
+            <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              ActiveFilters:
+              <span className="sr-only">, active</span>
+            </h3>
+
+            <div
+              aria-hidden="true"
+              className="hidden h-5 w-px bg-zinc-500 dark:bg-zinc-400 sm:ml-4 sm:block"
+            />
+
+            <div className="mt-2 sm:ml-4 sm:mt-0">
+              <div className="-m-1 flex flex-wrap items-center">
+                {selectedActions.map((action) => (
+                  <span
+                    key={action}
+                    className="m-1 inline-flex items-center rounded-full border border-zinc-200 dark:border-zinc-700 py-1.5 pl-3 pr-2 text-sm font-medium text-zinc-900 dark:text-zinc-200"
+                  >
+                    <span className="capitalize">{action}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleActionToggle(action)}
+                      className="ml-1 inline-flex size-4 shrink-0 rounded-full p-1 text-zinc-400 dark:text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-zinc-500 dark:hover:text-zinc-400"
+                    >
+                      <span className="sr-only">
+                        Remove filter for {action}
+                      </span>
+                      <svg
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 8 8"
+                        className="size-2"
+                      >
+                        <path
+                          d="M1 1l6 6m0-6L1 7"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+                {selectedUsers.map((user) => (
+                  <span
+                    key={user}
+                    className="m-1 inline-flex items-center rounded-full border border-zinc-200 dark:border-zinc-700 py-1.5 pl-3 pr-2 text-sm font-medium text-zinc-900 dark:text-zinc-200"
+                  >
+                    <span>{user}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleUserToggle(user)}
+                      className="ml-1 inline-flex size-4 shrink-0 rounded-full p-1 text-zinc-400 dark:text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-zinc-500 dark:hover:text-zinc-400"
+                    >
+                      <span className="sr-only">Remove filter for {user}</span>
+                      <svg
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 8 8"
+                        className="size-2"
+                      >
+                        <path
+                          d="M1 1l6 6m0-6L1 7"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+                {dateRange.start && (
+                  <span className="m-1 inline-flex items-center rounded-full border border-zinc-200 dark:border-zinc-700 py-1.5 pl-3 pr-2 text-sm font-medium text-zinc-900 dark:text-zinc-200">
+                    <span>
+                      From:{" "}
+                      {new Date(
+                        dateRange.start + "T00:00:00"
+                      ).toLocaleDateString()}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setChangeLogDateRange({ ...dateRange, start: "" })
+                      }
+                      className="ml-1 inline-flex size-4 shrink-0 rounded-full p-1 text-zinc-400 dark:text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-zinc-500 dark:hover:text-zinc-400"
+                    >
+                      <span className="sr-only">Remove start date filter</span>
+                      <svg
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 8 8"
+                        className="size-2"
+                      >
+                        <path
+                          d="M1 1l6 6m0-6L1 7"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </button>
                   </span>
                 )}
-                <ChevronDownIcon className="ml-1 size-5 shrink-0 text-zinc-400 dark:text-zinc-500" />
-              </PopoverButton>
-
-              <PopoverPanel className="absolute right-0 z-10 mt-2 origin-top-right rounded-md bg-white dark:bg-zinc-800 p-4 shadow-2xl ring-1 ring-black/5 dark:ring-white/5">
-                <div className="space-y-4">
-                  {actions.map((action) => (
-                    <div key={action} className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedActions.includes(action)}
-                        onChange={() => handleActionToggle(action)}
-                        className="rounded border-zinc-300 dark:border-zinc-600"
-                      />
-                      <span className="capitalize">{action}</span>
-                    </div>
-                  ))}
-                </div>
-              </PopoverPanel>
-            </Popover>
-
-            {/* User Filter */}
-            <Popover className="relative inline-block px-4 text-left">
-              <PopoverButton className="group inline-flex items-center justify-center text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-300">
-                <span>Users</span>
-                {selectedUsers.length > 0 && (
-                  <span className="ml-1.5 flex items-center rounded bg-zinc-200 dark:bg-zinc-700 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-zinc-700 dark:text-zinc-300">
-                    {selectedUsers.length}
+                {dateRange.end && (
+                  <span className="m-1 inline-flex items-center rounded-full border border-zinc-200 dark:border-zinc-700 py-1.5 pl-3 pr-2 text-sm font-medium text-zinc-900 dark:text-zinc-200">
+                    <span>
+                      To:{" "}
+                      {new Date(
+                        dateRange.end + "T00:00:00"
+                      ).toLocaleDateString()}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setChangeLogDateRange({ ...dateRange, end: "" })
+                      }
+                      className="ml-1 inline-flex size-4 shrink-0 rounded-full p-1 text-zinc-400 dark:text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-zinc-500 dark:hover:text-zinc-400"
+                    >
+                      <span className="sr-only">Remove end date filter</span>
+                      <svg
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 8 8"
+                        className="size-2"
+                      >
+                        <path
+                          d="M1 1l6 6m0-6L1 7"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </button>
                   </span>
                 )}
-                <ChevronDownIcon className="ml-1 size-5 shrink-0 text-zinc-400 dark:text-zinc-500" />
-              </PopoverButton>
-
-              <PopoverPanel className="absolute right-0 z-10 mt-2 origin-top-right rounded-md bg-white dark:bg-zinc-800 p-4 shadow-2xl ring-1 ring-black/5 dark:ring-white/5">
-                <div className="space-y-4">
-                  {users.map((user) => (
-                    <div key={user} className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedUsers.includes(user)}
-                        onChange={() => handleUserToggle(user)}
-                        className="rounded border-zinc-300 dark:border-zinc-600"
-                      />
-                      <span>{user}</span>
-                    </div>
-                  ))}
-                </div>
-              </PopoverPanel>
-            </Popover>
-          </PopoverGroup>
-        </div>
-
-        {/* Active Filters */}
-        {(selectedActions.length > 0 ||
-          selectedUsers.length > 0 ||
-          dateRange.start ||
-          dateRange.end) && (
-          <div className="flex flex-wrap gap-2">
-            {selectedActions.map((action) => (
-              <span
-                key={action}
-                className="inline-flex items-center rounded-full border border-zinc-200 dark:border-zinc-700 px-3 py-1 text-sm"
-              >
-                Action: {action}
-                <button
-                  onClick={() => handleActionToggle(action)}
-                  className="ml-1 inline-flex size-4 shrink-0 rounded-full p-1 text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                >
-                  <XMarkIcon className="size-2" />
-                </button>
-              </span>
-            ))}
-            {selectedUsers.map((user) => (
-              <span
-                key={user}
-                className="inline-flex items-center rounded-full border border-zinc-200 dark:border-zinc-700 px-3 py-1 text-sm"
-              >
-                User: {user}
-                <button
-                  onClick={() => handleUserToggle(user)}
-                  className="ml-1 inline-flex size-4 shrink-0 rounded-full p-1 text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                >
-                  <XMarkIcon className="size-2" />
-                </button>
-              </span>
-            ))}
-            {dateRange.start && (
-              <span className="inline-flex items-center rounded-full border border-zinc-200 dark:border-zinc-700 px-3 py-1 text-sm">
-                From: {new Date(dateRange.start).toLocaleDateString()}
-                <button
-                  onClick={() =>
-                    setChangeLogDateRange({ ...dateRange, start: "" })
-                  }
-                  className="ml-1 inline-flex size-4 shrink-0 rounded-full p-1 text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                >
-                  <XMarkIcon className="size-2" />
-                </button>
-              </span>
-            )}
-            {dateRange.end && (
-              <span className="inline-flex items-center rounded-full border border-zinc-200 dark:border-zinc-700 px-3 py-1 text-sm">
-                To: {new Date(dateRange.end).toLocaleDateString()}
-                <button
-                  onClick={() =>
-                    setChangeLogDateRange({ ...dateRange, end: "" })
-                  }
-                  className="ml-1 inline-flex size-4 shrink-0 rounded-full p-1 text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                >
-                  <XMarkIcon className="size-2" />
-                </button>
-              </span>
-            )}
+              </div>
+            </div>
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Table */}
-      <div className="mt-8 flow-root">
-        <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
-          <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
-            <div className="relative">
-              {isLoading && (
-                <div className="absolute inset-0 bg-white/50 dark:bg-zinc-900/50 z-10 flex items-center justify-center">
-                  <div className="flex items-center gap-2">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-zinc-900 dark:border-zinc-100"></div>
-                    <span className="text-sm text-zinc-600 dark:text-zinc-400">
-                      Updating...
-                    </span>
-                  </div>
-                </div>
-              )}
-              <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
-                <thead>
-                  <tr>
-                    <th className="py-3.5 pl-4 pr-3 text-left text-sm font-medium text-zinc-500 dark:text-zinc-400 sm:pl-0">
-                      Item
-                    </th>
-                    <th className="px-3 py-3.5 text-left text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                      Action
-                    </th>
-                    <th className="px-3 py-3.5 text-left text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                      Change
-                    </th>
-                    <th className="px-3 py-3.5 text-left text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                      User
-                    </th>
-                    <th className="px-3 py-3.5 text-left text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                      Method
-                    </th>
-                    <th className="px-3 py-3.5 text-left text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                      Date
-                    </th>
-                    <th
-                      className="px-3 py-3.5 text-left text-sm font-medium text-zinc-500 dark:text-zinc-400"
-                      title="Undo actions you performed (highlighted in blue)"
-                    >
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700">
-                  {filteredUpdates.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="py-12 text-center">
-                        <div className="text-sm text-zinc-500 dark:text-zinc-400">
-                          {isLoading
-                            ? "Loading..."
-                            : "No inventory updates found"}
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredUpdates.map((update) => {
-                      const undoableAction = canUndoUpdate(update);
-                      const isProcessingThisUndo = processingUndo === update.id;
-                      const isCurrentUserAction =
-                        update.userId === session?.user?.id;
+      {/* Mobile filter drawer */}
+      <MobileFilterDrawer
+        open={mobileFiltersOpen}
+        setOpen={setMobileFiltersOpen}
+        actions={actions}
+        users={users}
+        selectedActions={selectedActions}
+        selectedUsers={selectedUsers}
+        onActionToggle={handleActionToggle}
+        onUserToggle={handleUserToggle}
+        dateRange={dateRange}
+        setDateRange={setChangeLogDateRange}
+      />
 
-                      return (
-                        <tr
-                          key={update.id}
-                          className={`transition-all duration-700 ease-in-out ${
-                            update.isNew
-                              ? "bg-green-50 dark:bg-green-900/20"
-                              : ""
-                          }`}
-                        >
-                          <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-zinc-900 dark:text-zinc-100 sm:pl-0">
-                            {update.itemName}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm">
+      {/* Table */}
+      <div className="-mx-4 mt-12 sm:-mx-0">
+        <div className="relative">
+          {isLoading && (
+            <div className="absolute inset-0 bg-white/50 dark:bg-zinc-900/50 z-10 flex items-center justify-center">
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-zinc-900 dark:border-zinc-100"></div>
+                <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                  Updating...
+                </span>
+              </div>
+            </div>
+          )}
+          <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-700">
+            <thead>
+              <tr>
+                <th className="py-3.5 pl-4 pr-3 text-left text-sm font-medium text-zinc-500 dark:text-zinc-400 sm:pl-0">
+                  Item
+                </th>
+                <th className="hidden px-3 py-3.5 text-left text-sm font-medium text-zinc-500 dark:text-zinc-400 sm:table-cell">
+                  Action
+                </th>
+                <th className="hidden px-3 py-3.5 text-left text-sm font-medium text-zinc-500 dark:text-zinc-400 sm:table-cell">
+                  Change
+                </th>
+                <th className="hidden px-3 py-3.5 text-left text-sm font-medium text-zinc-500 dark:text-zinc-400 md:table-cell">
+                  User
+                </th>
+                <th className="hidden px-3 py-3.5 text-left text-sm font-medium text-zinc-500 dark:text-zinc-400 lg:table-cell">
+                  Method
+                </th>
+                <th className="hidden px-3 py-3.5 text-left text-sm font-medium text-zinc-500 dark:text-zinc-400 md:table-cell">
+                  Date
+                </th>
+                <th
+                  className="px-3 py-3.5 text-left text-sm font-medium text-zinc-500 dark:text-zinc-400"
+                  title="Undo actions you performed (highlighted in blue)"
+                >
+                  <span className="sr-only sm:not-sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700 bg-inherit">
+              {filteredUpdates.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center">
+                    <div className="text-sm text-zinc-500 dark:text-zinc-400">
+                      {isLoading ? "Loading..." : "No inventory updates found"}
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredUpdates.map((update) => {
+                  const undoableAction = canUndoUpdate(update);
+                  const isProcessingThisUndo = processingUndo === update.id;
+                  const isCurrentUserAction =
+                    update.userId === session?.user?.id;
+
+                  return (
+                    <tr
+                      key={update.id}
+                      className={`transition-all duration-700 ease-in-out ${
+                        update.isNew ? "bg-green-50 dark:bg-green-900/20" : ""
+                      }`}
+                    >
+                      <td className="w-full max-w-0 py-4 pl-4 pr-3 text-sm font-medium text-zinc-900 dark:text-zinc-100 sm:w-auto sm:max-w-none sm:pl-0">
+                        {update.itemName}
+                        <dl className="font-normal sm:hidden">
+                          <dt className="sr-only">Action</dt>
+                          <dd className="mt-1 truncate">
                             <span
                               className={`capitalize ${getActionColor(
                                 update.action
@@ -647,63 +723,427 @@ export default function ChangeLog() {
                             >
                               {update.action}
                             </span>
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-zinc-500 dark:text-zinc-400">
-                            {update.previousQuantity} → {update.newQuantity}{" "}
-                            {update.unit}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-zinc-500 dark:text-zinc-400">
-                            {update.userName}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-zinc-500 dark:text-zinc-400">
+                            <span className="text-zinc-500 dark:text-zinc-400 ml-2">
+                              {update.previousQuantity} → {update.newQuantity}{" "}
+                              {update.unit}
+                            </span>
+                          </dd>
+                          <dt className="sr-only md:hidden">User and Date</dt>
+                          <dd className="mt-1 truncate text-zinc-500 dark:text-zinc-400 md:hidden">
+                            {update.userName} • {formatDate(update.createdAt)}
+                          </dd>
+                          <dt className="sr-only lg:hidden">Method</dt>
+                          <dd className="mt-1 truncate lg:hidden">
                             {getMethodDisplay(update.method)}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-zinc-500 dark:text-zinc-400">
-                            {formatDate(update.createdAt)}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-zinc-500 dark:text-zinc-400">
-                            {undoableAction ? (
-                              <button
-                                onClick={() => handleUndo(update)}
-                                disabled={isProcessingThisUndo}
-                                className={`inline-flex items-center gap-1 p-1.5 rounded-md transition-colors ${
-                                  isProcessingThisUndo
-                                    ? "opacity-50 cursor-not-allowed text-zinc-400 dark:text-zinc-500"
-                                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700"
-                                }`}
-                                title={
-                                  isProcessingThisUndo
-                                    ? "Undoing..."
-                                    : "Undo this action"
-                                }
-                              >
-                                {isProcessingThisUndo ? (
-                                  <div className="w-4 h-4 border border-current border-t-transparent rounded-full animate-spin"></div>
-                                ) : (
-                                  <ArrowUturnLeftIcon className="w-4 h-4" />
-                                )}
-                                <span className="sr-only">
-                                  {isProcessingThisUndo
-                                    ? "Undoing..."
-                                    : "Undo this action"}
-                                </span>
-                              </button>
+                          </dd>
+                        </dl>
+                      </td>
+                      <td className="hidden px-3 py-4 text-sm sm:table-cell">
+                        <span
+                          className={`capitalize ${getActionColor(
+                            update.action
+                          )}`}
+                        >
+                          {update.action}
+                        </span>
+                      </td>
+                      <td className="hidden px-3 py-4 text-sm text-zinc-500 dark:text-zinc-400 sm:table-cell">
+                        {update.previousQuantity} → {update.newQuantity}{" "}
+                        {update.unit}
+                      </td>
+                      <td className="hidden px-3 py-4 text-sm text-zinc-500 dark:text-zinc-400 md:table-cell">
+                        {update.userName}
+                      </td>
+                      <td className="hidden px-3 py-4 text-sm text-zinc-500 dark:text-zinc-400 lg:table-cell">
+                        {getMethodDisplay(update.method)}
+                      </td>
+                      <td className="hidden px-3 py-4 text-sm text-zinc-500 dark:text-zinc-400 md:table-cell">
+                        {formatDate(update.createdAt)}
+                      </td>
+                      <td className="py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-0 whitespace-nowrap">
+                        {undoableAction ? (
+                          <button
+                            onClick={() => handleUndo(update)}
+                            disabled={isProcessingThisUndo}
+                            className={`inline-flex items-center gap-1 p-1.5 rounded-md transition-colors ${
+                              isProcessingThisUndo
+                                ? "opacity-50 cursor-not-allowed text-zinc-400 dark:text-zinc-500"
+                                : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                            }`}
+                            title={
+                              isProcessingThisUndo
+                                ? "Undoing..."
+                                : "Undo this action"
+                            }
+                          >
+                            {isProcessingThisUndo ? (
+                              <div className="w-4 h-4 border border-current border-t-transparent rounded-full animate-spin"></div>
                             ) : (
-                              <span className="text-zinc-300 dark:text-zinc-600">
-                                —
-                              </span>
+                              <ArrowUturnLeftIcon className="w-4 h-4" />
                             )}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                            <span className="sr-only">
+                              {isProcessingThisUndo
+                                ? "Undoing..."
+                                : "Undo this action"}
+                            </span>
+                          </button>
+                        ) : (
+                          <span className="text-zinc-300 dark:text-zinc-600">
+                            —
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
+  );
+}
+
+function SearchBar({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="w-full">
+      <Input
+        id="search"
+        name="search"
+        type="search"
+        placeholder="Search items or users..."
+        aria-label="Search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
+  );
+}
+
+function MobileFilterDrawer({
+  open,
+  setOpen,
+  actions,
+  users,
+  selectedActions,
+  selectedUsers,
+  onActionToggle,
+  onUserToggle,
+  dateRange,
+  setDateRange,
+}: {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  actions: readonly string[];
+  users: string[];
+  selectedActions: string[];
+  selectedUsers: string[];
+  onActionToggle: (action: string) => void;
+  onUserToggle: (user: string) => void;
+  dateRange: { start: string; end: string };
+  setDateRange: (range: { start: string; end: string }) => void;
+}) {
+  return (
+    <Dialog open={open} onClose={setOpen} className="relative z-40 sm:hidden">
+      <DialogBackdrop
+        transition
+        className="fixed inset-0 bg-black/25 transition-opacity duration-300 ease-linear data-[closed]:opacity-0"
+      />
+
+      <div className="fixed inset-0 z-40 flex">
+        <DialogPanel
+          transition
+          className="relative ml-auto flex size-full max-w-xs max-h-screen outline outline-zinc-200 dark:outline-zinc-700 transform flex-col overflow-y-auto bg-white dark:bg-zinc-900 py-4 pb-12 shadow-xl transition duration-300 ease-in-out data-[closed]:translate-x-full"
+        >
+          <div className="flex items-center justify-between px-4">
+            <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+              Filters
+            </h2>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="-mr-2 flex size-10 items-center justify-center rounded-md bg-inherit p-2 text-zinc-400"
+            >
+              <span className="sr-only">Close menu</span>
+              <XMarkIcon aria-hidden="true" className="size-6" />
+            </button>
+          </div>
+
+          {/* Filters */}
+          <form className="mt-4">
+            {/* Actions Filter */}
+            <Disclosure
+              as="div"
+              className="border-t border-zinc-200 dark:border-zinc-700 px-4 py-6"
+            >
+              <h3 className="-mx-2 -my-3 flow-root">
+                <DisclosureButton className="group flex w-full items-center justify-between px-2 py-3 text-sm text-zinc-400">
+                  <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                    Actions
+                  </span>
+                  <span className="ml-6 flex items-center">
+                    <ChevronDownIcon
+                      aria-hidden="true"
+                      className="size-5 rotate-0 transform group-data-[open]:-rotate-180"
+                    />
+                  </span>
+                </DisclosureButton>
+              </h3>
+              <DisclosurePanel className="pt-6">
+                <div className="space-y-6">
+                  {actions.map((action) => (
+                    <div key={action} className="flex gap-3">
+                      <div className="flex h-5 shrink-0 items-center">
+                        <div className="group grid size-4 grid-cols-1">
+                          <input
+                            checked={selectedActions.includes(action)}
+                            onChange={() => onActionToggle(action)}
+                            id={`filter-mobile-action-${action}`}
+                            name="action[]"
+                            type="checkbox"
+                            className="col-start-1 row-start-1 appearance-none rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 checked:border-zinc-600 dark:checked:border-zinc-400 checked:bg-zinc-600 dark:checked:bg-zinc-400 indeterminate:border-zinc-600 dark:indeterminate:border-zinc-400 indeterminate:bg-zinc-600 dark:indeterminate:bg-zinc-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-600 dark:focus-visible:outline-zinc-400 disabled:border-zinc-300 dark:disabled:border-zinc-600 disabled:bg-zinc-100 dark:disabled:bg-zinc-900 disabled:checked:bg-zinc-100 dark:disabled:checked:bg-zinc-900 forced-colors:appearance-auto"
+                          />
+                          <svg
+                            fill="none"
+                            viewBox="0 0 14 14"
+                            className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white dark:stroke-zinc-900 group-has-[:disabled]:stroke-zinc-950/25 dark:group-has-[:disabled]:stroke-zinc-50/25"
+                          >
+                            <motion.path
+                              d="M3 8L6 11L11 3.5"
+                              strokeWidth={2}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              initial={{ pathLength: 0 }}
+                              animate={{
+                                pathLength: selectedActions.includes(action)
+                                  ? 1
+                                  : 0,
+                              }}
+                              transition={{ duration: 0.3 }}
+                            />
+                          </svg>
+                        </div>
+                      </div>
+                      <label
+                        htmlFor={`filter-mobile-action-${action}`}
+                        className="text-sm text-zinc-900 dark:text-zinc-100 capitalize"
+                      >
+                        {action}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </DisclosurePanel>
+            </Disclosure>
+
+            {/* Users Filter */}
+            <Disclosure
+              as="div"
+              className="border-t border-zinc-200 dark:border-zinc-700 px-4 py-6"
+            >
+              <h3 className="-mx-2 -my-3 flow-root">
+                <DisclosureButton className="group flex w-full items-center justify-between px-2 py-3 text-sm text-zinc-400">
+                  <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                    Users
+                  </span>
+                  <span className="ml-6 flex items-center">
+                    <ChevronDownIcon
+                      aria-hidden="true"
+                      className="size-5 rotate-0 transform group-data-[open]:-rotate-180"
+                    />
+                  </span>
+                </DisclosureButton>
+              </h3>
+              <DisclosurePanel className="pt-6">
+                <div className="space-y-6">
+                  {users.map((user) => (
+                    <div key={user} className="flex gap-3">
+                      <div className="flex h-5 shrink-0 items-center">
+                        <div className="group grid size-4 grid-cols-1">
+                          <input
+                            checked={selectedUsers.includes(user)}
+                            onChange={() => onUserToggle(user)}
+                            id={`filter-mobile-user-${user}`}
+                            name="user[]"
+                            type="checkbox"
+                            className="col-start-1 row-start-1 appearance-none rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 checked:border-zinc-600 dark:checked:border-zinc-400 checked:bg-zinc-600 dark:checked:bg-zinc-400 indeterminate:border-zinc-600 dark:indeterminate:border-zinc-400 indeterminate:bg-zinc-600 dark:indeterminate:bg-zinc-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-600 dark:focus-visible:outline-zinc-400 disabled:border-zinc-300 dark:disabled:border-zinc-600 disabled:bg-zinc-100 dark:disabled:bg-zinc-900 disabled:checked:bg-zinc-100 dark:disabled:checked:bg-zinc-900 forced-colors:appearance-auto"
+                          />
+                          <svg
+                            fill="none"
+                            viewBox="0 0 14 14"
+                            className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white dark:stroke-zinc-900 group-has-[:disabled]:stroke-zinc-950/25 dark:group-has-[:disabled]:stroke-zinc-50/25"
+                          >
+                            <motion.path
+                              d="M3 8L6 11L11 3.5"
+                              strokeWidth={2}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              initial={{ pathLength: 0 }}
+                              animate={{
+                                pathLength: selectedUsers.includes(user)
+                                  ? 1
+                                  : 0,
+                              }}
+                              transition={{ duration: 0.3 }}
+                            />
+                          </svg>
+                        </div>
+                      </div>
+                      <label
+                        htmlFor={`filter-mobile-user-${user}`}
+                        className="text-sm text-zinc-900 dark:text-zinc-100"
+                      >
+                        {user}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </DisclosurePanel>
+            </Disclosure>
+
+            {/* Date Range Filter */}
+            <Disclosure
+              as="div"
+              className="border-t border-zinc-200 dark:border-zinc-700 px-4 py-6"
+            >
+              <h3 className="-mx-2 -my-3 flow-root">
+                <DisclosureButton className="group flex w-full items-center justify-between px-2 py-3 text-sm text-zinc-400">
+                  <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                    Date Range
+                  </span>
+                  <span className="ml-6 flex items-center">
+                    <ChevronDownIcon
+                      aria-hidden="true"
+                      className="size-5 rotate-0 transform group-data-[open]:-rotate-180"
+                    />
+                  </span>
+                </DisclosureButton>
+              </h3>
+              <DisclosurePanel className="pt-6">
+                <div className="space-y-4">
+                  <div>
+                    <label
+                      htmlFor="mobile-date-start"
+                      className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2"
+                    >
+                      Start Date
+                    </label>
+                    <Input
+                      id="mobile-date-start"
+                      type="date"
+                      value={dateRange.start}
+                      onChange={(e) =>
+                        setDateRange({ ...dateRange, start: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="mobile-date-end"
+                      className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2"
+                    >
+                      End Date
+                    </label>
+                    <Input
+                      id="mobile-date-end"
+                      type="date"
+                      value={dateRange.end}
+                      onChange={(e) =>
+                        setDateRange({ ...dateRange, end: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+              </DisclosurePanel>
+            </Disclosure>
+          </form>
+        </DialogPanel>
+      </div>
+    </Dialog>
+  );
+}
+
+function FilterButton({
+  label,
+  selectedCount,
+  options,
+  selectedOptions,
+  onToggle,
+}: {
+  label: string;
+  selectedCount: number;
+  options: readonly string[] | string[];
+  selectedOptions: string[];
+  onToggle: (option: string) => void;
+}) {
+  return (
+    <Popover className="relative inline-block text-left">
+      <PopoverButton className="group inline-flex items-center justify-center text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-300 px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700">
+        <span>{label}</span>
+        {selectedCount > 0 && (
+          <span className="ml-1.5 flex items-center rounded bg-zinc-200 dark:bg-zinc-700 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-zinc-700 dark:text-zinc-300">
+            {selectedCount}
+          </span>
+        )}
+        <ChevronDownIcon
+          aria-hidden="true"
+          className="-mr-1 ml-1 size-5 shrink-0 text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-500 dark:group-hover:text-zinc-400"
+        />
+      </PopoverButton>
+
+      <PopoverPanel
+        transition
+        className="absolute right-0 z-10 mt-2 origin-top-right rounded-md bg-white dark:bg-zinc-800 p-4 shadow-2xl ring-1 ring-black/5 dark:ring-white/5 transition focus:outline-none data-[closed]:scale-95 data-[closed]:transform data-[closed]:opacity-0 data-[enter]:duration-100 data-[leave]:duration-75 data-[enter]:ease-out data-[leave]:ease-in"
+      >
+        <form className="space-y-4">
+          {options.map((option) => (
+            <div key={option} className="flex items-center gap-3">
+              <div className="flex h-5 shrink-0 items-center">
+                <div className="group grid size-4 grid-cols-1">
+                  <input
+                    checked={selectedOptions.includes(option)}
+                    onChange={() => onToggle(option)}
+                    id={`filter-${label}-${option}`}
+                    name={`${label}[]`}
+                    type="checkbox"
+                    className="col-start-1 row-start-1 appearance-none rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 checked:border-zinc-600 dark:checked:border-zinc-400 checked:bg-zinc-600 dark:checked:bg-zinc-400 indeterminate:border-zinc-600 dark:indeterminate:border-zinc-400 indeterminate:bg-zinc-600 dark:indeterminate:bg-zinc-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-600 dark:focus-visible:outline-zinc-400 disabled:border-zinc-300 dark:disabled:border-zinc-600 disabled:bg-zinc-100 dark:disabled:bg-zinc-900 disabled:checked:bg-zinc-100 dark:disabled:checked:bg-zinc-900 forced-colors:appearance-auto"
+                  />
+                  <svg
+                    fill="none"
+                    viewBox="0 0 14 14"
+                    className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white dark:stroke-zinc-900 group-has-[:disabled]:stroke-zinc-950/25 dark:group-has-[:disabled]:stroke-zinc-50/25"
+                  >
+                    <motion.path
+                      d="M3 8L6 11L11 3.5"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      initial={{ pathLength: 0 }}
+                      animate={{
+                        pathLength: selectedOptions.includes(option) ? 1 : 0,
+                      }}
+                      transition={{ duration: 0.3 }}
+                    />
+                  </svg>
+                </div>
+              </div>
+              <label
+                htmlFor={`filter-${label}-${option}`}
+                className="flex items-center whitespace-nowrap pr-6 text-sm font-medium text-zinc-900 dark:text-zinc-100 capitalize"
+              >
+                {option}
+              </label>
+            </div>
+          ))}
+        </form>
+      </PopoverPanel>
+    </Popover>
   );
 }
