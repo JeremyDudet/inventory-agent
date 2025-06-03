@@ -4,6 +4,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useFilterStore } from "@/stores/filterStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useChangelogStore } from "@/stores/changelogStore";
+import { useUndoStore } from "@/stores/undoStore";
 import { Input } from "@/components/ui/input";
 import { Combobox } from "@/components/ui/combobox";
 import {
@@ -12,7 +13,11 @@ import {
   PopoverPanel,
   PopoverGroup,
 } from "@headlessui/react";
-import { ChevronDownIcon, XMarkIcon } from "@heroicons/react/20/solid";
+import {
+  ChevronDownIcon,
+  XMarkIcon,
+  ArrowUturnLeftIcon,
+} from "@heroicons/react/20/solid";
 import { Heading } from "@/components/ui/heading";
 import { Text } from "@/components/ui/text";
 
@@ -48,6 +53,7 @@ interface DatabaseInventoryUpdate {
 
 export default function ChangeLog() {
   const [filteredUpdates, setFilteredUpdates] = useState<InventoryUpdate[]>([]);
+  const [processingUndo, setProcessingUndo] = useState<string | null>(null);
   const {
     changeLog: { searchQuery, dateRange, selectedUsers, selectedActions },
     setChangeLogSearchQuery,
@@ -58,6 +64,7 @@ export default function ChangeLog() {
   const { session } = useAuthStore();
   const { items } = useInventoryStore();
   const { addNotification } = useNotificationStore();
+  const { actionHistory, executeUndo } = useUndoStore();
   const {
     updates,
     users,
@@ -311,6 +318,56 @@ export default function ChangeLog() {
     forceRefresh();
   };
 
+  // Check if an update can be undone
+  const canUndoUpdate = (update: InventoryUpdate) => {
+    // Only allow undo for inventory updates from the current user
+    const currentUserId = session?.user?.id;
+    if (update.userId !== currentUserId) return null;
+
+    // Look for matching undoable action in the undo store
+    // Match by itemId and within a reasonable time window (5 minutes to account for processing delays)
+    const updateTime = new Date(update.createdAt).getTime();
+    const matchingAction = actionHistory.find((action) => {
+      const actionTime = action.timestamp.getTime();
+      const timeDiff = Math.abs(updateTime - actionTime);
+
+      return (
+        action.itemId === update.itemId &&
+        action.type === "inventory_update" &&
+        timeDiff < 300000 && // Within 5 minutes (more forgiving)
+        // Additional check: quantities should match
+        action.currentState?.quantity === update.newQuantity &&
+        action.previousState?.quantity === update.previousQuantity
+      );
+    });
+
+    return matchingAction;
+  };
+
+  const handleUndo = async (update: InventoryUpdate) => {
+    const undoableAction = canUndoUpdate(update);
+    if (!undoableAction) return;
+
+    setProcessingUndo(update.id);
+
+    try {
+      const success = await executeUndo(undoableAction.id);
+
+      if (success) {
+        addNotification("success", "Action undone successfully", 3000);
+        // Refresh the changelog to show the reverted state
+        forceRefresh();
+      } else {
+        addNotification("error", "Failed to undo action", 4000);
+      }
+    } catch (error) {
+      console.error("Failed to undo action:", error);
+      addNotification("error", "Failed to undo action", 4000);
+    } finally {
+      setProcessingUndo(null);
+    }
+  };
+
   return (
     <div className="">
       <div className="sm:flex sm:items-center sm:justify-between">
@@ -544,12 +601,18 @@ export default function ChangeLog() {
                     <th className="px-3 py-3.5 text-left text-sm font-medium text-zinc-500 dark:text-zinc-400">
                       Date
                     </th>
+                    <th
+                      className="px-3 py-3.5 text-left text-sm font-medium text-zinc-500 dark:text-zinc-400"
+                      title="Undo actions you performed (highlighted in blue)"
+                    >
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700">
                   {filteredUpdates.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-12 text-center">
+                      <td colSpan={7} className="py-12 text-center">
                         <div className="text-sm text-zinc-500 dark:text-zinc-400">
                           {isLoading
                             ? "Loading..."
@@ -558,40 +621,82 @@ export default function ChangeLog() {
                       </td>
                     </tr>
                   ) : (
-                    filteredUpdates.map((update) => (
-                      <tr
-                        key={update.id}
-                        className={`transition-all duration-700 ease-in-out ${
-                          update.isNew ? "bg-green-50 dark:bg-green-900/20" : ""
-                        }`}
-                      >
-                        <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-zinc-900 dark:text-zinc-100 sm:pl-0">
-                          {update.itemName}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm">
-                          <span
-                            className={`capitalize ${getActionColor(
-                              update.action
-                            )}`}
-                          >
-                            {update.action}
-                          </span>
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-zinc-500 dark:text-zinc-400">
-                          {update.previousQuantity} → {update.newQuantity}{" "}
-                          {update.unit}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-zinc-500 dark:text-zinc-400">
-                          {update.userName}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-zinc-500 dark:text-zinc-400">
-                          {getMethodDisplay(update.method)}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-zinc-500 dark:text-zinc-400">
-                          {formatDate(update.createdAt)}
-                        </td>
-                      </tr>
-                    ))
+                    filteredUpdates.map((update) => {
+                      const undoableAction = canUndoUpdate(update);
+                      const isProcessingThisUndo = processingUndo === update.id;
+                      const isCurrentUserAction =
+                        update.userId === session?.user?.id;
+
+                      return (
+                        <tr
+                          key={update.id}
+                          className={`transition-all duration-700 ease-in-out ${
+                            update.isNew
+                              ? "bg-green-50 dark:bg-green-900/20"
+                              : ""
+                          }`}
+                        >
+                          <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-zinc-900 dark:text-zinc-100 sm:pl-0">
+                            {update.itemName}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm">
+                            <span
+                              className={`capitalize ${getActionColor(
+                                update.action
+                              )}`}
+                            >
+                              {update.action}
+                            </span>
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-zinc-500 dark:text-zinc-400">
+                            {update.previousQuantity} → {update.newQuantity}{" "}
+                            {update.unit}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-zinc-500 dark:text-zinc-400">
+                            {update.userName}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-zinc-500 dark:text-zinc-400">
+                            {getMethodDisplay(update.method)}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-zinc-500 dark:text-zinc-400">
+                            {formatDate(update.createdAt)}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-zinc-500 dark:text-zinc-400">
+                            {undoableAction ? (
+                              <button
+                                onClick={() => handleUndo(update)}
+                                disabled={isProcessingThisUndo}
+                                className={`inline-flex items-center gap-1 p-1.5 rounded-md transition-colors ${
+                                  isProcessingThisUndo
+                                    ? "opacity-50 cursor-not-allowed text-zinc-400 dark:text-zinc-500"
+                                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                                }`}
+                                title={
+                                  isProcessingThisUndo
+                                    ? "Undoing..."
+                                    : "Undo this action"
+                                }
+                              >
+                                {isProcessingThisUndo ? (
+                                  <div className="w-4 h-4 border border-current border-t-transparent rounded-full animate-spin"></div>
+                                ) : (
+                                  <ArrowUturnLeftIcon className="w-4 h-4" />
+                                )}
+                                <span className="sr-only">
+                                  {isProcessingThisUndo
+                                    ? "Undoing..."
+                                    : "Undo this action"}
+                                </span>
+                              </button>
+                            ) : (
+                              <span className="text-zinc-300 dark:text-zinc-600">
+                                —
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>

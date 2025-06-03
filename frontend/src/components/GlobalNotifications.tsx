@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { XMarkIcon } from "@heroicons/react/20/solid";
+import { XMarkIcon, ArrowUturnLeftIcon } from "@heroicons/react/20/solid";
 import {
   useNotificationStore,
   NotificationType,
@@ -199,9 +199,9 @@ const GlobalNotifications: React.FC = () => {
                       {notification.message}
                     </p>
 
-                    {/* Undo button row */}
+                    {/* Undo button below message - more prominent */}
                     {notification.undoAction && (
-                      <div className="mt-3 flex items-center gap-2">
+                      <div className="mt-2">
                         <button
                           onClick={() =>
                             handleUndo(
@@ -210,31 +210,52 @@ const GlobalNotifications: React.FC = () => {
                             )
                           }
                           disabled={isProcessing}
-                          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                            colors.button
-                          } ${
-                            isProcessing ? "opacity-50 cursor-not-allowed" : ""
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors ${
+                            isProcessing
+                              ? "opacity-50 cursor-not-allowed border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+                              : `border-current ${colors.button} ${
+                                  colors.background.includes("green")
+                                    ? "bg-green-100 dark:bg-green-800/30"
+                                    : colors.background.includes("red")
+                                    ? "bg-red-100 dark:bg-red-800/30"
+                                    : colors.background.includes("yellow")
+                                    ? "bg-yellow-100 dark:bg-yellow-800/30"
+                                    : "bg-blue-100 dark:bg-blue-800/30"
+                                }`
                           }`}
+                          title={
+                            isProcessing
+                              ? "Undoing..."
+                              : notification.undoAction.label
+                          }
                         >
                           {isProcessing ? (
-                            <div className="flex items-center gap-1">
+                            <>
                               <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin"></div>
                               Undoing...
-                            </div>
+                            </>
                           ) : (
-                            notification.undoAction.label
+                            <>
+                              <ArrowUturnLeftIcon className="w-3 h-3" />
+                              {notification.undoAction.label}
+                            </>
                           )}
                         </button>
                       </div>
                     )}
                   </div>
-                  <button
-                    onClick={() => removeNotification(notification.id)}
-                    className={`flex-shrink-0 rounded-md p-1.5 inline-flex ${colors.icon} hover:bg-black/5 dark:hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-transparent focus:ring-current`}
-                  >
-                    <span className="sr-only">Close</span>
-                    <XMarkIcon className="w-4 h-4" />
-                  </button>
+
+                  {/* Close button - smaller and less prominent */}
+                  <div className="flex-shrink-0 ml-2">
+                    <button
+                      onClick={() => removeNotification(notification.id)}
+                      className={`rounded-md p-1 inline-flex ${colors.icon} opacity-60 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-transparent focus:ring-current transition-opacity`}
+                      title="Close notification"
+                    >
+                      <span className="sr-only">Close</span>
+                      <XMarkIcon className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </motion.div>
