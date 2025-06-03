@@ -38,7 +38,7 @@ interface InventoryUpdate {
   unit: string;
   userId: string;
   userName: string;
-  method?: "ui" | "voice" | "api";
+  method?: "ui" | "voice" | "api" | "undo";
   createdAt: string;
   itemName?: string;
   isNew?: boolean;
@@ -54,7 +54,7 @@ interface DatabaseInventoryUpdate {
   unit: string;
   user_id: string;
   user_name: string;
-  method?: "ui" | "voice" | "api";
+  method?: "ui" | "voice" | "api" | "undo";
   created_at: string;
 }
 
@@ -71,13 +71,14 @@ export default function ChangeLog() {
   const { session } = useAuthStore();
   const { items } = useInventoryStore();
   const { addNotification } = useNotificationStore();
-  const { actionHistory, executeUndo } = useUndoStore();
+  const { actionHistory, executeUndo, fetchUndoActions, hasInitiallyLoaded } =
+    useUndoStore();
   const {
     updates,
     users,
     isLoading,
     lastFetchTime,
-    hasInitiallyLoaded,
+    hasInitiallyLoaded: changelogHasLoaded,
     setUpdates,
     setUsers,
     setIsLoading,
@@ -88,12 +89,31 @@ export default function ChangeLog() {
 
   const actions = ["add", "remove", "set", "check"] as const;
 
+  // Fetch undo actions only if not already loaded
+  useEffect(() => {
+    if (!hasInitiallyLoaded) {
+      fetchUndoActions();
+    }
+  }, [fetchUndoActions, hasInitiallyLoaded]);
+
+  // Refresh undo actions when updates change (indicating new inventory changes)
+  useEffect(() => {
+    if (updates.length > 0 && hasInitiallyLoaded) {
+      // Debounce the refresh to avoid too many API calls
+      const timeoutId = setTimeout(() => {
+        fetchUndoActions(true); // Force refresh when inventory updates
+      }, 1000);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [updates.length, fetchUndoActions, hasInitiallyLoaded]);
+
   useEffect(() => {
     // Only fetch if we haven't loaded data yet
-    if (!hasInitiallyLoaded) {
+    if (!changelogHasLoaded) {
       fetchUpdates();
     }
-  }, [hasInitiallyLoaded]);
+  }, [changelogHasLoaded]);
 
   // Update item names when items change
   useEffect(() => {
@@ -294,6 +314,25 @@ export default function ChangeLog() {
             API
           </span>
         );
+      case "undo":
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 dark:bg-yellow-900/20 px-2 py-0.5 text-xs font-medium text-yellow-700 dark:text-yellow-300">
+            <svg
+              className="h-3 w-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3"
+              />
+            </svg>
+            Undo
+          </span>
+        );
       case "ui":
       default:
         return (
@@ -342,7 +381,7 @@ export default function ChangeLog() {
 
       return (
         action.itemId === update.itemId &&
-        action.type === "inventory_update" &&
+        action.actionType === "inventory_update" &&
         timeDiff < 300000 && // Within 5 minutes (more forgiving)
         // Additional check: quantities should match
         action.currentState?.quantity === update.newQuantity &&
@@ -457,10 +496,10 @@ export default function ChangeLog() {
 
         {/* Date Range */}
         <div className="hidden sm:flex gap-2 justify-end">
-          <div className="flex flex-col">
+          <div className="flex items-center gap-2">
             <label
               htmlFor="date-start"
-              className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1"
+              className="text-sm font-medium text-zinc-700 dark:text-zinc-300 whitespace-nowrap"
             >
               Start Date
             </label>
@@ -474,10 +513,10 @@ export default function ChangeLog() {
               className="w-40 max-w-48"
             />
           </div>
-          <div className="flex flex-col">
+          <div className="flex items-center gap-2">
             <label
               htmlFor="date-end"
-              className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1"
+              className="text-sm font-medium text-zinc-700 dark:text-zinc-300 whitespace-nowrap"
             >
               End Date
             </label>
@@ -1028,10 +1067,10 @@ function MobileFilterDrawer({
               </h3>
               <DisclosurePanel className="pt-6">
                 <div className="space-y-4">
-                  <div>
+                  <div className="flex items-center gap-2">
                     <label
                       htmlFor="mobile-date-start"
-                      className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2"
+                      className="text-sm font-medium text-zinc-700 dark:text-zinc-300 whitespace-nowrap w-20"
                     >
                       Start Date
                     </label>
@@ -1042,12 +1081,13 @@ function MobileFilterDrawer({
                       onChange={(e) =>
                         setDateRange({ ...dateRange, start: e.target.value })
                       }
+                      className="flex-1"
                     />
                   </div>
-                  <div>
+                  <div className="flex items-center gap-2">
                     <label
                       htmlFor="mobile-date-end"
-                      className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2"
+                      className="text-sm font-medium text-zinc-700 dark:text-zinc-300 whitespace-nowrap w-20"
                     >
                       End Date
                     </label>
@@ -1058,6 +1098,7 @@ function MobileFilterDrawer({
                       onChange={(e) =>
                         setDateRange({ ...dateRange, end: e.target.value })
                       }
+                      className="flex-1"
                     />
                   </div>
                 </div>

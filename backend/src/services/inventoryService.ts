@@ -7,6 +7,7 @@ import { generateEmbedding } from "@/utils/generateEmbedding";
 import { preprocessText } from "@/utils/preprocessText";
 import { getUnitType, convertQuantity } from "@/utils/unitConversions";
 import websocketService from "@/services/websocketService";
+import { undoService } from "@/services/undoService";
 import type { InventoryUpdate } from "@/types";
 
 class InventoryService {
@@ -93,7 +94,8 @@ class InventoryService {
   async updateInventoryCount(
     update: InventoryUpdate,
     req?: any,
-    method: "ui" | "voice" | "api" = "ui"
+    method: "ui" | "voice" | "api" | "undo" = "ui",
+    skipUndoAction: boolean = false
   ): Promise<void> {
     console.log(
       `📦 Updating inventory: ${update.action} ${update.quantity} ${
@@ -237,6 +239,74 @@ class InventoryService {
         "inventory-updated",
         successMessage
       );
+
+      // Create undo action
+      try {
+        console.log("🔄 Attempting to create undo action...");
+        console.log("🔄 req.user:", JSON.stringify(req?.user, null, 2));
+        const userId = req?.user?.id || req?.user?.userId;
+        console.log("🔄 Extracted userId:", userId);
+
+        if (userId && !skipUndoAction) {
+          console.log("🔄 Creating undo action with params:", {
+            userId: userId,
+            actionType: "inventory_update",
+            itemId: updatedItem.id,
+            itemName: updatedItem.name,
+            description: `${req?.user?.name || "User"} ${
+              update.action
+            }ed ${quantityToUpdate} ${updatedItem.unit} of ${updatedItem.name}`,
+            previousState: {
+              quantity: previousQuantity,
+              unit: updatedItem.unit,
+            },
+            currentState: {
+              quantity: newQuantity,
+              unit: updatedItem.unit,
+            },
+            method: method,
+          });
+
+          const undoActionId = await undoService.createUndoAction({
+            userId: userId,
+            actionType: "inventory_update",
+            itemId: updatedItem.id,
+            itemName: updatedItem.name,
+            description: `${req?.user?.name || "User"} ${
+              update.action
+            }ed ${quantityToUpdate} ${updatedItem.unit} of ${updatedItem.name}`,
+            previousState: {
+              quantity: previousQuantity,
+              unit: updatedItem.unit,
+            },
+            currentState: {
+              quantity: newQuantity,
+              unit: updatedItem.unit,
+            },
+            method: method,
+          });
+
+          console.log(
+            "🔄 Successfully created undo action with ID:",
+            undoActionId
+          );
+        } else if (skipUndoAction) {
+          console.log(
+            "🔄 Skipping undo action creation - skipUndoAction flag is true (preventing circular undos)"
+          );
+        } else {
+          console.log(
+            "🔄 Skipping undo action creation - no user ID available"
+          );
+          console.log(
+            "🔄 req.user structure:",
+            req?.user ? Object.keys(req.user) : "req.user is undefined"
+          );
+        }
+      } catch (undoError) {
+        console.error("🔄 Failed to create undo action:", undoError);
+        // Don't throw here - the inventory update succeeded, undo creation is supplementary
+      }
     } catch (error) {
       console.error("📦 Error updating inventory:", error);
       throw error;

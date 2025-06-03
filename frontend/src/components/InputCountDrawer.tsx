@@ -20,7 +20,6 @@ import { useInventoryStore } from "@/stores/inventoryStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useNotificationStore } from "@/stores/notificationStore";
-import { useUndoStore, UndoableAction } from "@/stores/undoStore";
 // import { useNotification } from "@/context/NotificationContext";
 
 // import { useSession } from "next-auth/react";
@@ -69,9 +68,7 @@ export function InputCountDrawer({
   const updateItem = useInventoryStore((state) => state.updateItem);
   const { session } = useAuthStore();
   const { theme } = useThemeStore();
-  const { addUndoableNotification } = useNotificationStore();
-  const { addUndoableAction } = useUndoStore();
-  // const { addNotification, showApiError } = useNotification();
+  const { addNotification } = useNotificationStore();
 
   // const hasInventoryCounts = item.inventoryCounts?.length > 0;
   // const [newCount, setNewCount] = useState(
@@ -134,7 +131,6 @@ export function InputCountDrawer({
   const submitNewCount = async () => {
     if (!newCount || newCount < 0) {
       setError("Please enter a valid quantity");
-      const { addNotification } = useNotificationStore.getState();
       addNotification("error", "Please enter a valid quantity");
       return;
     }
@@ -149,68 +145,16 @@ export function InputCountDrawer({
       }
 
       const previousQuantity = item.quantity;
-      const currentItemState = { ...item };
 
       // Send only quantity
-      await api.updateInventory(
-        item.id,
-        { quantity: newCount }, // Remove location_id
-        token
-      );
+      await api.updateInventory(item.id, { quantity: newCount }, token);
 
-      // Create undo function
-      const createUndoFunction = () => async () => {
-        try {
-          await api.updateInventory(
-            item.id,
-            { quantity: previousQuantity },
-            token
-          );
-
-          // Update local state
-          updateItem({
-            id: item.id,
-            quantity: previousQuantity,
-            unit: item.unit,
-          });
-
-          console.log(
-            `Reverted ${item.name} from ${newCount} to ${previousQuantity} ${item.unit}`
-          );
-        } catch (error) {
-          console.error("Failed to revert inventory change:", error);
-          throw new Error("Failed to revert inventory change");
-        }
-      };
-
-      // Create undoable action for the undo store
-      const undoableAction: UndoableAction = {
-        id: `inventory-update-${Date.now()}-${Math.random()
-          .toString(36)
-          .substr(2, 9)}`,
-        type: "inventory_update",
-        timestamp: new Date(),
-        description: `Updated ${item.name} from ${previousQuantity} to ${newCount} ${item.unit}`,
-        previousState: currentItemState,
-        currentState: { ...item, quantity: newCount },
-        revertFunction: createUndoFunction(),
-        itemId: item.id,
-        itemName: item.name,
-      };
-
-      // Add to undo history
-      addUndoableAction(undoableAction);
-
-      // Show success notification with undo option
-      addUndoableNotification(
+      // Show success notification
+      // Undo actions are now created automatically on the server side
+      addNotification(
         "success",
         `${item.name} updated from ${previousQuantity} to ${newCount} ${item.unit}`,
-        {
-          label: "Undo",
-          action: createUndoFunction(),
-          actionId: undoableAction.id,
-        },
-        8000 // Longer duration for undo notifications
+        5000
       );
 
       setIsOpen(false);
@@ -220,7 +164,6 @@ export function InputCountDrawer({
       const errorMessage =
         err instanceof Error ? err.message : "Failed to update inventory";
       setError(errorMessage);
-      const { addNotification } = useNotificationStore.getState();
       addNotification(
         "error",
         `Failed to update ${item.name}: ${errorMessage}`

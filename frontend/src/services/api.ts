@@ -5,7 +5,7 @@
 
 import { AuthUser } from "@/types";
 // API base URL using Vite environment variables
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
 // Types
 interface LoginCredentials {
@@ -111,6 +111,75 @@ export const apiRequest = async <T>(
 
 // API functions
 export const api = {
+  // Generic HTTP methods
+  get: async (
+    endpoint: string,
+    config?: { headers?: Record<string, string> }
+  ) => {
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+      ...config?.headers,
+    };
+
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: "GET",
+      headers,
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      throw new Error(`GET request failed: ${response.statusText}`);
+    }
+
+    return response.json();
+  },
+
+  post: async (
+    endpoint: string,
+    data?: any,
+    config?: { headers?: Record<string, string> }
+  ) => {
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+      ...config?.headers,
+    };
+
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: "POST",
+      headers,
+      body: data ? JSON.stringify(data) : undefined,
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      throw new Error(`POST request failed: ${response.statusText}`);
+    }
+
+    return response.json();
+  },
+
+  delete: async (
+    endpoint: string,
+    config?: { headers?: Record<string, string> }
+  ) => {
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+      ...config?.headers,
+    };
+
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: "DELETE",
+      headers,
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      throw new Error(`DELETE request failed: ${response.statusText}`);
+    }
+
+    return response.json();
+  },
+
   // Auth
   login: async (credentials: LoginCredentials): Promise<LoginResponse> => {
     return apiRequest<LoginResponse>("/api/auth/login", "POST", credentials);

@@ -1,189 +1,314 @@
 // frontend/src/pages/Dashboard.tsx
 // Purpose: Provides an overview of inventory status and recent activity. Also allows for voice control of inventory.
 import React, { useState, useEffect, lazy, Suspense } from "react";
-import { useNotificationStore } from "@/stores/notificationStore";
+import { useInventoryStore } from "@/stores/inventoryStore";
+import { useInventoryData } from "@/hooks/useInventoryData";
 import { useUndoStore } from "@/stores/undoStore";
 import { Heading } from "@/components/ui/heading";
 import { Text } from "@/components/ui/text";
 import UndoHistory from "@/components/UndoHistory";
 
-const Dashboard: React.FC = () => {
-  const { addNotification, addUndoableNotification } = useNotificationStore();
-  const { addUndoableAction } = useUndoStore();
+// Utility function for combining class names
+function classNames(...classes: (string | boolean | undefined)[]): string {
+  return classes.filter(Boolean).join(" ");
+}
 
-  const testNotifications = [
+const Dashboard: React.FC = () => {
+  const { items, categories } = useInventoryData();
+  const { error } = useInventoryStore();
+  const { fetchUndoActions, hasInitiallyLoaded } = useUndoStore();
+
+  // Fetch undo actions only if not already loaded
+  useEffect(() => {
+    if (!hasInitiallyLoaded) {
+      fetchUndoActions();
+    }
+  }, [fetchUndoActions, hasInitiallyLoaded]);
+
+  // Calculate useful stats
+  const totalItems = items.length;
+  const totalQuantity = items.reduce(
+    (sum, item) => sum + (item.quantity || 0),
+    0
+  );
+  const lowStockItems = items.filter(
+    (item) => item.threshold && item.quantity <= item.threshold
+  );
+  const outOfStockItems = items.filter((item) => (item.quantity || 0) === 0);
+
+  // Calculate mock change percentages (in a real app, you'd compare with historical data)
+  const getMockChange = (value: number, index: number) => {
+    const changes = ["+12.5%", "+4.2%", "-8.7%", "+15.3%"];
+    const changeTypes: ("positive" | "negative")[] = [
+      "positive",
+      "positive",
+      "positive",
+      "negative",
+    ];
+    return {
+      change: changes[index] || "+0.0%",
+      changeType: changeTypes[index] || "positive",
+    };
+  };
+
+  // Create stats array similar to the provided example
+  const stats = [
     {
-      type: "success" as const,
-      title: "Success",
-      message: "Item successfully updated!",
-      color: "bg-green-500 hover:bg-green-600",
+      name: "Total Items",
+      value: totalItems.toLocaleString(),
+      ...getMockChange(totalItems, 0),
     },
     {
-      type: "error" as const,
-      title: "Error",
-      message: "Failed to update inventory item",
-      color: "bg-red-500 hover:bg-red-600",
+      name: "Total Quantity",
+      value: totalQuantity.toLocaleString(),
+      ...getMockChange(totalQuantity, 1),
     },
     {
-      type: "warning" as const,
-      title: "Warning",
-      message: "Low stock alert for this item",
-      color: "bg-yellow-500 hover:bg-yellow-600",
+      name: "Low Stock Items",
+      value: lowStockItems.length.toLocaleString(),
+      ...getMockChange(lowStockItems.length, 2),
     },
     {
-      type: "info" as const,
-      title: "Info",
-      message: "New inventory update received",
-      color: "bg-blue-500 hover:bg-blue-600",
-    },
-    {
-      type: "auth-error" as const,
-      title: "Auth Error",
-      message: "Session expired. Please log in again",
-      color: "bg-purple-500 hover:bg-purple-600",
+      name: "Out of Stock",
+      value: outOfStockItems.length.toLocaleString(),
+      ...getMockChange(outOfStockItems.length, 3),
     },
   ];
 
-  const handleTestNotification = (type: any, message: string) => {
-    addNotification(type, message, 5000);
-  };
+  // Categories with item counts
+  const categoriesWithCounts = categories.map((category) => ({
+    ...category,
+    itemCount: items.filter((item) => item.category === category.name).length,
+    totalQuantity: items
+      .filter((item) => item.category === category.name)
+      .reduce((sum, item) => sum + (item.quantity || 0), 0),
+  }));
 
-  const handleTestUndoableAction = () => {
-    // Simulate an inventory update that can be undone
-    const mockItem = {
-      id: "test-item-" + Date.now(),
-      name: "Test Apples",
-      quantity: 25,
-      unit: "units",
-    };
-
-    // Create a mock undo function
-    const createMockUndoFunction = () => async () => {
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      console.log(
-        "Mock undo executed: Reverted Test Apples to previous quantity"
-      );
-    };
-
-    // Add to undo history
-    addUndoableAction({
-      id: `test-action-${Date.now()}-${Math.random()
-        .toString(36)
-        .substr(2, 9)}`,
-      type: "inventory_update",
-      timestamp: new Date(),
-      description: `Updated ${mockItem.name} from 15 to ${mockItem.quantity} ${mockItem.unit}`,
-      previousState: { ...mockItem, quantity: 15 },
-      currentState: mockItem,
-      revertFunction: createMockUndoFunction(),
-      itemId: mockItem.id,
-      itemName: mockItem.name,
-    });
-
-    // Show undoable notification
-    addUndoableNotification(
-      "success",
-      `${mockItem.name} updated from 15 to ${mockItem.quantity} ${mockItem.unit}`,
-      {
-        label: "Undo",
-        action: createMockUndoFunction(),
-        actionId: `test-action-${Date.now()}`,
-      },
-      8000
-    );
-  };
+  // Recent updates (mock data - in real app this would come from API)
+  const recentUpdates = items
+    .filter((item) => item.lastupdated)
+    .sort(
+      (a, b) =>
+        new Date(b.lastupdated).getTime() - new Date(a.lastupdated).getTime()
+    )
+    .slice(0, 5);
 
   return (
-    <div className="py-6 max-w-6xl">
-      <div className="mb-8">
-        <Heading level={1}>Dashboard</Heading>
-        <Text>Welcome to your inventory management dashboard</Text>
-      </div>
+    <div className="min-h-screen bg-inherit max-w-7xl">
+      <div className="sm:flex-auto">
+        <div className="mb-8">
+          <Heading level={1}>Dashboard</Heading>
+          <Text>Overview of your inventory status and recent activity</Text>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Notification System Demo */}
-        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
-          <Heading level={2} className="mb-4">
-            Notification System Demo
-          </Heading>
-          <Text className="mb-6">
-            Test the global notification system that displays messages across
-            the entire application. Notifications appear in the top-right corner
-            and auto-dismiss after a few seconds.
-          </Text>
+        {/* Overview Stats */}
+        <dl className="mx-auto grid grid-cols-1 gap-[1px] p-[1px] bg-zinc-200 dark:bg-zinc-700 sm:grid-cols-2 lg:grid-cols-4 mt-12 rounded-xl">
+          {stats.map((stat, index) => {
+            // Determine rounded corners based on position in responsive grid
+            const getRoundedClasses = (index: number) => {
+              const isFirst = index === 0;
+              const isSecond = index === 1;
+              const isThird = index === 2;
+              const isLast = index === stats.length - 1;
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3">
-            {testNotifications.map((notification) => (
-              <button
-                key={notification.type}
-                onClick={() =>
-                  handleTestNotification(
-                    notification.type,
-                    notification.message
-                  )
-                }
-                className={`${notification.color} text-white px-3 py-2 rounded-lg font-medium transition-colors duration-200 text-sm`}
+              // Mobile (1 column): first gets top corners, last gets bottom corners
+              // Tablet (2 columns): 2x2 grid - first=top-left, second=top-right, third=bottom-left, fourth=bottom-right
+              // Desktop (4 columns): first=top-left+bottom-left, last=top-right+bottom-right
+
+              return classNames(
+                // Mobile (1 column)
+                isFirst && "rounded-t-xl",
+                isLast && "rounded-b-xl",
+
+                // Tablet (2 columns) - override mobile classes for 2x2 grid
+                "sm:rounded-none",
+                isFirst && "sm:rounded-tl-xl", // Top-left item
+                isSecond && "sm:rounded-tr-xl", // Top-right item
+                isThird && "sm:rounded-bl-xl", // Bottom-left item
+                isLast && "sm:rounded-br-xl", // Bottom-right item
+
+                // Desktop (4 columns) - override tablet classes for 1x4 grid
+                "lg:rounded-none",
+                isFirst && "lg:rounded-tl-xl lg:rounded-bl-xl", // Leftmost item
+                isLast && "lg:rounded-tr-xl lg:rounded-br-xl" // Rightmost item
+              );
+            };
+
+            return (
+              <div
+                key={stat.name}
+                className={classNames(
+                  "flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 bg-white dark:bg-zinc-900 px-4 py-10 sm:px-6 xl:px-8",
+                  getRoundedClasses(index)
+                )}
               >
-                {notification.title}
-              </button>
-            ))}
+                <dt className="text-sm/6 font-medium text-zinc-500 dark:text-zinc-400">
+                  {stat.name}
+                </dt>
+                <dd
+                  className={classNames(
+                    stat.changeType === "negative"
+                      ? "text-red-600 dark:text-red-400"
+                      : "text-zinc-700 dark:text-zinc-300",
+                    "text-xs font-medium"
+                  )}
+                >
+                  {stat.change}
+                </dd>
+                <dd className="w-full flex-none text-3xl/10 font-medium tracking-tight text-zinc-900 dark:text-zinc-100">
+                  {stat.value}
+                </dd>
+              </div>
+            );
+          })}
+        </dl>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-12">
+          {/* Low Stock Alerts */}
+          <div>
+            <Heading level={2} className="mb-4">
+              Low Stock Alerts
+            </Heading>
+            {lowStockItems.length > 0 ? (
+              <div className="space-y-3">
+                {lowStockItems.slice(0, 5).map((item) => (
+                  <div
+                    key={item.id}
+                    className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Text className="font-medium text-yellow-900 dark:text-yellow-100">
+                          {item.name}
+                        </Text>
+                        <Text className="text-sm text-yellow-700 dark:text-yellow-300">
+                          Current: {item.quantity} {item.unit} • Threshold:{" "}
+                          {item.threshold} {item.unit}
+                        </Text>
+                      </div>
+                      <div className="text-right">
+                        <Text className="text-sm text-yellow-600 dark:text-yellow-400">
+                          {item.category}
+                        </Text>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {lowStockItems.length > 5 && (
+                  <Text className="text-sm text-zinc-500 dark:text-zinc-400 text-center">
+                    ... and {lowStockItems.length - 5} more items
+                  </Text>
+                )}
+              </div>
+            ) : (
+              <div className="p-8 text-center">
+                <svg
+                  className="h-12 w-12 text-green-400 dark:text-green-500 mx-auto mb-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <Text className="text-zinc-500 dark:text-zinc-400">
+                  All items are well stocked!
+                </Text>
+              </div>
+            )}
           </div>
 
-          <div className="mt-6 p-4 bg-zinc-50 dark:bg-zinc-900 rounded-lg">
-            <Text className="text-sm text-zinc-600 dark:text-zinc-400">
-              <strong>Note:</strong> The notification system is now active
-              across all pages. You'll see notifications when updating inventory
-              items, logging in, or performing other actions. The system
-              supports success, error, warning, info, and auth-error
-              notification types.
-            </Text>
+          {/* Categories Overview */}
+          <div>
+            <Heading level={2} className="mb-4">
+              Categories Overview
+            </Heading>
+            {categoriesWithCounts.length > 0 ? (
+              <div className="space-y-3">
+                {categoriesWithCounts.map((category) => (
+                  <div
+                    key={category.id}
+                    className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-700"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Text className="font-medium text-zinc-950 dark:text-white">
+                          {category.name}
+                        </Text>
+                        <Text className="text-sm text-zinc-500 dark:text-zinc-400">
+                          {category.itemCount} items •{" "}
+                          {category.totalQuantity.toLocaleString()} total units
+                        </Text>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-8 text-center">
+                <Text className="text-zinc-500 dark:text-zinc-400">
+                  No categories found
+                </Text>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Undo System Demo */}
-        <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+        {/* Recent Activity */}
+        <div className="mt-12">
           <Heading level={2} className="mb-4">
-            Undo System Demo
+            Recently Updated Items
           </Heading>
-          <Text className="mb-6">
-            Test the new undo functionality that helps users correct mistakes
-            from voice commands or AI misinterpretations. Undoable actions show
-            an "Undo" button in notifications.
-          </Text>
-
-          <button
-            onClick={handleTestUndoableAction}
-            className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-3 rounded-lg font-medium transition-colors duration-200 mb-4"
-          >
-            Test Undoable Action
-          </button>
-
-          <div className="p-4 bg-zinc-50 dark:bg-zinc-900 rounded-lg">
-            <Text className="text-sm text-zinc-600 dark:text-zinc-400">
-              <strong>How it works:</strong> When you perform actions
-              (especially via voice/AI), you'll see notifications with "Undo"
-              buttons. Actions are also saved to the history below, so you can
-              undo them even after notifications disappear.
-            </Text>
-          </div>
+          {recentUpdates.length > 0 ? (
+            <div className="space-y-3">
+              {recentUpdates.map((item) => (
+                <div
+                  key={item.id}
+                  className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-700"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Text className="font-medium text-zinc-950 dark:text-white">
+                        {item.name}
+                      </Text>
+                      <Text className="text-sm text-zinc-500 dark:text-zinc-400">
+                        {item.quantity} {item.unit} • {item.category}
+                      </Text>
+                    </div>
+                    <div className="text-right">
+                      <Text className="text-sm text-zinc-500 dark:text-zinc-400">
+                        {new Date(item.lastupdated).toLocaleDateString(
+                          undefined,
+                          {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }
+                        )}
+                      </Text>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-8 text-center">
+              <Text className="text-zinc-500 dark:text-zinc-400">
+                No recent updates
+              </Text>
+            </div>
+          )}
         </div>
-      </div>
 
-      {/* Undo History */}
-      <div className="mt-8">
-        <UndoHistory />
-      </div>
-
-      {/* Future Dashboard Content */}
-      <div className="mt-8 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
-        <Heading level={2} className="mb-4">
-          Inventory Overview
-        </Heading>
-        <Text className="text-zinc-600 dark:text-zinc-400">
-          Dashboard content coming soon - inventory stats, recent activity,
-          quick actions, etc.
-        </Text>
+        {/* Undo History */}
+        <div className="mt-12">
+          <UndoHistory />
+        </div>
       </div>
     </div>
   );

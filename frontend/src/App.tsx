@@ -21,7 +21,7 @@ import { WebsocketListener } from "./components/WebsocketListener";
 import LoadingSpinner from "./components/ui/LoadingSpinner";
 import { ApplicationLayout } from "./components/AppLayout";
 import { useInventoryStore } from "./stores/inventoryStore";
-import Stock from "./pages/Stock";
+import StockList from "./pages/Stock";
 import { AuthInitializer } from "./components/AuthInitializer";
 import ChangeLog from "./pages/ChangeLog";
 import { Analytics } from "@vercel/analytics/react";
@@ -140,7 +140,7 @@ const AppRoutes = () => {
       <Route element={<ProtectedRoute />}>
         <Route element={<ProtectedLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/stocklist" element={<Stock />} />
+          <Route path="/stocklist" element={<StockList />} />
           <Route path="/items" element={<Items />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/orders" element={<div>Orders Page</div>} />

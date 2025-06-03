@@ -21,6 +21,7 @@ export const updateQuantitySchema = z.object({
 
 // Schema for creating/updating inventory items
 export const inventoryItemSchema = z.object({
+  sku: z.string().min(1, "SKU is required"),
   name: z.string().min(1, "Name is required"),
   quantity: z.number().min(0, "Quantity must be non-negative"),
   unit: z.string().min(1, "Unit is required"),

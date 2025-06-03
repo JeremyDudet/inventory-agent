@@ -164,28 +164,26 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
                 </SidebarItem>
                 <SidebarItem href="/stocklist">
                   <Square2StackIcon />
-                  <SidebarLabel>Stock</SidebarLabel>
+                  <SidebarLabel>Stock List</SidebarLabel>
                 </SidebarItem>
                 <SidebarItem href="/items">
                   <Square2StackIcon />
                   <SidebarLabel>Items</SidebarLabel>
                 </SidebarItem>
-                <SidebarItem href="/onboarding">
-                  <ArrowDownTrayIcon />
-                  <SidebarLabel>Import Data</SidebarLabel>
-                </SidebarItem>
                 <SidebarItem href="/changelog">
                   <ClockIcon />
                   <SidebarLabel>Change Log</SidebarLabel>
                 </SidebarItem>
+                <SidebarSpacer />
+                <SidebarItem href="/onboarding">
+                  <ArrowDownTrayIcon />
+                  <SidebarLabel>Import Data</SidebarLabel>
+                </SidebarItem>
+                <SidebarSpacer />
                 <SidebarItem href="/settings">
                   <Cog6ToothIcon />
                   <SidebarLabel>Settings</SidebarLabel>
                 </SidebarItem>
-              </SidebarSection>
-
-              <SidebarSection className="max-lg:hidden">
-                <SidebarHeading>Upcoming Events</SidebarHeading>
               </SidebarSection>
 
               <SidebarSpacer />

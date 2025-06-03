@@ -10,7 +10,7 @@ interface InventoryUpdate {
   unit: string;
   userId: string;
   userName: string;
-  method?: "ui" | "voice" | "api";
+  method?: "ui" | "voice" | "api" | "undo";
   createdAt: string;
   itemName?: string;
   isNew?: boolean;

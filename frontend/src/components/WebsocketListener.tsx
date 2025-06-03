@@ -1,20 +1,17 @@
 // frontend/src/components/WebsocketListener.tsx
 import { useInventoryStore } from "@/stores/inventoryStore";
 import { useNotificationStore } from "@/stores/notificationStore";
-import { useUndoStore } from "@/stores/undoStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useChangelogStore } from "@/stores/changelogStore";
 import { useInventorySocket } from "@/hooks/useInventorySocket";
 import { useVoiceSocket } from "@/hooks/useVoiceSocket";
-import { api } from "@/services/api";
 
 export const WebsocketListener = () => {
   const updateItem = useInventoryStore((state) => state.updateItem);
   const updateItems = useInventoryStore((state) => state.updateItems);
   const setError = useInventoryStore((state) => state.setError);
   const { items } = useInventoryStore();
-  const { addNotification, addUndoableNotification } = useNotificationStore();
-  const { addUndoableAction } = useUndoStore();
+  const { addNotification } = useNotificationStore();
   const { addLiveUpdate, removeNewFlag } = useChangelogStore();
   const { session } = useAuthStore();
 
@@ -112,64 +109,10 @@ export const WebsocketListener = () => {
             if (method === "voice" && previousQuantity !== undefined) {
               console.log("Creating undoable notification for voice command");
 
-              // Create undo function for voice commands
-              const createUndoFunction = () => async () => {
-                try {
-                  const token = session?.access_token;
-                  if (!token) {
-                    throw new Error("No authentication token found");
-                  }
-
-                  await api.updateInventory(
-                    id,
-                    { quantity: previousQuantity },
-                    token
-                  );
-
-                  // Update local state
-                  updateItem({ id, quantity: previousQuantity, unit });
-
-                  console.log(
-                    `Reverted ${itemName} from ${quantity} to ${previousQuantity} ${unit} (voice command)`
-                  );
-                } catch (error) {
-                  console.error("Failed to revert voice command:", error);
-                  throw new Error("Failed to revert voice command");
-                }
-              };
-
-              // Create undoable action for voice commands
-              const undoableAction = {
-                id: `voice-update-${Date.now()}-${Math.random()
-                  .toString(36)
-                  .substr(2, 9)}`,
-                type: "inventory_update" as const,
-                timestamp: new Date(),
-                description: `Voice command: Updated ${itemName} from ${previousQuantity} to ${quantity} ${unit}`,
-                previousState: {
-                  id,
-                  quantity: previousQuantity,
-                  unit,
-                  name: itemName,
-                },
-                currentState: { id, quantity, unit, name: itemName },
-                revertFunction: createUndoFunction(),
-                itemId: id,
-                itemName: itemName,
-              };
-
-              // Add to undo history
-              addUndoableAction(undoableAction);
-
               // Show undoable notification for voice commands
-              addUndoableNotification(
+              addNotification(
                 "success",
                 `Voice: ${itemName} updated from ${previousQuantity} to ${quantity} ${unit}`,
-                {
-                  label: "Undo",
-                  action: createUndoFunction(),
-                  actionId: undoableAction.id,
-                },
                 8000
               );
             } else {

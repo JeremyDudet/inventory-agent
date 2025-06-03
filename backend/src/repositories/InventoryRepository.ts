@@ -206,7 +206,7 @@ export class InventoryRepository {
     unit: string,
     user_id?: string,
     user_name?: string,
-    method: "ui" | "voice" | "api" = "ui"
+    method: "ui" | "voice" | "api" | "undo" = "ui"
   ): Promise<void> {
     await db.insert(inventory_updates).values({
       item_id: itemId,

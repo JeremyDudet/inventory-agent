@@ -145,6 +145,7 @@ export const inventory_items = pgTable(
       .primaryKey()
       .notNull(),
     location_id: uuid("location_id").notNull(),
+    sku: text().notNull(),
     name: text().notNull(),
     quantity: decimal("quantity", { precision: 10, scale: 2, mode: "number" }),
     unit: text().notNull(),
@@ -179,6 +180,7 @@ export const inventory_items = pgTable(
       table.location_id,
       table.name
     ),
+    unique("inventory_items_sku_key").on(table.sku),
     pgPolicy("Allow access based on user locations", {
       as: "permissive",
       for: "all",
@@ -298,7 +300,70 @@ export const inventory_updates = pgTable(
     ),
     check(
       "inventory_updates_method_check",
-      sql`method = ANY (ARRAY['ui'::text, 'voice'::text, 'api'::text])`
+      sql`method = ANY (ARRAY['ui'::text, 'voice'::text, 'api'::text, 'undo'::text])`
+    ),
+  ]
+);
+
+export const undo_actions = pgTable(
+  "undo_actions",
+  {
+    id: uuid()
+      .default(sql`uuid_generate_v4()`)
+      .primaryKey()
+      .notNull(),
+    user_id: uuid("user_id").notNull(),
+    action_type: text("action_type").notNull(),
+    item_id: uuid("item_id").notNull(),
+    item_name: text("item_name").notNull(),
+    description: text().notNull(),
+    previous_state: jsonb("previous_state").notNull(),
+    current_state: jsonb("current_state").notNull(),
+    method: text().default("ui").notNull(),
+    expires_at: timestamp("expires_at", {
+      withTimezone: true,
+      mode: "string",
+    }).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.user_id],
+      foreignColumns: [profiles.id],
+      name: "undo_actions_user_id_fkey",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.item_id],
+      foreignColumns: [inventory_items.id],
+      name: "undo_actions_item_id_fkey",
+    }).onDelete("cascade"),
+    index("undo_actions_user_id_idx").using(
+      "btree",
+      table.user_id.asc().nullsLast().op("uuid_ops")
+    ),
+    index("undo_actions_expires_at_idx").using(
+      "btree",
+      table.expires_at.asc().nullsLast().op("timestamptz_ops")
+    ),
+    index("undo_actions_created_at_idx").using(
+      "btree",
+      table.created_at.desc().nullsLast().op("timestamptz_ops")
+    ),
+    pgPolicy("Users can only access their own undo actions", {
+      as: "permissive",
+      for: "all",
+      to: ["authenticated"],
+      using: sql`user_id = auth.uid()`,
+    }),
+    check(
+      "undo_actions_action_type_check",
+      sql`action_type = ANY (ARRAY['inventory_update'::text, 'item_create'::text, 'item_delete'::text, 'bulk_update'::text])`
+    ),
+    check(
+      "undo_actions_method_check",
+      sql`method = ANY (ARRAY['ui'::text, 'voice'::text, 'api'::text, 'undo'::text])`
     ),
   ]
 );

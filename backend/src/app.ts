@@ -9,6 +9,7 @@ import authRoutes from "./routes/auth";
 import inventoryRoutes from "./routes/inventory";
 import waitingListRoutes from "./routes/waitingList";
 import locationsRoutes from "./routes/locations";
+import undoRoutes from "./routes/undo";
 
 import { errorHandler } from "./middleware/errorHandler";
 
@@ -30,6 +31,7 @@ import { ActionLog, NlpResult } from "@/types";
 
 import { ValidationError } from "./errors";
 import authService from "./services/authService";
+import { undoService } from "./services/undoService";
 
 dotenv.config();
 
@@ -731,6 +733,7 @@ app.use("/api/inventory", inventoryRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/waiting-list", waitingListRoutes);
 app.use("/api/locations", locationsRoutes);
+app.use("/api/undo", undoRoutes);
 
 app.get("/", (req, res) => {
   res.json({ status: "Server running" });
@@ -745,4 +748,13 @@ app.use(errorHandler);
 server.listen(PORT, () => {
   console.log("Server running on environment:", process.env.NODE_ENV);
   console.log(`Server running on http://localhost:${PORT}`);
+
+  // Start periodic cleanup of expired undo actions
+  setInterval(async () => {
+    try {
+      await undoService.cleanupExpiredActions();
+    } catch (error) {
+      console.error("Error during periodic undo cleanup:", error);
+    }
+  }, 60 * 60 * 1000); // Run every hour
 });

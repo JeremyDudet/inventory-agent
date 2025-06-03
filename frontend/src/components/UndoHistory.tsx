@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { ClockIcon, ArrowUturnLeftIcon } from "@heroicons/react/24/outline";
 import { useUndoStore } from "@/stores/undoStore";
@@ -7,9 +7,22 @@ import { Heading } from "@/components/ui/heading";
 import { Text } from "@/components/ui/text";
 
 const UndoHistory: React.FC = () => {
-  const { actionHistory, executeUndo } = useUndoStore();
+  const {
+    actionHistory,
+    isLoading,
+    fetchUndoActions,
+    executeUndo,
+    hasInitiallyLoaded,
+  } = useUndoStore();
   const { addNotification } = useNotificationStore();
   const [processingUndo, setProcessingUndo] = useState<string | null>(null);
+
+  // Fetch undo actions only if not already loaded
+  useEffect(() => {
+    if (!hasInitiallyLoaded) {
+      fetchUndoActions();
+    }
+  }, [fetchUndoActions, hasInitiallyLoaded]);
 
   const recentActions = actionHistory.slice(0, 10); // Show last 10 actions
 
@@ -78,6 +91,23 @@ const UndoHistory: React.FC = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <ClockIcon className="w-5 h-5 text-zinc-500 dark:text-zinc-400" />
+          <Heading level={3}>Recent Actions</Heading>
+        </div>
+        <div className="flex items-center justify-center py-8">
+          <div className="w-6 h-6 border-2 border-zinc-300 dark:border-zinc-600 border-t-transparent rounded-full animate-spin"></div>
+          <Text className="ml-3 text-zinc-500 dark:text-zinc-400">
+            Loading recent actions...
+          </Text>
+        </div>
+      </div>
+    );
+  }
+
   if (recentActions.length === 0) {
     return (
       <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
@@ -118,10 +148,10 @@ const UndoHistory: React.FC = () => {
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <span
                     className={`px-2 py-1 text-xs font-medium rounded-full ${getActionTypeColor(
-                      action.type
+                      action.actionType
                     )}`}
                   >
-                    {getActionTypeLabel(action.type)}
+                    {getActionTypeLabel(action.actionType)}
                   </span>
 
                   <div className="flex-1 min-w-0">
@@ -163,7 +193,7 @@ const UndoHistory: React.FC = () => {
 
       <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">
         <Text className="text-xs text-zinc-500 dark:text-zinc-400 text-center">
-          Actions are automatically removed after being undone or after 24 hours
+          Actions are automatically removed after being undone or after 7 days
         </Text>
       </div>
     </div>

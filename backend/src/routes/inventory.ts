@@ -234,6 +234,64 @@ router.delete(
   }
 );
 
+// SKU generation function
+const generateSKU = async (category: string, name: string) => {
+  // Create base SKU from category and name
+  const categoryPrefix = category
+    .replace(/[^A-Z0-9]/gi, "")
+    .substring(0, 4)
+    .toUpperCase();
+  const namePrefix = name
+    .replace(/[^A-Z0-9]/gi, "")
+    .substring(0, 4)
+    .toUpperCase();
+  const year = new Date().getFullYear();
+
+  // Find the next sequence number
+  const existingSkus = await db
+    .select({ sku: inventory_items.sku })
+    .from(inventory_items)
+    .where(sql`sku LIKE ${`${categoryPrefix}-${year}-%`}`);
+
+  const nextSequence = existingSkus.length + 1;
+  const paddedSequence = nextSequence.toString().padStart(4, "0");
+
+  return `${categoryPrefix}-${year}-${paddedSequence}`;
+};
+
+// Embedding generation function
+const generateEmbedding = async (text: string): Promise<number[]> => {
+  // Check if OpenAI API key is available
+  if (!process.env.OPENAI_API_KEY) {
+    console.warn("OpenAI API key not found, skipping embedding generation");
+    return [];
+  }
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/embeddings", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        input: text,
+        model: "text-embedding-ada-002",
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.data[0].embedding;
+  } catch (error) {
+    console.error("Error generating embedding:", error);
+    return []; // Return empty array if embedding generation fails
+  }
+};
+
 // Bulk import endpoint
 router.post(
   "/bulk-import",
@@ -241,7 +299,7 @@ router.post(
   authorize("inventory:write"),
   async (req, res) => {
     try {
-      const { items, location_id } = req.body;
+      const { items, location_id, import_mode = "add_update" } = req.body;
       // Handle both AuthUser and AuthTokenPayload types
       const userId =
         req.user && "id" in req.user ? req.user.id : req.user?.userId;
@@ -276,6 +334,17 @@ router.post(
         return res
           .status(403)
           .json({ message: "Access denied to this location" });
+      }
+
+      // If replace_all mode, delete all existing items in this location first
+      let deletedCount = 0;
+      if (import_mode === "replace_all") {
+        const deletedItems = await db
+          .delete(inventory_items)
+          .where(eq(inventory_items.location_id, location_id))
+          .returning({ id: inventory_items.id });
+
+        deletedCount = deletedItems.length;
       }
 
       // Validate and prepare items for insertion
@@ -326,15 +395,32 @@ router.post(
             continue;
           }
 
+          // Generate unique SKU for this item
+          const sku = await generateSKU(item.category.trim(), item.name.trim());
+
+          // Generate embedding text from name, description, and category
+          const embeddingText = [
+            item.name.trim(),
+            item.description?.trim() || "",
+            item.category.trim(),
+          ]
+            .filter(Boolean)
+            .join(" ");
+
+          // Generate embedding vector
+          const embedding = await generateEmbedding(embeddingText);
+
           // Prepare the item for insertion
           const validItem = {
             location_id: location_id,
+            sku: sku,
             name: item.name.trim(),
             quantity: parseFloat(item.quantity),
             unit: item.unit.trim(),
             category: item.category.trim(),
             threshold: item.threshold ? parseFloat(item.threshold) : null,
             description: item.description ? item.description.trim() : null,
+            embedding: embedding.length > 0 ? embedding : null,
           };
 
           validItems.push(validItem);
@@ -355,45 +441,70 @@ router.post(
       // Insert valid items
       const insertedItems = [];
       const insertErrors = [];
+      let generatedCount = 0;
 
       for (const item of validItems) {
         try {
-          // Check if item with same name already exists in this location
-          const existingItem = await db
-            .select()
-            .from(inventory_items)
-            .where(
-              and(
-                eq(inventory_items.location_id, location_id),
-                eq(inventory_items.name, item.name)
-              )
-            )
-            .limit(1);
-
-          if (existingItem.length > 0) {
-            // Update existing item quantity
-            const updated = await db
-              .update(inventory_items)
-              .set({
-                quantity: item.quantity,
-                unit: item.unit,
-                category: item.category,
-                threshold: item.threshold,
-                description: item.description,
-                updated_at: sql`now()`,
-              })
-              .where(eq(inventory_items.id, existingItem[0].id))
-              .returning();
-
-            insertedItems.push({ ...updated[0], status: "updated" });
-          } else {
-            // Insert new item
+          if (import_mode === "replace_all") {
+            // In replace_all mode, always insert as new items since we cleared the location
             const inserted = await db
               .insert(inventory_items)
               .values(item)
               .returning();
 
             insertedItems.push({ ...inserted[0], status: "created" });
+            generatedCount++;
+          } else {
+            // In add_update mode, check if item exists and update or insert accordingly
+            const existingItem = await db
+              .select()
+              .from(inventory_items)
+              .where(
+                and(
+                  eq(inventory_items.location_id, location_id),
+                  eq(inventory_items.name, item.name)
+                )
+              )
+              .limit(1);
+
+            if (existingItem.length > 0) {
+              // For existing items, regenerate embedding if content changed
+              const shouldUpdateEmbedding =
+                existingItem[0].description !== item.description ||
+                existingItem[0].category !== item.category;
+
+              const updateData: any = {
+                quantity: item.quantity,
+                unit: item.unit,
+                category: item.category,
+                threshold: item.threshold,
+                description: item.description,
+                updated_at: sql`now()`,
+              };
+
+              // Add embedding to update if it should be regenerated
+              if (shouldUpdateEmbedding && item.embedding) {
+                updateData.embedding = item.embedding;
+              }
+
+              // Update existing item
+              const updated = await db
+                .update(inventory_items)
+                .set(updateData)
+                .where(eq(inventory_items.id, existingItem[0].id))
+                .returning();
+
+              insertedItems.push({ ...updated[0], status: "updated" });
+            } else {
+              // Insert new item with generated SKU and embedding
+              const inserted = await db
+                .insert(inventory_items)
+                .values(item)
+                .returning();
+
+              insertedItems.push({ ...inserted[0], status: "created" });
+              generatedCount++;
+            }
           }
         } catch (error) {
           console.error(`Failed to insert item ${item.name}:`, error);
@@ -403,14 +514,27 @@ router.post(
         }
       }
 
+      console.log(
+        `Generated SKUs and embeddings for ${generatedCount} items during bulk import`
+      );
+
       const response: any = {
-        message: `Successfully processed ${insertedItems.length} items`,
+        message:
+          import_mode === "replace_all"
+            ? `Successfully replaced ${insertedItems.length} items (deleted ${deletedCount} existing items)`
+            : `Successfully processed ${insertedItems.length} items`,
         imported: insertedItems.length,
         created: insertedItems.filter((item) => item.status === "created")
           .length,
         updated: insertedItems.filter((item) => item.status === "updated")
           .length,
+        generated_skus: generatedCount,
       };
+
+      // Add deleted count for replace_all mode
+      if (import_mode === "replace_all") {
+        response.deleted = deletedCount;
+      }
 
       if (errors.length > 0) {
         response.warnings = errors.slice(0, 10);

@@ -26,15 +26,51 @@ interface FieldMapping {
 }
 
 const REQUIRED_FIELDS = [
-  { key: "name", label: "Product Name", required: true },
-  { key: "quantity", label: "Quantity", required: true },
-  { key: "unit", label: "Unit", required: true },
-  { key: "category", label: "Category", required: true },
+  {
+    key: "name",
+    label: "Product Name",
+    required: true,
+    description:
+      "The unique name or title of your inventory item. This will be used to identify and match existing items.",
+  },
+  {
+    key: "quantity",
+    label: "Quantity",
+    required: true,
+    description:
+      "Current stock quantity as a number (e.g., 50, 125.5). No units - just the numeric value.",
+  },
+  {
+    key: "unit",
+    label: "Unit",
+    required: true,
+    description:
+      "Unit of measurement (e.g., pieces, kg, liters, boxes). Keep consistent across similar items.",
+  },
+  {
+    key: "category",
+    label: "Category",
+    required: true,
+    description:
+      "Product category for organization and filtering (e.g., Electronics, Food, Office Supplies).",
+  },
 ];
 
 const OPTIONAL_FIELDS = [
-  { key: "threshold", label: "Low Stock Threshold", required: false },
-  { key: "description", label: "Description", required: false },
+  {
+    key: "threshold",
+    label: "Low Stock Threshold",
+    required: false,
+    description:
+      "Minimum quantity before item is considered low stock. Leave empty if not needed.",
+  },
+  {
+    key: "description",
+    label: "Description",
+    required: false,
+    description:
+      "Additional details about the item (color, model, notes). Helps distinguish similar products.",
+  },
 ];
 
 const ALL_FIELDS = [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS];
@@ -51,6 +87,11 @@ const Onboarding: React.FC = () => {
   >([]);
   const [mappedItems, setMappedItems] = useState<any[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
+
+  // Import mode selection
+  const [importMode, setImportMode] = useState<"add_update" | "replace_all">(
+    "add_update"
+  );
 
   // Preview controls state
   const [previewSearch, setPreviewSearch] = useState<string>("");
@@ -324,15 +365,23 @@ const Onboarding: React.FC = () => {
           body: JSON.stringify({
             items: mappedItems,
             location_id: selectedLocation,
+            import_mode: importMode,
           }),
         }
       );
 
       if (response.ok) {
         await refreshInventory();
+        const data = await response.json();
+        const actionText =
+          importMode === "replace_all" ? "replaced" : "imported";
+        const skuText = data.generated_skus
+          ? ` Generated ${data.generated_skus} unique SKU codes and AI embeddings.`
+          : "";
+
         navigate("/items", {
           state: {
-            message: `Successfully imported ${mappedItems.length} items!`,
+            message: `Successfully ${actionText} ${mappedItems.length} items!${skuText}`,
             type: "success",
           },
         });
@@ -348,53 +397,261 @@ const Onboarding: React.FC = () => {
     }
   };
 
+  const handleExportCurrentInventory = async () => {
+    try {
+      if (!session?.access_token) {
+        setErrors(["Authentication required. Please log in again."]);
+        return;
+      }
+
+      // Fetch current inventory
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/inventory`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          credentials: "include",
+        }
+      );
+
+      if (!response.ok) {
+        setErrors(["Failed to fetch current inventory"]);
+        return;
+      }
+
+      const data = await response.json();
+      const items = data.items || [];
+
+      if (items.length === 0) {
+        setErrors(["No inventory items found to export"]);
+        return;
+      }
+
+      // Convert to CSV format
+      const csvHeaders = [
+        "Product Name",
+        "Quantity",
+        "Unit",
+        "Category",
+        "Low Stock Threshold",
+        "Description",
+      ];
+      const csvRows = items.map((item: any) => [
+        item.name || "",
+        item.quantity || 0,
+        item.unit || "",
+        item.category || "",
+        item.threshold || "",
+        item.description || "",
+      ]);
+
+      // Create CSV content
+      const csvContent = [
+        csvHeaders.join(","),
+        ...csvRows.map((row: any[]) =>
+          row
+            .map((field: any) =>
+              // Escape fields that contain commas, quotes, or newlines
+              typeof field === "string" &&
+              (field.includes(",") ||
+                field.includes('"') ||
+                field.includes("\n"))
+                ? `"${field.replace(/"/g, '""')}"`
+                : field
+            )
+            .join(",")
+        ),
+      ].join("\n");
+
+      // Create and download file
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute(
+        "download",
+        `inventory_export_${new Date().toISOString().split("T")[0]}.csv`
+      );
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Export failed:", error);
+      setErrors(["Failed to export inventory. Please try again."]);
+    }
+  };
+
+  const handleDownloadSampleCSV = () => {
+    // Create sample data
+    const sampleHeaders = [
+      "Product Name",
+      "Quantity",
+      "Unit",
+      "Category",
+      "Low Stock Threshold",
+      "Description",
+    ];
+    const sampleData = [
+      [
+        "Apple iPhone 15",
+        "50",
+        "pieces",
+        "Electronics",
+        "10",
+        "Latest iPhone model",
+      ],
+      [
+        "Wireless Headphones",
+        "25",
+        "pieces",
+        "Electronics",
+        "5",
+        "Bluetooth wireless headphones",
+      ],
+      [
+        "Office Chair",
+        "15",
+        "pieces",
+        "Furniture",
+        "3",
+        "Ergonomic office chair",
+      ],
+      [
+        "Organic Coffee Beans",
+        "100",
+        "kg",
+        "Food & Beverage",
+        "20",
+        "Premium organic coffee",
+      ],
+      [
+        "Notebook Set",
+        "200",
+        "pieces",
+        "Stationery",
+        "25",
+        "Pack of 5 notebooks",
+      ],
+    ];
+
+    // Create CSV content
+    const csvContent = [
+      sampleHeaders.join(","),
+      ...sampleData.map((row: string[]) =>
+        row
+          .map((field: string) =>
+            field.includes(",") || field.includes('"') || field.includes("\n")
+              ? `"${field.replace(/"/g, '""')}"`
+              : field
+          )
+          .join(",")
+      ),
+    ].join("\n");
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "sample-inventory.csv");
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const renderUploadStep = () => (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6">
-      <div className="text-center mb-6 sm:mb-8">
-        <Heading>Import Your Inventory</Heading>
-        <Text className="mt-2">
+    <div className="sm:flex-auto">
+      <div className="mb-8">
+        <Heading level={1}>Import Your Inventory</Heading>
+        <Text>
           Upload a CSV or Excel file to get started. We'll help you map your
           data to our inventory system.
         </Text>
+      </div>
 
-        {/* Sample file download */}
-        <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-700">
-          <Text className="mb-3 text-sm sm:text-base">
-            Need a template? Download our sample file to see the expected
-            format:
-          </Text>
-          <Button
-            href="/sample-inventory.csv"
-            download="sample-inventory.csv"
-            outline
-            className="inline-flex items-center text-sm sm:text-base"
-          >
-            <DocumentArrowUpIcon className="h-4 w-4 mr-2" />
-            Download Sample CSV
-          </Button>
+      {/* Sample file download */}
+      <div className="mt-8 p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-700">
+        <Text className="mb-3">
+          Need a template? Download our sample file to see the expected format:
+        </Text>
+        <Button
+          onClick={handleDownloadSampleCSV}
+          outline
+          className="inline-flex items-center"
+        >
+          <DocumentArrowUpIcon className="h-4 w-4 mr-2" />
+          Download Sample CSV
+        </Button>
+        <Text className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+          Note: SKU codes are auto-generated - no need to include them in your
+          file
+        </Text>
+      </div>
+
+      {/* Export current inventory */}
+      <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+        <Text className="mb-3">
+          Want to bulk edit your existing inventory? Export your current data,
+          make changes, and re-import:
+        </Text>
+        <Button
+          onClick={handleExportCurrentInventory}
+          outline
+          className="inline-flex items-center"
+        >
+          <DocumentArrowUpIcon className="h-4 w-4 mr-2" />
+          Export Current Inventory
+        </Button>
+      </div>
+
+      {/* Auto-generation info */}
+      <div className="mt-6 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+        <h3 className="text-sm font-semibold text-emerald-800 dark:text-emerald-200 mb-2">
+          ✨ Smart Features Included:
+        </h3>
+        <div className="text-sm text-emerald-700 dark:text-emerald-300 space-y-1">
+          <div>
+            <strong>Auto SKU Generation:</strong> Unique product codes created
+            automatically
+          </div>
+          <div>
+            <strong>AI-Powered Search:</strong> Items indexed for intelligent
+            search and recommendations
+          </div>
+          <div>
+            <strong>Smart Matching:</strong> Existing items updated by product
+            name matching
+          </div>
         </div>
       </div>
 
       <div
         {...getRootProps()}
-        className={`border-2 border-dashed rounded-lg p-6 sm:p-12 text-center cursor-pointer transition-colors ${
+        className={`mt-8 border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
           isDragActive
             ? "border-zinc-400 dark:border-zinc-500 bg-zinc-50 dark:bg-zinc-800/50"
             : "border-zinc-300 dark:border-zinc-600 hover:border-zinc-400 dark:hover:border-zinc-500"
         }`}
       >
         <input {...getInputProps()} />
-        <DocumentArrowUpIcon className="h-8 w-8 sm:h-12 sm:w-12 text-zinc-400 dark:text-zinc-500 mx-auto mb-4" />
+        <DocumentArrowUpIcon className="h-12 w-12 text-zinc-400 dark:text-zinc-500 mx-auto mb-4" />
         {isDragActive ? (
           <Text className="text-zinc-600 dark:text-zinc-400">
             Drop your file here...
           </Text>
         ) : (
           <div>
-            <Text className="mb-2 text-sm sm:text-base">
+            <Text className="mb-2">
               Drag and drop your CSV or Excel file here, or click to browse
             </Text>
-            <Text className="text-xs sm:text-sm mb-2 sm:mb-4">
+            <Text className="text-sm mb-4">
               Supported formats: .csv, .xlsx, .xls
             </Text>
             <Text className="text-xs">Maximum file size: 10MB</Text>
@@ -403,14 +660,14 @@ const Onboarding: React.FC = () => {
       </div>
 
       {/* Expected format info */}
-      <div className="mt-6 sm:mt-8 p-3 sm:p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-700">
+      <div className="mt-8 p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-700">
         <h3 className="text-sm font-semibold text-zinc-950 dark:text-white mb-2">
           Expected File Format:
         </h3>
-        <Text className="mb-2 text-sm sm:text-base">
+        <Text className="mb-2">
           Your file should contain columns for the following required fields:
         </Text>
-        <ul className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 space-y-1">
+        <ul className="text-sm text-zinc-500 dark:text-zinc-400 space-y-1">
           <li>
             •{" "}
             <strong className="text-zinc-950 dark:text-white">
@@ -433,35 +690,58 @@ const Onboarding: React.FC = () => {
             - Product category
           </li>
         </ul>
-        <Text className="mt-2 text-sm sm:text-base">
+        <Text className="mt-2">
           Optional fields: Low Stock Threshold, Description
         </Text>
+      </div>
+
+      {/* Bulk editing strategies */}
+      <div className="mt-6 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+        <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-200 mb-2">
+          💡 Bulk Editing Strategies:
+        </h3>
+        <div className="text-sm text-amber-700 dark:text-amber-300 space-y-1">
+          <div>
+            <strong>New Inventory:</strong> Use the sample template or create
+            your own file
+          </div>
+          <div>
+            <strong>Update Existing:</strong> Export current data, edit in
+            Excel/Sheets, then re-import
+          </div>
+          <div>
+            <strong>Replace Everything:</strong> Import new file and select
+            "Replace All" mode
+          </div>
+          <div>
+            <strong>Partial Updates:</strong> Import file with just items to
+            change (matches by name)
+          </div>
+        </div>
       </div>
     </div>
   );
 
   const renderMappingStep = () => (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6">
-      <div className="text-center mb-6 sm:mb-8">
-        <Heading level={2}>Map Your Columns</Heading>
-        <Text className="mt-2">
+    <div className="sm:flex-auto">
+      <div className="mb-8">
+        <Heading level={1}>Map Your Columns</Heading>
+        <Text>
           Match your file columns to our inventory fields. Required fields are
           marked with *
         </Text>
       </div>
 
       {parsedData && (
-        <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700">
-          <div className="p-4 sm:p-6 border-b border-zinc-200 dark:border-zinc-700">
-            <h3 className="text-base sm:text-lg font-semibold text-zinc-950 dark:text-white">
+        <div>
+          <div className="p-4 border-b border-zinc-200 dark:border-zinc-700">
+            <h3 className="text-lg font-semibold text-zinc-950 dark:text-white">
               File: {parsedData.fileName}
             </h3>
-            <Text className="mt-1 text-sm sm:text-base">
-              {parsedData.rows.length} rows found
-            </Text>
+            <Text className="mt-1">{parsedData.rows.length} rows found</Text>
           </div>
 
-          <div className="p-4 sm:p-6">
+          <div className="mt-8">
             <div className="mb-6">
               <label className="block text-sm font-medium text-zinc-950 dark:text-white mb-2">
                 Select Location *
@@ -469,7 +749,7 @@ const Onboarding: React.FC = () => {
               <select
                 value={selectedLocation}
                 onChange={(e) => setSelectedLocation(e.target.value)}
-                className="w-full border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white rounded-lg px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-zinc-500 focus:border-zinc-500"
+                className="w-full border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-zinc-500 focus:border-zinc-500"
                 required
               >
                 <option value="">Choose a location...</option>
@@ -481,19 +761,100 @@ const Onboarding: React.FC = () => {
               </select>
             </div>
 
+            {/* Import Mode Selection */}
+            <div className="mb-6 p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-700">
+              <label className="block text-sm font-medium text-zinc-950 dark:text-white mb-3">
+                Import Mode *
+              </label>
+              <div className="space-y-3">
+                <label className="flex items-start cursor-pointer">
+                  <input
+                    type="radio"
+                    name="importMode"
+                    value="add_update"
+                    checked={importMode === "add_update"}
+                    onChange={(e) =>
+                      setImportMode(
+                        e.target.value as "add_update" | "replace_all"
+                      )
+                    }
+                    className="mt-1 mr-3 h-4 w-4 text-blue-600 border-zinc-300 focus:ring-blue-500"
+                  />
+                  <div>
+                    <div className="text-sm font-medium text-zinc-950 dark:text-white">
+                      Add & Update Items (Recommended)
+                    </div>
+                    <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                      Add new items and update existing ones. Your current
+                      inventory will be preserved.
+                    </div>
+                  </div>
+                </label>
+
+                <label className="flex items-start cursor-pointer">
+                  <input
+                    type="radio"
+                    name="importMode"
+                    value="replace_all"
+                    checked={importMode === "replace_all"}
+                    onChange={(e) =>
+                      setImportMode(
+                        e.target.value as "add_update" | "replace_all"
+                      )
+                    }
+                    className="mt-1 mr-3 h-4 w-4 text-red-600 border-zinc-300 focus:ring-red-500"
+                  />
+                  <div>
+                    <div className="text-sm font-medium text-zinc-950 dark:text-white">
+                      Replace All Inventory
+                    </div>
+                    <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                      ⚠️ Delete all existing items in this location and replace
+                      with imported data.
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              {importMode === "replace_all" && (
+                <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                  <div className="flex items-center">
+                    <svg
+                      className="h-5 w-5 text-red-600 dark:text-red-400 mr-2"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <Text className="text-red-700 dark:text-red-400 text-sm font-medium">
+                      Warning: This will permanently delete all existing
+                      inventory in the selected location.
+                    </Text>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-4">
               {ALL_FIELDS.map((field) => (
                 <div
                   key={field.key}
-                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 border-b border-zinc-200 dark:border-zinc-700 last:border-b-0 gap-2 sm:gap-0"
+                  className="flex flex-col sm:flex-row sm:items-start sm:justify-between py-4 border-b border-zinc-200 dark:border-zinc-700 last:border-b-0 gap-3"
                 >
-                  <div className="flex-1">
+                  <div className="flex-1 sm:max-w-md">
                     <label className="text-sm font-medium text-zinc-950 dark:text-white">
                       {field.label}{" "}
                       {field.required && (
                         <span className="text-red-500">*</span>
                       )}
                     </label>
+                    <Text className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                      {field.description}
+                    </Text>
                   </div>
                   <div className="flex-1 sm:max-w-xs">
                     <select
@@ -506,7 +867,7 @@ const Onboarding: React.FC = () => {
                             : parseInt(e.target.value)
                         )
                       }
-                      className="w-full border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white rounded-lg px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-zinc-500 focus:border-zinc-500"
+                      className="w-full border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-zinc-500 focus:border-zinc-500"
                     >
                       <option value="">Select column...</option>
                       {parsedData.headers.map((header, index) => (
@@ -521,7 +882,7 @@ const Onboarding: React.FC = () => {
             </div>
 
             {errors.length > 0 && (
-              <div className="mt-4 p-3 sm:p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+              <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
                 {errors.map((error, index) => (
                   <Text
                     key={index}
@@ -533,7 +894,7 @@ const Onboarding: React.FC = () => {
               </div>
             )}
 
-            <div className="mt-6 flex flex-col sm:flex-row gap-3">
+            <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <Button
                 outline
                 onClick={() => setStep("upload")}
@@ -556,18 +917,111 @@ const Onboarding: React.FC = () => {
   );
 
   const renderPreviewStep = () => (
-    <div className="w-full max-w-6xl mx-auto bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6 sm:p-8">
-      <Heading level={2} className="mb-6">
-        Step 3: Preview Your Data
-      </Heading>
+    <div className="sm:flex-auto">
+      <div className="mb-8">
+        <Heading level={1}>Preview Your Data</Heading>
+        <Text>
+          Review your mapped data before importing. Use the controls below to
+          spot check specific items.
+        </Text>
+      </div>
 
-      <Text className="text-zinc-600 dark:text-zinc-300 mb-6">
-        Review your mapped data before importing. Use the controls below to spot
-        check specific items.
-      </Text>
+      {/* Import Mode Summary */}
+      <div
+        className={`mb-6 p-4 rounded-lg border ${
+          importMode === "replace_all"
+            ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
+            : "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800"
+        }`}
+      >
+        <div className="flex items-center mb-2">
+          {importMode === "replace_all" ? (
+            <svg
+              className="h-5 w-5 text-red-600 dark:text-red-400 mr-2"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                clipRule="evenodd"
+              />
+            </svg>
+          ) : (
+            <svg
+              className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-2"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                clipRule="evenodd"
+              />
+            </svg>
+          )}
+          <Text
+            className={`font-medium ${
+              importMode === "replace_all"
+                ? "text-red-700 dark:text-red-400"
+                : "text-blue-700 dark:text-blue-400"
+            }`}
+          >
+            Import Mode:{" "}
+            {importMode === "replace_all"
+              ? "Replace All Inventory"
+              : "Add & Update Items"}
+          </Text>
+        </div>
+        <Text
+          className={`text-sm ${
+            importMode === "replace_all"
+              ? "text-red-600 dark:text-red-400"
+              : "text-blue-600 dark:text-blue-400"
+          }`}
+        >
+          {importMode === "replace_all"
+            ? "All existing inventory in this location will be deleted and replaced with the items below."
+            : "New items will be added and existing items will be updated based on matching names."}
+        </Text>
+      </div>
+
+      {/* Auto-generation Features */}
+      <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+        <div className="flex items-center mb-2">
+          <svg
+            className="h-5 w-5 text-green-600 dark:text-green-400 mr-2"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path
+              fillRule="evenodd"
+              d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <Text className="font-medium text-green-700 dark:text-green-400">
+            🚀 Automatic Enhancements
+          </Text>
+        </div>
+        <div className="space-y-1 text-sm text-green-600 dark:text-green-400">
+          <div>
+            <strong>Unique SKU Codes:</strong> Each item will get an
+            auto-generated SKU (e.g., ELEC-2024-0001)
+          </div>
+          <div>
+            <strong>AI Embeddings:</strong> Items will be indexed for smart
+            search and recommendations
+          </div>
+          <div>
+            <strong>Smart Matching:</strong> Existing items are matched by name
+            for updates
+          </div>
+        </div>
+      </div>
 
       {/* Preview Controls */}
-      <div className="mb-6 p-4 bg-zinc-50 dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
+      <div className="mb-6 p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-700">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Search */}
           <div>
@@ -612,9 +1066,8 @@ const Onboarding: React.FC = () => {
             {previewMode === "random" && (
               <Button
                 onClick={generateNewRandomSample}
-                variant="outline"
-                size="sm"
-                className="w-full"
+                outline
+                className="w-full text-sm"
               >
                 New Random Sample
               </Button>
@@ -645,8 +1098,8 @@ const Onboarding: React.FC = () => {
           <Button
             onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
             disabled={currentPage === 1}
-            variant="outline"
-            size="sm"
+            outline
+            className="text-sm"
           >
             Previous
           </Button>
@@ -658,8 +1111,8 @@ const Onboarding: React.FC = () => {
               setCurrentPage(Math.min(totalPages, currentPage + 1))
             }
             disabled={currentPage === totalPages}
-            variant="outline"
-            size="sm"
+            outline
+            className="text-sm"
           >
             Next
           </Button>
@@ -668,7 +1121,7 @@ const Onboarding: React.FC = () => {
 
       {/* Error Display */}
       {errors.length > 0 && (
-        <div className="mb-6 p-3 sm:p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+        <div className="mb-6 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
           {errors.map((error, index) => (
             <Text
               key={index}
@@ -689,13 +1142,13 @@ const Onboarding: React.FC = () => {
           </Text>
         </div>
       ) : (
-        <div>
+        <div className="mt-6">
           {/* Mobile card view for small screens */}
-          <div className="lg:hidden space-y-4 mb-6">
+          <div className="lg:hidden space-y-4">
             {displayItems.map((item, index) => (
               <div
                 key={index}
-                className="bg-white dark:bg-zinc-900 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4"
+                className="border border-zinc-200 dark:border-zinc-700 rounded-lg p-4"
               >
                 <div className="flex justify-between items-start mb-2">
                   <h4 className="font-medium text-zinc-950 dark:text-white">
@@ -754,90 +1207,90 @@ const Onboarding: React.FC = () => {
           </div>
 
           {/* Desktop table view */}
-          <div className="hidden lg:block bg-white dark:bg-zinc-900 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
-                <thead className="bg-zinc-50 dark:bg-zinc-800">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                      Row
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                      Name
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                      Quantity
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                      Unit
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                      Category
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                      Threshold
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                      Description
-                    </th>
+          <div className="hidden lg:block">
+            <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
+              <thead>
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                    Row
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                    Name
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                    Quantity
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                    Unit
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                    Category
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                    Threshold
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                    Description
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700 bg-inherit">
+                {displayItems.map((item, index) => (
+                  <tr key={index}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
+                      {item.rowIndex}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-zinc-950 dark:text-white">
+                      {item.name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
+                      {item.quantity}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
+                      {item.unit}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
+                      {item.category}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
+                      {item.threshold || "-"}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-zinc-500 dark:text-zinc-400 max-w-xs truncate">
+                      {item.description || "-"}
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-zinc-900 divide-y divide-zinc-200 dark:divide-zinc-700">
-                  {displayItems.map((item, index) => (
-                    <tr key={index}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
-                        {item.rowIndex}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-zinc-950 dark:text-white">
-                        {item.name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
-                        {item.quantity}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
-                        {item.unit}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
-                        {item.category}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
-                        {item.threshold || "-"}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-zinc-500 dark:text-zinc-400 max-w-xs truncate">
-                        {item.description || "-"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
-      <div className="mt-6 flex flex-col sm:flex-row gap-3">
+      <div className="mt-8 flex flex-col sm:flex-row gap-3">
         <Button
           onClick={() => setStep("mapping")}
-          variant="outline"
+          outline
           className="sm:order-1"
         >
           Back to Mapping
         </Button>
         <Button
-          onClick={() => setStep("importing")}
+          onClick={handleImport}
           className="sm:order-2"
           disabled={mappedItems.length === 0}
         >
-          Import {mappedItems.length} Items
+          {importMode === "replace_all"
+            ? `Replace All with ${mappedItems.length} Items`
+            : `Import ${mappedItems.length} Items`}
         </Button>
       </div>
     </div>
   );
 
   const renderImportingStep = () => (
-    <div className="max-w-2xl mx-auto text-center px-4 sm:px-6">
+    <div className="sm:flex-auto text-center">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-zinc-600 dark:border-zinc-400 mx-auto mb-4"></div>
-      <Heading level={2}>Importing Items...</Heading>
+      <Heading level={1}>Importing Items...</Heading>
       <Text className="mt-2">
         Please wait while we add your {mappedItems.length} items to the
         inventory.
@@ -846,9 +1299,9 @@ const Onboarding: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen bg-inherit max-w-7xl mx-auto py-4 sm:py-8">
+    <div className="min-h-screen bg-inherit max-w-7xl py-6">
       {/* Progress indicator */}
-      <div className="max-w-4xl mx-auto mb-6 sm:mb-8 px-4 sm:px-6">
+      <div className="mb-8 px-4">
         <div className="flex items-center justify-center space-x-2 sm:space-x-4">
           {["upload", "mapping", "preview", "importing"].map(
             (stepName, index) => (

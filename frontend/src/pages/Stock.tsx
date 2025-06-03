@@ -27,7 +27,7 @@ import { XMarkIcon } from "@heroicons/react/24/outline";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
 import { motion } from "framer-motion";
 
-export default function Stock() {
+export default function StockList() {
   // Ensure inventory data is loaded
   const { items, categories } = useInventoryData();
   const { error } = useInventoryStore();
@@ -102,7 +102,7 @@ function InventoryListWithStickyHeader({
       <div className="sm:flex-auto">
         {/* Header */}
         <div>
-          <Heading level={1}>Stock</Heading>
+          <Heading level={1}>Stock List</Heading>
           <Text>Input your stock counts</Text>
         </div>
 
