@@ -34,6 +34,11 @@ interface VoiceSocketEvents {
     feedbackMode?: string;
     speechFeedback?: string;
   }) => void;
+  onClarificationNeeded?: (data: {
+    message: string;
+    originalCommand: any;
+  }) => void;
+  onFeedback?: (data: { text: string }) => void;
 }
 
 export const useVoiceSocket = (events: VoiceSocketEvents) => {
@@ -63,6 +68,8 @@ export const useVoiceSocket = (events: VoiceSocketEvents) => {
       socket.off("voice-command");
       socket.off("command-processed");
       socket.off("nlp-response");
+      socket.off("clarification-needed");
+      socket.off("feedback");
 
       if (events.onConnect) {
         socket.on("connect", () => {
@@ -127,6 +134,21 @@ export const useVoiceSocket = (events: VoiceSocketEvents) => {
         });
       }
 
+      if (events.onClarificationNeeded) {
+        socket.on(
+          "clarification-needed",
+          (data: { message: string; originalCommand: any }) => {
+            if (isMountedRef.current) events.onClarificationNeeded!(data);
+          }
+        );
+      }
+
+      if (events.onFeedback) {
+        socket.on("feedback", (data: { text: string }) => {
+          if (isMountedRef.current) events.onFeedback!(data);
+        });
+      }
+
       return () => {
         isMountedRef.current = false;
         // Remove all event listeners for this component
@@ -138,6 +160,8 @@ export const useVoiceSocket = (events: VoiceSocketEvents) => {
         socket.off("voice-command");
         socket.off("command-processed");
         socket.off("nlp-response");
+        socket.off("clarification-needed");
+        socket.off("feedback");
       };
     } catch (error) {
       console.error("Error creating voice socket:", error);

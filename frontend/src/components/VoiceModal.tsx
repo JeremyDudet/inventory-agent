@@ -272,12 +272,16 @@ export function VoiceModal() {
   const [isConnected, setIsConnected] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [feedback, setFeedback] = useState("");
-  const [isWarpActive, setIsWarpActive] = useState(false);
+  const [isVoiceModeActive, setIsVoiceModeActive] = useState(false);
   const [transcription, setTranscription] = useState("");
   const [isFinalTranscription, setIsFinalTranscription] = useState(false);
   const [isInCooldown, setIsInCooldown] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [isProcessingText, setIsProcessingText] = useState(false);
+  const [ambiguousMatch, setAmbiguousMatch] = useState<{
+    originalText: string;
+    suggestions: string[];
+  } | null>(null);
   const { theme } = useThemeStore();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -319,10 +323,34 @@ export function VoiceModal() {
         if (data.isFinal) {
           setFeedback(`Heard: ${data.text}`);
           setIsProcessingText(false);
+          // Clear any previous ambiguous matches when we get new transcription
+          setAmbiguousMatch(null);
         } else {
           setFeedback("Listening...");
         }
       }
+    },
+    onClarificationNeeded: (data: {
+      message: string;
+      originalCommand: any;
+    }) => {
+      // Parse the clarification message to extract suggestions
+      const match = data.message.match(
+        /Ambiguous match for "([^"]+)"\. Possible matches: (.+)/
+      );
+      if (match) {
+        const [, originalText, suggestionsStr] = match;
+        const suggestions = suggestionsStr.split(", ");
+        setAmbiguousMatch({ originalText, suggestions });
+        setFeedback(
+          `I heard "${originalText}" but found multiple matches. Please select the correct item:`
+        );
+      } else {
+        setFeedback(data.message);
+      }
+    },
+    onFeedback: (data: { text: string }) => {
+      setFeedback(data.text);
     },
   });
 
@@ -370,9 +398,28 @@ export function VoiceModal() {
 
   const handleVoiceClick = () => {
     if (isConnected) {
-      setIsOpen(false);
-      setIsWarpActive(true);
+      // Keep modal open and activate voice mode
+      setIsVoiceModeActive(true);
+      // Clear any previous ambiguous matches
+      setAmbiguousMatch(null);
       startRecording();
+    }
+  };
+
+  const handleSuggestionClick = (suggestion: string) => {
+    if (socket && isConnected && ambiguousMatch) {
+      // Send the clarified selection back to the server
+      socket.emit("clarify-selection", {
+        originalText: ambiguousMatch.originalText,
+        selectedItem: suggestion,
+        transcription: transcription, // Include original transcription for context
+      });
+
+      setFeedback(`Selected: ${suggestion}. Processing...`);
+      setAmbiguousMatch(null);
+
+      // Continue listening or close based on preference
+      // For now, let's continue listening for more commands
     }
   };
 
@@ -407,14 +454,15 @@ export function VoiceModal() {
     }
   };
 
-  const handleWarpClose = () => {
-    setIsWarpActive(false);
+  const handleStopVoice = () => {
+    setIsVoiceModeActive(false);
     stopRecording();
-    // Clear transcription when closing
+    // Clear transcription and ambiguous matches when stopping
     setTranscription("");
     setIsFinalTranscription(false);
+    setAmbiguousMatch(null);
 
-    // Set cooldown for 2 seconds
+    // Set cooldown for 5 seconds
     setIsInCooldown(true);
     setTimeout(() => {
       setIsInCooldown(false);
@@ -519,7 +567,7 @@ export function VoiceModal() {
     <MotionConfig
       transition={{ type: "spring", visualDuration: 0.2, bounce: 0 }}
     >
-      {!isWarpActive && (
+      {!isOpen && (
         <motion.div
           layoutId="modal"
           id="modal-open"
@@ -564,19 +612,96 @@ export function VoiceModal() {
             setTextInput={setTextInput}
             onTextSubmit={handleTextSubmit}
             isProcessingText={isProcessingText}
+            isVoiceModeActive={isVoiceModeActive}
+            onStopVoice={handleStopVoice}
+            isListening={isListening}
+            feedback={feedback}
+            transcription={transcription}
+            isFinalTranscription={isFinalTranscription}
+            onSuggestionClick={handleSuggestionClick}
+            ambiguousMatch={ambiguousMatch}
           />
         )}
       </AnimatePresence>
-      <VoiceOverlay
-        isActive={isWarpActive}
-        onClose={handleWarpClose}
-        isListening={isListening}
-        feedback={feedback}
-        transcription={transcription}
-        isFinalTranscription={isFinalTranscription}
-      />
+      <RippleEffect isActive={isVoiceModeActive} />
       <StyleSheet theme={theme} />
     </MotionConfig>
+  );
+}
+
+// Ripple Effect Component
+function RippleEffect({ isActive }: { isActive: boolean }) {
+  const rippleRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isActive || !rippleRef.current) return;
+
+    const rippleElement = rippleRef.current;
+
+    // Create cloned content for ripple effect
+    const appContent = document.querySelector("body");
+    if (!appContent) return;
+
+    const clonedContent = appContent.cloneNode(true) as HTMLElement;
+    rippleElement.appendChild(clonedContent);
+
+    clonedContent.style.transformOrigin = "50% 50%";
+    clonedContent.style.filter =
+      "contrast(110%) brightness(120%) hue-rotate(10deg)";
+    clonedContent.style.mixBlendMode = "color-dodge";
+    clonedContent.style.position = "absolute";
+    clonedContent.style.top = "0";
+    clonedContent.style.left = "0";
+    clonedContent.style.width = "100%";
+    clonedContent.style.height = "100%";
+    clonedContent.style.pointerEvents = "none";
+
+    const duration = 1.2;
+    animate(
+      clonedContent,
+      {
+        scaleX: [1.7, 1],
+        maskImage: [
+          "radial-gradient(ellipse 0% 100px at 50% 50%, transparent 0%, #000f 0%, transparent 60%)",
+          "radial-gradient(ellipse 300% 400px at 50% 50%, transparent 0%, #000f 300%, transparent 300%)",
+        ],
+        opacity: [1, 1, 0],
+      },
+      {
+        ease: "linear",
+        duration,
+        scaleX: {
+          duration: duration * 0.52,
+          ease: [0.7, -0.03, 0.17, 1],
+        },
+      }
+    );
+
+    // Cleanup
+    const timer = setTimeout(() => {
+      if (rippleElement.contains(clonedContent)) {
+        rippleElement.removeChild(clonedContent);
+      }
+    }, duration * 1000);
+
+    return () => {
+      clearTimeout(timer);
+      if (rippleElement.contains(clonedContent)) {
+        rippleElement.removeChild(clonedContent);
+      }
+    };
+  }, [isActive]);
+
+  if (!isActive) return null;
+
+  return (
+    <div
+      ref={rippleRef}
+      className="fixed inset-0 pointer-events-none z-40"
+      style={{
+        overflow: "hidden",
+      }}
+    />
   );
 }
 
@@ -590,6 +715,14 @@ function Dialog({
   setTextInput,
   onTextSubmit,
   isProcessingText,
+  isVoiceModeActive,
+  onStopVoice,
+  isListening,
+  feedback,
+  transcription,
+  isFinalTranscription,
+  onSuggestionClick,
+  ambiguousMatch,
 }: {
   close: () => void;
   theme: string;
@@ -599,6 +732,17 @@ function Dialog({
   setTextInput: (value: string) => void;
   onTextSubmit: () => void;
   isProcessingText: boolean;
+  isVoiceModeActive: boolean;
+  onStopVoice: () => void;
+  isListening: boolean;
+  feedback: string;
+  transcription: string;
+  isFinalTranscription: boolean;
+  onSuggestionClick: (suggestion: string) => void;
+  ambiguousMatch: {
+    originalText: string;
+    suggestions: string[];
+  } | null;
 }) {
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -630,20 +774,65 @@ function Dialog({
           <h2 className="title h2 font-semibold text-xl text-zinc-900 dark:text-zinc-100">
             <QuestionMarkIcon theme={theme} />
             AI Assistant
+            {isVoiceModeActive && (
+              <span className="text-sm font-normal text-blue-500 dark:text-blue-400 ml-2">
+                Voice Mode Active
+              </span>
+            )}
           </h2>
           <p className="text-base mb-3">How can I help you?</p>
 
-          {/* Text Input Area */}
-          <div className="mb-3">
-            <textarea
-              value={textInput}
-              onChange={(e) => setTextInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Type your message here..."
-              className="w-full p-2 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-500 dark:placeholder-zinc-400 resize-none focus:outline-none focus:ring-2 focus:ring-zinc-500 dark:focus:ring-zinc-400"
-              rows={2}
-            />
-          </div>
+          {/* Voice Mode Feedback */}
+          {isVoiceModeActive && (
+            <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="text-sm text-blue-700 dark:text-blue-300 mb-1">
+                {feedback}
+              </div>
+              {transcription && (
+                <div className="text-sm text-zinc-600 dark:text-zinc-400">
+                  {isFinalTranscription ? "You said: " : "Hearing: "}
+                  <span className="font-medium">{transcription}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Ambiguous Match Suggestions */}
+          {ambiguousMatch && (
+            <div className="mb-3 p-3 bg-amber-50 dark:bg-amber-950 rounded-lg border border-amber-200 dark:border-amber-800">
+              <div className="text-sm text-amber-700 dark:text-amber-300 mb-2">
+                Multiple items match "{ambiguousMatch.originalText}". Please
+                select:
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {ambiguousMatch.suggestions.map((suggestion, index) => (
+                  <motion.button
+                    key={index}
+                    onClick={() => onSuggestionClick(suggestion)}
+                    className="px-3 py-1.5 text-sm bg-white dark:bg-zinc-800 border border-amber-200 dark:border-amber-700 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900 text-amber-800 dark:text-amber-200 transition-colors"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    {suggestion}
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Text Input Area - Hide when voice mode is active */}
+          {!isVoiceModeActive && (
+            <div className="mb-3">
+              <textarea
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Type your message here..."
+                className="w-full p-2 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-500 dark:placeholder-zinc-400 resize-none focus:outline-none focus:ring-2 focus:ring-zinc-500 dark:focus:ring-zinc-400"
+                rows={2}
+              />
+            </div>
+          )}
 
           <div className="controls">
             <button
@@ -653,48 +842,62 @@ function Dialog({
               Cancel
             </button>
 
-            {/* Text Submit Button - Primary/Main */}
-            <motion.button
-              layoutId="cta"
-              onClick={onTextSubmit}
-              disabled={!textInput.trim() || isProcessingText}
-              className={`text-submit-primary rounded-xl flex items-center gap-2 ${
-                textInput.trim() && !isProcessingText
-                  ? "bg-blue-500 dark:bg-blue-600 text-white hover:bg-blue-600 dark:hover:bg-blue-500"
-                  : "bg-zinc-200 dark:bg-zinc-700 text-zinc-400 dark:text-zinc-500 cursor-not-allowed"
-              }`}
-            >
-              {isProcessingText ? (
-                <>
-                  <Loader className="w-4 h-4" />
-                  Processing
-                </>
-              ) : (
-                <>
-                  <PaperAirplaneIcon className="w-4 h-4" />
-                  Send
-                </>
-              )}
-            </motion.button>
+            {isVoiceModeActive ? (
+              /* Stop Voice Button when in voice mode */
+              <motion.button
+                layoutId="cta"
+                onClick={onStopVoice}
+                className="bg-red-500 dark:bg-red-600 text-white hover:bg-red-600 dark:hover:bg-red-500 rounded-xl flex items-center gap-2"
+              >
+                <X className="w-4 h-4" />
+                Stop Voice
+              </motion.button>
+            ) : (
+              /* Text Submit Button when not in voice mode */
+              <motion.button
+                layoutId="cta"
+                onClick={onTextSubmit}
+                disabled={!textInput.trim() || isProcessingText}
+                className={`text-submit-primary rounded-xl flex items-center gap-2 ${
+                  textInput.trim() && !isProcessingText
+                    ? "bg-blue-500 dark:bg-blue-600 text-white hover:bg-blue-600 dark:hover:bg-blue-500"
+                    : "bg-zinc-200 dark:bg-zinc-700 text-zinc-400 dark:text-zinc-500 cursor-not-allowed"
+                }`}
+              >
+                {isProcessingText ? (
+                  <>
+                    <Loader className="w-4 h-4" />
+                    Processing
+                  </>
+                ) : (
+                  <>
+                    <PaperAirplaneIcon className="w-4 h-4" />
+                    Send
+                  </>
+                )}
+              </motion.button>
+            )}
           </div>
 
           {/* Top Right Buttons */}
           <div className="topRightButtons">
-            {/* Voice Mode Button - Now in top right */}
-            <button
-              onClick={onVoiceClick}
-              className={`voice-mode-topright rounded-lg ${
-                buttonState === "error"
-                  ? "bg-zinc-300 dark:bg-zinc-600 text-zinc-500 dark:text-zinc-400"
-                  : buttonState === "loading"
-                  ? "bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400"
-                  : "bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-600"
-              }`}
-              disabled={buttonState === "loading" || buttonState === "error"}
-              title="Voice Mode"
-            >
-              <Microphone />
-            </button>
+            {/* Voice Mode Button - Hide when voice mode is active */}
+            {!isVoiceModeActive && (
+              <button
+                onClick={onVoiceClick}
+                className={`voice-mode-topright rounded-lg ${
+                  buttonState === "error"
+                    ? "bg-zinc-300 dark:bg-zinc-600 text-zinc-500 dark:text-zinc-400"
+                    : buttonState === "loading"
+                    ? "bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400"
+                    : "bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-600"
+                }`}
+                disabled={buttonState === "loading" || buttonState === "error"}
+                title="Voice Mode"
+              >
+                <Microphone />
+              </button>
+            )}
           </div>
         </motion.div>
       </motion.div>

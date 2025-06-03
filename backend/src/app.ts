@@ -565,6 +565,125 @@ voiceNamespace.on("connection", (socket: Socket) => {
     }
   });
 
+  socket.on(
+    "clarify-selection",
+    async (data: {
+      originalText: string;
+      selectedItem: string;
+      transcription: string;
+    }) => {
+      console.log(
+        `🔊 User clarified selection for ${socket.id}: "${data.originalText}" -> "${data.selectedItem}"`
+      );
+
+      try {
+        sessionState.setProcessingVoiceCommand(true);
+
+        // Re-process the original transcription with the clarified item
+        const nlpResults = await nlpService.processTranscription(
+          data.transcription
+        );
+
+        if (nlpResults && nlpResults.length > 0) {
+          const nlpResult = nlpResults[0];
+
+          // Override the item with the user's selection
+          const clarifiedResult = {
+            ...nlpResult,
+            item: data.selectedItem,
+            isComplete: true,
+          };
+
+          console.log(
+            `🔊 Processing clarified command: ${clarifiedResult.action} ${clarifiedResult.quantity} ${clarifiedResult.unit} of ${data.selectedItem}`
+          );
+
+          // Check if the action is valid for inventory operations
+          if (clarifiedResult.action === "unknown") {
+            socket.emit("error", {
+              message: "Could not determine the action for this command",
+            });
+            return;
+          }
+
+          const actionLog: ActionLog = {
+            type: clarifiedResult.action as "add" | "remove" | "set",
+            itemId: clarifiedResult.item,
+            quantity: clarifiedResult.quantity,
+            previousQuantity: undefined,
+          };
+
+          sessionActionLogs.get(socket.id)?.push(actionLog);
+
+          socket.emit("command-processed", {
+            command: clarifiedResult,
+            actionLog,
+          });
+
+          try {
+            await inventoryService.updateInventoryCount(
+              {
+                action: clarifiedResult.action as "add" | "remove" | "set",
+                item: clarifiedResult.item,
+                quantity: clarifiedResult.quantity || 0,
+                unit: clarifiedResult.unit,
+              },
+              {
+                user: socket.data.user || {
+                  id: socket.id,
+                  email: "voice@user.com",
+                  name: "Voice User",
+                },
+              },
+              "voice"
+            );
+
+            console.log(
+              `📝 Updated inventory after clarification: ${clarifiedResult.item} ${clarifiedResult.quantity} ${clarifiedResult.unit}`
+            );
+
+            const feedback = speechFeedbackService.generateSuccessFeedback(
+              clarifiedResult.action,
+              clarifiedResult.quantity || 0,
+              clarifiedResult.unit,
+              clarifiedResult.item
+            );
+
+            if (feedback) {
+              sessionState.addAssistantMessage(feedback.text);
+              socket.emit("feedback", feedback);
+            }
+
+            // Add item to session items for future context
+            userInfo.sessionItems.push(clarifiedResult.item);
+            if (userInfo.sessionItems.length > 10) {
+              userInfo.sessionItems.shift();
+            }
+          } catch (error) {
+            console.error(
+              "Error updating inventory after clarification:",
+              error
+            );
+            socket.emit("error", {
+              message: "Failed to update inventory with selected item",
+            });
+          }
+        } else {
+          socket.emit("error", {
+            message: "Failed to process clarified command",
+          });
+        }
+      } catch (error) {
+        console.error("Error processing clarification:", error);
+        socket.emit("error", {
+          message: "Failed to process your selection",
+        });
+      } finally {
+        sessionState.setProcessingVoiceCommand(false);
+      }
+    }
+  );
+
   socket.on("disconnect", (reason) => {
     console.log(`🔊 Client ${socket.id} disconnected, reason:`, reason);
     const connId = socketConnectionIds.get(socket.id);
