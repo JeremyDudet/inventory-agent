@@ -653,58 +653,49 @@ function Dialog({
               Cancel
             </button>
 
-            <div className="flex gap-2 items-center">
-              {/* Voice Mode Button - Secondary/Smaller */}
-              <button
-                onClick={onVoiceClick}
-                className={`voice-mode-secondary rounded-lg text-sm ${
-                  buttonState === "error"
-                    ? "bg-zinc-300 dark:bg-zinc-600 text-zinc-500 dark:text-zinc-400"
-                    : buttonState === "loading"
-                    ? "bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400"
-                    : "bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-600"
-                }`}
-                disabled={buttonState === "loading" || buttonState === "error"}
-                title="Voice Mode"
-              >
-                <Microphone />
-              </button>
-
-              {/* Text Submit Button - Primary/Main */}
-              <motion.button
-                layoutId="cta"
-                onClick={onTextSubmit}
-                disabled={!textInput.trim() || isProcessingText}
-                className={`text-submit-primary rounded-xl flex items-center gap-2 ${
-                  textInput.trim() && !isProcessingText
-                    ? "bg-blue-500 dark:bg-blue-600 text-white hover:bg-blue-600 dark:hover:bg-blue-500"
-                    : "bg-zinc-200 dark:bg-zinc-700 text-zinc-400 dark:text-zinc-500 cursor-not-allowed"
-                }`}
-              >
-                {isProcessingText ? (
-                  <>
-                    <Loader className="w-4 h-4" />
-                    Processing
-                  </>
-                ) : (
-                  <>
-                    <PaperAirplaneIcon className="w-4 h-4" />
-                    Send
-                  </>
-                )}
-              </motion.button>
-            </div>
+            {/* Text Submit Button - Primary/Main */}
+            <motion.button
+              layoutId="cta"
+              onClick={onTextSubmit}
+              disabled={!textInput.trim() || isProcessingText}
+              className={`text-submit-primary rounded-xl flex items-center gap-2 ${
+                textInput.trim() && !isProcessingText
+                  ? "bg-blue-500 dark:bg-blue-600 text-white hover:bg-blue-600 dark:hover:bg-blue-500"
+                  : "bg-zinc-200 dark:bg-zinc-700 text-zinc-400 dark:text-zinc-500 cursor-not-allowed"
+              }`}
+            >
+              {isProcessingText ? (
+                <>
+                  <Loader className="w-4 h-4" />
+                  Processing
+                </>
+              ) : (
+                <>
+                  <PaperAirplaneIcon className="w-4 h-4" />
+                  Send
+                </>
+              )}
+            </motion.button>
           </div>
-          <button
-            className="closeButton"
-            aria-label="Close"
-            onClick={(e) => {
-              e.stopPropagation();
-              close();
-            }}
-          >
-            <XMarkIcon />
-          </button>
+
+          {/* Top Right Buttons */}
+          <div className="topRightButtons">
+            {/* Voice Mode Button - Now in top right */}
+            <button
+              onClick={onVoiceClick}
+              className={`voice-mode-topright rounded-lg ${
+                buttonState === "error"
+                  ? "bg-zinc-300 dark:bg-zinc-600 text-zinc-500 dark:text-zinc-400"
+                  : buttonState === "loading"
+                  ? "bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400"
+                  : "bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-600"
+              }`}
+              disabled={buttonState === "loading" || buttonState === "error"}
+              title="Voice Mode"
+            >
+              <Microphone />
+            </button>
+          </div>
         </motion.div>
       </motion.div>
     </motion.div>
@@ -785,20 +776,23 @@ function StyleSheet({ theme }: { theme: string }) {
     font-weight: 500;
   }
 
-  .controls .voice-mode-secondary {
+  .topRightButtons {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .voice-mode-topright {
     padding: 8px;
     width: 36px;
     height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
-  }
-
-  .closeButton {
-    position: absolute;
-    top: 16px;
-    right: 16px;
-    color: ${theme === "dark" ? "#f6f6f6" : "#374151"};
+    cursor: pointer;
   }
 
   .title {
