@@ -38,10 +38,11 @@ interface InventoryState {
   setIsLoading: (isLoading: boolean) => void;
   setHasInitiallyLoaded: (loaded: boolean) => void;
   setLastFetchTime: (time: Date | null) => void;
+  refreshInventory: () => Promise<void>;
 }
 
 // Create the Zustand store
-export const useInventoryStore = create<InventoryState>((set) => ({
+export const useInventoryStore = create<InventoryState>((set, get) => ({
   items: [],
   categories: [],
   error: null,
@@ -68,4 +69,61 @@ export const useInventoryStore = create<InventoryState>((set) => ({
         return update ? { ...item, ...update } : item;
       }),
     })),
+  refreshInventory: async () => {
+    try {
+      set({ isLoading: true, error: null });
+
+      // Fetch items
+      const itemsResponse = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/inventory`,
+        {
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!itemsResponse.ok) {
+        throw new Error("Failed to fetch inventory items");
+      }
+
+      const itemsData = await itemsResponse.json();
+
+      // Fetch categories
+      const categoriesResponse = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/inventory/categories`,
+        {
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!categoriesResponse.ok) {
+        throw new Error("Failed to fetch categories");
+      }
+
+      const categoriesData = await categoriesResponse.json();
+
+      set({
+        items: itemsData.items || [],
+        categories: categoriesData.categories || [],
+        hasInitiallyLoaded: true,
+        lastFetchTime: new Date(),
+        isLoading: false,
+        error: null,
+      });
+    } catch (error) {
+      console.error("Failed to refresh inventory:", error);
+      set({
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to refresh inventory",
+        isLoading: false,
+      });
+    }
+  },
 }));

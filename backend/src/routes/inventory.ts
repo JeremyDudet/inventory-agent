@@ -10,9 +10,33 @@ import {
 import { ValidationError } from "../errors/ValidationError";
 import websocketService from "../services/websocketService";
 import { InventoryRepository } from "../repositories/InventoryRepository";
+import multer from "multer";
+import db from "../db";
+import { inventory_items, user_locations } from "../db/schema";
+import { eq, and, sql } from "drizzle-orm";
 
 const router = express.Router();
 const inventoryRepository = new InventoryRepository();
+
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (
+      file.mimetype === "text/csv" ||
+      file.mimetype ===
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+      file.mimetype === "application/vnd.ms-excel"
+    ) {
+      cb(null, true);
+    } else {
+      cb(null, false);
+    }
+  },
+});
 
 // Helper to check if Supabase is properly configured
 const isSupabaseConfigured = () => {
@@ -206,6 +230,200 @@ router.delete(
       });
     } catch (error) {
       next(error);
+    }
+  }
+);
+
+// Bulk import endpoint
+router.post(
+  "/bulk-import",
+  authMiddleware,
+  authorize("inventory:write"),
+  async (req, res) => {
+    try {
+      const { items, location_id } = req.body;
+      // Handle both AuthUser and AuthTokenPayload types
+      const userId =
+        req.user && "id" in req.user ? req.user.id : req.user?.userId;
+
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        return res
+          .status(400)
+          .json({ message: "No items provided for import" });
+      }
+
+      if (!location_id) {
+        return res.status(400).json({ message: "Location ID is required" });
+      }
+
+      // Verify user has access to this location
+      const userLocation = await db
+        .select()
+        .from(user_locations)
+        .where(
+          and(
+            eq(user_locations.user_id, userId),
+            eq(user_locations.location_id, location_id)
+          )
+        )
+        .limit(1);
+
+      if (userLocation.length === 0) {
+        return res
+          .status(403)
+          .json({ message: "Access denied to this location" });
+      }
+
+      // Validate and prepare items for insertion
+      const validItems = [];
+      const errors = [];
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        try {
+          // Validate required fields
+          if (
+            !item.name ||
+            typeof item.name !== "string" ||
+            item.name.trim() === ""
+          ) {
+            errors.push(
+              `Row ${item.rowIndex || i + 1}: Product name is required`
+            );
+            continue;
+          }
+
+          if (
+            !item.unit ||
+            typeof item.unit !== "string" ||
+            item.unit.trim() === ""
+          ) {
+            errors.push(`Row ${item.rowIndex || i + 1}: Unit is required`);
+            continue;
+          }
+
+          if (
+            !item.category ||
+            typeof item.category !== "string" ||
+            item.category.trim() === ""
+          ) {
+            errors.push(`Row ${item.rowIndex || i + 1}: Category is required`);
+            continue;
+          }
+
+          if (
+            item.quantity === null ||
+            item.quantity === undefined ||
+            isNaN(parseFloat(item.quantity))
+          ) {
+            errors.push(
+              `Row ${item.rowIndex || i + 1}: Valid quantity is required`
+            );
+            continue;
+          }
+
+          // Prepare the item for insertion
+          const validItem = {
+            location_id: location_id,
+            name: item.name.trim(),
+            quantity: parseFloat(item.quantity),
+            unit: item.unit.trim(),
+            category: item.category.trim(),
+            threshold: item.threshold ? parseFloat(item.threshold) : null,
+            description: item.description ? item.description.trim() : null,
+          };
+
+          validItems.push(validItem);
+        } catch (error) {
+          errors.push(
+            `Row ${item.rowIndex || i + 1}: ${(error as Error).message}`
+          );
+        }
+      }
+
+      if (errors.length > 0 && validItems.length === 0) {
+        return res.status(400).json({
+          message: "No valid items to import",
+          errors: errors.slice(0, 10), // Limit to first 10 errors
+        });
+      }
+
+      // Insert valid items
+      const insertedItems = [];
+      const insertErrors = [];
+
+      for (const item of validItems) {
+        try {
+          // Check if item with same name already exists in this location
+          const existingItem = await db
+            .select()
+            .from(inventory_items)
+            .where(
+              and(
+                eq(inventory_items.location_id, location_id),
+                eq(inventory_items.name, item.name)
+              )
+            )
+            .limit(1);
+
+          if (existingItem.length > 0) {
+            // Update existing item quantity
+            const updated = await db
+              .update(inventory_items)
+              .set({
+                quantity: item.quantity,
+                unit: item.unit,
+                category: item.category,
+                threshold: item.threshold,
+                description: item.description,
+                updated_at: sql`now()`,
+              })
+              .where(eq(inventory_items.id, existingItem[0].id))
+              .returning();
+
+            insertedItems.push({ ...updated[0], status: "updated" });
+          } else {
+            // Insert new item
+            const inserted = await db
+              .insert(inventory_items)
+              .values(item)
+              .returning();
+
+            insertedItems.push({ ...inserted[0], status: "created" });
+          }
+        } catch (error) {
+          console.error(`Failed to insert item ${item.name}:`, error);
+          insertErrors.push(
+            `Failed to import "${item.name}": ${(error as Error).message}`
+          );
+        }
+      }
+
+      const response: any = {
+        message: `Successfully processed ${insertedItems.length} items`,
+        imported: insertedItems.length,
+        created: insertedItems.filter((item) => item.status === "created")
+          .length,
+        updated: insertedItems.filter((item) => item.status === "updated")
+          .length,
+      };
+
+      if (errors.length > 0) {
+        response.warnings = errors.slice(0, 10);
+      }
+
+      if (insertErrors.length > 0) {
+        response.errors = insertErrors.slice(0, 10);
+      }
+
+      res.json(response);
+    } catch (error) {
+      console.error("Bulk import error:", error);
+      res.status(500).json({ message: "Internal server error during import" });
     }
   }
 );

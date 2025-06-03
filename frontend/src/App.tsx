@@ -26,6 +26,7 @@ import { AuthInitializer } from "./components/AuthInitializer";
 import ChangeLog from "./pages/ChangeLog";
 import { Analytics } from "@vercel/analytics/react";
 import GlobalNotifications from "./components/GlobalNotifications";
+import Onboarding from "./pages/Onboarding";
 
 // Protected route component that uses Supabase auth
 const ProtectedRoute = () => {
@@ -141,6 +142,7 @@ const AppRoutes = () => {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/stocklist" element={<Stock />} />
           <Route path="/items" element={<Items />} />
+          <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/orders" element={<div>Orders Page</div>} />
           <Route path="/changelog" element={<ChangeLog />} />
           <Route path="/settings" element={<Settings />} />

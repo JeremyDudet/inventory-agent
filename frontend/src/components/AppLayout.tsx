@@ -44,6 +44,7 @@ import {
   SparklesIcon,
   Square2StackIcon,
   ClockIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/20/solid";
 import { useThemeStore } from "@/stores/themeStore";
 import { useAuthStore } from "@/stores/authStore";
@@ -168,6 +169,10 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
                 <SidebarItem href="/items">
                   <Square2StackIcon />
                   <SidebarLabel>Items</SidebarLabel>
+                </SidebarItem>
+                <SidebarItem href="/onboarding">
+                  <ArrowDownTrayIcon />
+                  <SidebarLabel>Import Data</SidebarLabel>
                 </SidebarItem>
                 <SidebarItem href="/changelog">
                   <ClockIcon />
