@@ -61,6 +61,11 @@ jobs:
             echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> /var/www/inventory-agent/backend/.env
             echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> /var/www/inventory-agent/backend/.env
             echo "NODE_ENV=production" >> /var/www/inventory-agent/backend/.env
+            echo "STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}" >> /var/www/inventory-agent/backend/.env
+            echo "STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }}" >> /var/www/inventory-agent/backend/.env
+            echo "STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}" >> /var/www/inventory-agent/backend/.env
+            echo "STRIPE_SUCCESS_URL=${{ secrets.STRIPE_SUCCESS_URL }}" >> /var/www/inventory-agent/backend/.env
+            echo "STRIPE_CANCEL_URL=${{ secrets.STRIPE_CANCEL_URL }}" >> /var/www/inventory-agent/backend/.env
 
       - name: Install dependencies and restart PM2
         uses: appleboy/ssh-action@v1.0.3
