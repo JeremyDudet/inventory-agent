@@ -25,6 +25,7 @@ import Stock from "./pages/Stock";
 import { AuthInitializer } from "./components/AuthInitializer";
 import ChangeLog from "./pages/ChangeLog";
 import { Analytics } from "@vercel/analytics/react";
+import GlobalNotifications from "./components/GlobalNotifications";
 
 // Protected route component that uses Supabase auth
 const ProtectedRoute = () => {
@@ -170,6 +171,7 @@ const App: React.FC = () => {
       <AuthInitializer>
         <WebsocketListener />
         <AppRoutes />
+        <GlobalNotifications />
       </AuthInitializer>
       <Analytics />
     </Router>

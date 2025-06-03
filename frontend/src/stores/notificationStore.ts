@@ -9,6 +9,13 @@ export type NotificationType =
   | "warning"
   | "auth-error";
 
+// Define undo action interface
+export interface UndoAction {
+  label: string;
+  action: () => Promise<void>;
+  actionId: string;
+}
+
 // Define notification interface
 interface NotificationData {
   id: string;
@@ -16,6 +23,7 @@ interface NotificationData {
   message: string;
   duration?: number;
   visible: boolean;
+  undoAction?: UndoAction;
 }
 
 interface NotificationState {
@@ -23,6 +31,13 @@ interface NotificationState {
   addNotification: (
     type: NotificationType,
     message: string,
+    duration?: number,
+    undoAction?: UndoAction
+  ) => void;
+  addUndoableNotification: (
+    type: NotificationType,
+    message: string,
+    undoAction: UndoAction,
     duration?: number
   ) => void;
   showApiError: (
@@ -33,16 +48,16 @@ interface NotificationState {
   removeNotification: (id: string) => void;
 }
 
-export const useNotificationStore = create<NotificationState>()((set) => ({
+export const useNotificationStore = create<NotificationState>()((set, get) => ({
   notifications: [],
-  addNotification: (type, message, duration = 5000) => {
+  addNotification: (type, message, duration = 5000, undoAction) => {
     const id =
       Date.now().toString() + "-" + Math.random().toString(36).substr(2, 9);
 
     set((state) => {
       const newNotifications = [
         ...state.notifications,
-        { id, type, message, duration, visible: true },
+        { id, type, message, duration, visible: true, undoAction },
       ];
       // If more than 3, remove the oldest one
       const limitedNotifications =
@@ -66,6 +81,12 @@ export const useNotificationStore = create<NotificationState>()((set) => ({
       return { notifications: limitedNotifications };
     });
   },
+
+  addUndoableNotification: (type, message, undoAction, duration = 8000) => {
+    const { addNotification } = get();
+    addNotification(type, message, duration, undoAction);
+  },
+
   removeNotification: (id) => {
     set((state) => ({
       notifications: state.notifications.filter(

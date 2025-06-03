@@ -15,7 +15,6 @@ import {
 import { ChevronDownIcon, XMarkIcon } from "@heroicons/react/20/solid";
 import { Heading } from "@/components/ui/heading";
 import { Text } from "@/components/ui/text";
-import { useInventorySocket } from "@/hooks/useInventorySocket";
 
 interface InventoryUpdate {
   id: string;
@@ -69,64 +68,11 @@ export default function ChangeLog() {
     setUsers,
     setIsLoading,
     setLastFetchTime,
-    addLiveUpdate,
     updateItemNames,
     forceRefresh,
-    removeNewFlag,
   } = useChangelogStore();
 
   const actions = ["add", "remove", "set", "check"] as const;
-
-  // Listen for live inventory updates
-  useInventorySocket({
-    onConnect: () => {
-      console.log("ChangeLog: Connected to inventory updates");
-    },
-    onInventoryUpdate: (message) => {
-      console.log("ChangeLog: Received inventory update", message);
-
-      // Show notification for live updates
-      if (message.data) {
-        const updateData = message.data.data || message.data;
-        const itemName =
-          updateData.name ||
-          items.find((item) => item.id === updateData.id)?.name ||
-          "An item";
-        addNotification(
-          "info",
-          `${itemName} was updated to ${updateData.quantity} ${updateData.unit}`,
-          4000
-        );
-
-        // Instead of re-fetching all updates, create a new update entry
-        // This represents the change that just happened
-        const newUpdate: InventoryUpdate = {
-          id: `update-${Date.now()}-${Math.random()}`, // Generate unique ID
-          itemId: updateData.id,
-          action: updateData.action || "set",
-          previousQuantity: updateData.previousQuantity || 0,
-          newQuantity: updateData.quantity,
-          quantity: updateData.changeQuantity || updateData.quantity,
-          unit: updateData.unit,
-          userId: updateData.userId || session?.user?.id || "",
-          userName: updateData.userName || session?.user?.email || "System",
-          method: updateData.method || "ui",
-          createdAt: new Date().toISOString(),
-          itemName: itemName,
-          isNew: true,
-        };
-
-        // Add the new update to the store
-        addLiveUpdate(newUpdate);
-
-        // Remove the "new" flag after animation
-        setTimeout(() => {
-          // Use a new store action that only updates the specific item
-          removeNewFlag(newUpdate.id);
-        }, 3000);
-      }
-    },
-  });
 
   useEffect(() => {
     // Only fetch if we haven't loaded data yet

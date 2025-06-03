@@ -245,24 +245,32 @@ function InventoryListWithStickyHeader({
                   })}
                 </td>
                 <td className="py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-0 whitespace-nowrap">
-                  <a
-                    href="#"
-                    className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-300"
+                  <InputCountDrawer
+                    item={item}
+                    location_id={item.location_id}
+                    onUpdate={() => {
+                      // The state will be automatically updated through the WebSocket listener
+                      // and the inventory store
+                    }}
                   >
-                    <InputCountDrawer
-                      item={item}
-                      location_id={item.location_id}
-                      onUpdate={() => {
-                        // The state will be automatically updated through the WebSocket listener
-                        // and the inventory store
-                      }}
-                    >
-                      <span>
-                        Edit
-                        <span className="sr-only">, {item.name}</span>
-                      </span>
-                    </InputCountDrawer>
-                  </a>
+                    <button className="inline-flex items-center gap-x-1.5 rounded-md bg-white dark:bg-zinc-800 px-2.5 py-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100 shadow-sm ring-1 ring-inset ring-zinc-300 dark:ring-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-600 dark:focus-visible:outline-zinc-400 sm:inline-flex">
+                      <svg
+                        className="-ml-0.5 size-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth="1.5"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"
+                        />
+                      </svg>
+                      Edit
+                      <span className="sr-only">, {item.name}</span>
+                    </button>
+                  </InputCountDrawer>
                 </td>
               </tr>
             ))}

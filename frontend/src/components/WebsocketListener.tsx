@@ -1,23 +1,31 @@
 // frontend/src/components/WebsocketListener.tsx
 import { useInventoryStore } from "@/stores/inventoryStore";
 import { useNotificationStore } from "@/stores/notificationStore";
+import { useUndoStore } from "@/stores/undoStore";
+import { useAuthStore } from "@/stores/authStore";
+import { useChangelogStore } from "@/stores/changelogStore";
 import { useInventorySocket } from "@/hooks/useInventorySocket";
 import { useVoiceSocket } from "@/hooks/useVoiceSocket";
+import { api } from "@/services/api";
 
 export const WebsocketListener = () => {
   const updateItem = useInventoryStore((state) => state.updateItem);
   const updateItems = useInventoryStore((state) => state.updateItems);
   const setError = useInventoryStore((state) => state.setError);
-  const { addNotification } = useNotificationStore();
+  const { items } = useInventoryStore();
+  const { addNotification, addUndoableNotification } = useNotificationStore();
+  const { addUndoableAction } = useUndoStore();
+  const { addLiveUpdate, removeNewFlag } = useChangelogStore();
+  const { session } = useAuthStore();
 
   // Inventory socket management
   useInventorySocket({
     onConnect: () => {
-      console.log("Inventory WebSocket connected successfully"); // Already present
+      console.log("Inventory WebSocket connected successfully");
       setError(null);
     },
     onInventoryUpdate: (message) => {
-      console.log("Received inventory update:", message); // Add this log
+      console.log("Received inventory update:", message);
       try {
         // Handle both the data being in message.data or directly in message
         const updateData = message.data || message;
@@ -25,30 +33,156 @@ export const WebsocketListener = () => {
         if (Array.isArray(updateData)) {
           console.log("Received bulk inventory update:", updateData);
           updateItems(updateData);
+          // Only show notification for bulk updates (these are typically from system/API)
           addNotification(
             "success",
             `Updated ${updateData.length} inventory items`
           );
         } else if (updateData && typeof updateData === "object") {
-          // Extract the relevant fields, handling different possible structures
-          const itemData = updateData.data || updateData;
-          const { id, quantity, unit, name, item } = itemData;
+          // The updateData already contains the correct structure, no need for additional nesting
+          const {
+            id,
+            quantity,
+            unit,
+            name,
+            item,
+            method,
+            userId,
+            previousQuantity,
+          } = updateData;
 
           console.log("Processing inventory update for item:", {
             id,
             quantity,
             unit,
             name: name || item,
+            method,
+            userId,
+            previousQuantity,
           });
 
           updateItem({ id, quantity, unit });
 
-          // Use the item name if available for better notifications
-          const itemName = name || item || `Item ${id}`;
-          addNotification(
-            "success",
-            `${itemName} updated to ${quantity} ${unit}`
-          );
+          // Add to changelog store (regardless of which page user is on)
+          const itemName =
+            name ||
+            item ||
+            items.find((inventoryItem) => inventoryItem.id === id)?.name ||
+            "An item";
+
+          const newChangelogUpdate = {
+            id: `update-${Date.now()}-${Math.random()}`, // Generate unique ID
+            itemId: id,
+            action: updateData.action || "set",
+            previousQuantity: previousQuantity || 0,
+            newQuantity: quantity,
+            quantity: updateData.changeQuantity || quantity,
+            unit: unit,
+            userId: userId || session?.user?.id || "",
+            userName: updateData.userName || session?.user?.email || "System",
+            method: method || "ui",
+            createdAt: new Date().toISOString(),
+            itemName: itemName,
+            isNew: true,
+          };
+
+          console.log("Adding update to changelog store:", newChangelogUpdate);
+          addLiveUpdate(newChangelogUpdate);
+
+          // Remove the "new" flag after animation
+          setTimeout(() => {
+            removeNewFlag(newChangelogUpdate.id);
+          }, 3000);
+
+          // Only show notifications for updates that didn't originate from manual UI actions
+          // Manual UI actions already show their own undoable notifications
+          const currentUserId = session?.user?.id;
+          const isManualUIUpdate = method === "ui" && userId === currentUserId;
+
+          console.log("Notification check:", {
+            method,
+            userId,
+            currentUserId,
+            isManualUIUpdate,
+            previousQuantity,
+          });
+
+          if (!isManualUIUpdate) {
+            // For voice/API updates, create undoable notifications
+            if (method === "voice" && previousQuantity !== undefined) {
+              console.log("Creating undoable notification for voice command");
+
+              // Create undo function for voice commands
+              const createUndoFunction = () => async () => {
+                try {
+                  const token = session?.access_token;
+                  if (!token) {
+                    throw new Error("No authentication token found");
+                  }
+
+                  await api.updateInventory(
+                    id,
+                    { quantity: previousQuantity },
+                    token
+                  );
+
+                  // Update local state
+                  updateItem({ id, quantity: previousQuantity, unit });
+
+                  console.log(
+                    `Reverted ${itemName} from ${quantity} to ${previousQuantity} ${unit} (voice command)`
+                  );
+                } catch (error) {
+                  console.error("Failed to revert voice command:", error);
+                  throw new Error("Failed to revert voice command");
+                }
+              };
+
+              // Create undoable action for voice commands
+              const undoableAction = {
+                id: `voice-update-${Date.now()}-${Math.random()
+                  .toString(36)
+                  .substr(2, 9)}`,
+                type: "inventory_update" as const,
+                timestamp: new Date(),
+                description: `Voice command: Updated ${itemName} from ${previousQuantity} to ${quantity} ${unit}`,
+                previousState: {
+                  id,
+                  quantity: previousQuantity,
+                  unit,
+                  name: itemName,
+                },
+                currentState: { id, quantity, unit, name: itemName },
+                revertFunction: createUndoFunction(),
+                itemId: id,
+                itemName: itemName,
+              };
+
+              // Add to undo history
+              addUndoableAction(undoableAction);
+
+              // Show undoable notification for voice commands
+              addUndoableNotification(
+                "success",
+                `Voice: ${itemName} updated from ${previousQuantity} to ${quantity} ${unit}`,
+                {
+                  label: "Undo",
+                  action: createUndoFunction(),
+                  actionId: undoableAction.id,
+                },
+                8000
+              );
+            } else {
+              console.log("Creating regular notification for non-voice update");
+              // For other non-manual updates (API, system), show regular notifications
+              addNotification(
+                "success",
+                `${itemName} updated to ${quantity} ${unit}`
+              );
+            }
+          } else {
+            console.log("Skipping notification for manual UI update");
+          }
         }
       } catch (error) {
         console.error("Error processing inventory update:", error);
@@ -60,6 +194,7 @@ export const WebsocketListener = () => {
       }
     },
   });
+
   // Voice socket management
   useVoiceSocket({
     onConnect: () => {
@@ -82,15 +217,14 @@ export const WebsocketListener = () => {
         if (data.command) {
           const { action, item, quantity, unit } = data.command;
 
-          // For now, we'll use a simple notification
-          // The actual inventory update happens on the backend
+          // Show a command acknowledgment notification
+          // The actual inventory update and undo functionality happens
+          // in onInventoryUpdate when the backend broadcasts the change
           addNotification(
-            "success",
-            `Command processed: ${action} ${quantity} ${unit} of ${item}`
+            "info",
+            `Voice command processed: ${action} ${quantity} ${unit} of ${item}`,
+            3000
           );
-
-          // The inventory will be updated via the inventory socket
-          // when the backend broadcasts the change
         }
       } catch (error) {
         console.error("Error processing command:", error);
@@ -105,7 +239,6 @@ export const WebsocketListener = () => {
         console.log("Received NLP response:", data);
         // Handle NLP response for feedback purposes
         if (data.speechFeedback) {
-          // You can display the speech feedback if needed
           console.log("Speech feedback:", data.speechFeedback);
         }
       } catch (error) {
@@ -115,30 +248,11 @@ export const WebsocketListener = () => {
     onVoiceCommand: (message) => {
       try {
         console.log("Received voice command:", message);
-        // Handle voice command data
-        if (message.data) {
-          // Process the voice command data similar to inventory updates
-          if (Array.isArray(message.data)) {
-            updateItems(message.data);
-            addNotification(
-              "success",
-              `Voice command updated ${message.data.length} inventory items`
-            );
-          } else {
-            const { id, quantity, unit } = message.data;
-            updateItem({ id, quantity, unit });
-            addNotification(
-              "success",
-              `Voice command updated item ${id} to ${quantity} ${unit}`
-            );
-          }
-        }
+        // This handler might be redundant with onInventoryUpdate
+        // The main inventory updates should come through onInventoryUpdate
+        // This is just for logging/debugging
       } catch (error) {
         console.error("Error processing voice command:", error);
-        addNotification(
-          "error",
-          "Failed to process voice command. Please try again."
-        );
       }
     },
   });
