@@ -158,6 +158,30 @@ export const api = {
     return response.json();
   },
 
+  put: async (
+    endpoint: string,
+    data?: any,
+    config?: { headers?: Record<string, string> }
+  ) => {
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+      ...config?.headers,
+    };
+
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: "PUT",
+      headers,
+      body: data ? JSON.stringify(data) : undefined,
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      throw new Error(`PUT request failed: ${response.statusText}`);
+    }
+
+    return response.json();
+  },
+
   delete: async (
     endpoint: string,
     config?: { headers?: Record<string, string> }

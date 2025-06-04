@@ -191,14 +191,8 @@ export const useAuthStore = create<AuthState>()(
           const response = await api.post("/auth/reset-password", { email });
           return { data: response.data, error: null };
         } catch (error: any) {
-          return {
-            data: null,
-            error: {
-              message: error.message || "Failed to reset password",
-              status: error.status || 500,
-              name: "AuthError",
-            },
-          };
+          const authError = new AuthError(error.message || "Failed to reset password", error.status || 500);
+          return { data: null, error: authError };
         }
       },
     }),
