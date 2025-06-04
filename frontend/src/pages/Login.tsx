@@ -192,7 +192,7 @@ const Login: React.FC = () => {
             to="/register"
             className="font-semibold text-zinc-900 dark:text-zinc-50 underline"
           >
-            Join the waitlist
+            Register
           </Link>
         </p>
       </form>

@@ -46,7 +46,9 @@ const Register: React.FC = () => {
   const fetchPlans = async () => {
     try {
       setIsLoadingPlans(true);
+      console.log('Fetching plans...');
       const plansData = await stripeService.getPlans();
+      console.log('Received plans:', plansData);
       setPlans(plansData || []);
       // Set default plan to the first monthly plan
       const defaultPlan = plansData?.find((plan) => plan.interval === "month");

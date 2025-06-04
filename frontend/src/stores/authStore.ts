@@ -179,7 +179,7 @@ export const useAuthStore = create<AuthState>()(
 
       signOut: async () => {
         try {
-          await api.post("/auth/logout");
+          await api.post("/api/auth/logout");
           set({ user: null, session: null });
         } catch (error) {
           console.error("Error signing out:", error);

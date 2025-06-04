@@ -77,7 +77,9 @@ export interface CustomerPortalResponse {
 class StripeService {
   // Get all available subscription plans
   async getPlans(): Promise<SubscriptionPlan[]> {
+    console.log('Making API call to /api/subscriptions/plans');
     const response = await api.get("/api/subscriptions/plans");
+    console.log('API response:', response);
     return response.data;
   }
 
