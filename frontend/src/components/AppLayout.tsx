@@ -199,16 +199,20 @@ export function ApplicationLayout({ children }: { children: React.ReactNode }) {
                 </SidebarItem>
                 <SidebarItem href="#">
                   {(() => {
-                    const { theme } = useThemeStore();
+                    const { theme, isInitialized } = useThemeStore();
                     return (
-                      <Avatar
-                        src={
-                          theme === "dark"
-                            ? "/teams/logo-light.svg"
-                            : "/teams/logo-black.svg"
-                        }
-                        className="w-14 h-14 text-white"
-                      />
+                      <>
+                        {isInitialized && (
+                          <Avatar
+                            src={
+                              theme === "dark"
+                                ? "/teams/logo-light.svg"
+                                : "/teams/logo-black.svg"
+                            }
+                            className="w-14 h-14 text-white"
+                          />
+                        )}
+                      </>
                     );
                   })()}
                   <SidebarLabel>StockCount</SidebarLabel>

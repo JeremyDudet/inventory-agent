@@ -33,7 +33,7 @@ const Register: React.FC = () => {
     "month"
   );
   const [isLoadingPlans, setIsLoadingPlans] = useState(true);
-  const { theme } = useThemeStore();
+  const { theme, isInitialized } = useThemeStore();
   const navigate = useNavigate();
 
   const { register } = useAuthStore();
@@ -153,14 +153,16 @@ const Register: React.FC = () => {
           className="text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50"
         >
           <div className="flex items-center gap-3">
-            <Avatar
-              src={
-                theme === "dark"
-                  ? "/teams/logo-light.svg"
-                  : "/teams/logo-black.svg"
-              }
-              className="w-8 h-8"
-            />
+            {isInitialized && (
+              <Avatar
+                src={
+                  theme === "dark"
+                    ? "/teams/logo-light.svg"
+                    : "/teams/logo-black.svg"
+                }
+                className="w-8 h-8"
+              />
+            )}
             <span className="text-lg font-semibold text-zinc-950 dark:text-white">
               StockCount
             </span>

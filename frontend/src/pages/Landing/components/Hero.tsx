@@ -56,7 +56,7 @@ const phoneVariants = {
 export default function Hero() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const { theme } = useThemeStore();
+  const { theme, isInitialized } = useThemeStore();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -110,15 +110,17 @@ export default function Hero() {
                 onClick={handleSimpleClick}
               >
                 <span className="sr-only">StockCount</span>
-                <img
-                  alt="StockCount logo"
-                  src={`${
-                    theme === "dark"
-                      ? "/teams/logo-light.svg"
-                      : "/teams/logo-black.svg"
-                  }`}
-                  className="h-8 w-auto"
-                />
+                {isInitialized && (
+                  <img
+                    alt="StockCount logo"
+                    src={`${
+                      theme === "dark"
+                        ? "/teams/logo-light.svg"
+                        : "/teams/logo-black.svg"
+                    }`}
+                    className="h-8 w-auto"
+                  />
+                )}
                 <span className="text-lg font-semibold text-zinc-950 dark:text-white">
                   StockCount
                 </span>
@@ -184,15 +186,17 @@ export default function Hero() {
                   onClick={handleSimpleClick}
                 >
                   <span className="sr-only">StockCount</span>
-                  <img
-                    alt="StockCount logo"
-                    src={`${
-                      theme === "dark"
-                        ? "/teams/logo-light.svg"
-                        : "/teams/logo-black.svg"
-                    }`}
-                    className="h-8 w-auto"
-                  />
+                  {isInitialized && (
+                    <img
+                      alt="StockCount logo"
+                      src={`${
+                        theme === "dark"
+                          ? "/teams/logo-light.svg"
+                          : "/teams/logo-black.svg"
+                      }`}
+                      className="h-8 w-auto"
+                    />
+                  )}
                 </Link>
                 <button
                   type="button"
@@ -369,15 +373,17 @@ export default function Hero() {
                     aspectRatio: "9/19.5",
                   }}
                 >
-                  <img
-                    src={
-                      theme === "dark"
-                        ? "/screenshots/IMG_0534.png"
-                        : "/screenshots/IMG_0535.png"
-                    }
-                    alt="StockCount app screenshot"
-                    className="w-full h-full object-cover"
-                  />
+                  {isInitialized && (
+                    <img
+                      src={
+                        theme === "dark"
+                          ? "/screenshots/IMG_0534.png"
+                          : "/screenshots/IMG_0535.png"
+                      }
+                      alt="StockCount app screenshot"
+                      className="w-full h-full object-cover"
+                    />
+                  )}
                 </div>
               </div>
             </div>
