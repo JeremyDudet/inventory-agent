@@ -314,7 +314,7 @@ export default function Hero() {
                 to="/register"
                 className="rounded-md bg-zinc-950 dark:bg-zinc-100 px-3.5 py-2.5 text-sm font-bold text-white dark:text-zinc-950 shadow-sm hover:bg-zinc-800 dark:hover:bg-zinc-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 dark:focus-visible:outline-zinc-100"
               >
-                Join the Waitlist Now
+                Get Started
               </Link>
               {/* <Link
                 to="/#features"

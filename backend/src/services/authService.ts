@@ -18,6 +18,7 @@ import {
 } from "@/db/schema";
 import { eq, isNull, gt, and } from "drizzle-orm";
 import crypto from "crypto";
+import { StripeService } from "./stripeService";
 
 interface InviteCode {
   id: string;
@@ -737,6 +738,15 @@ class AuthService {
       // Mark invite code as used
       if (inviteCode) {
         await this.markInviteCodeAsUsed(inviteCode, userId);
+      }
+
+      // Create Stripe customer
+      try {
+        await StripeService.createOrGetCustomer(userId, email, name);
+      } catch (error) {
+        console.error("Error creating Stripe customer:", error);
+        // Don't throw error here, as we still want the user to be created
+        // The Stripe customer can be created later when they start a subscription
       }
 
       // Fetch location name

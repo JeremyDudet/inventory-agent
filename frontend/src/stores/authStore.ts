@@ -4,6 +4,7 @@ import { persist } from "zustand/middleware";
 import { Session, AuthError } from "@supabase/supabase-js";
 import { api } from "../services/api";
 import { AuthUser } from "@/types";
+import { stripeService } from "@/services/stripeService";
 
 interface AuthState {
   user: AuthUser | null;
@@ -21,7 +22,8 @@ interface AuthState {
     password: string,
     name: string,
     inviteCode?: string,
-    locationName?: string
+    locationName?: string,
+    priceId?: string
   ) => Promise<{
     data: { user: AuthUser | null; session: Session | null };
     error: AuthError | { message: string } | null;
@@ -97,7 +99,8 @@ export const useAuthStore = create<AuthState>()(
         password: string,
         name: string,
         inviteCode?: string,
-        locationName?: string
+        locationName?: string,
+        priceId?: string
       ) => {
         try {
           const response = await fetch("/api/auth/register", {
@@ -146,6 +149,25 @@ export const useAuthStore = create<AuthState>()(
           } as Session;
 
           set({ user: user, session });
+
+          // If a price ID is provided, create a Stripe checkout session
+          if (priceId) {
+            try {
+              const { url } = await stripeService.createCheckoutSession({
+                priceId,
+                successUrl: `${window.location.origin}/subscription/success`,
+                cancelUrl: `${window.location.origin}/register`,
+              });
+
+              // Redirect to Stripe Checkout
+              window.location.href = url;
+            } catch (error) {
+              console.error("Error creating checkout session:", error);
+              // Don't throw error here, as the user is already registered
+              // They can start a subscription later
+            }
+          }
+
           return { error: null, data: { user: user, session } };
         } catch (error: any) {
           return {
@@ -157,59 +179,25 @@ export const useAuthStore = create<AuthState>()(
 
       signOut: async () => {
         try {
-          // Note: You'll need to add a logout endpoint to your API service
-          await fetch("/api/auth/logout", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${get().session?.access_token}`,
-            },
-          });
-        } catch (error) {
-          console.error("Error during logout:", error);
-        } finally {
-          // WebSocket service will automatically disconnect when user becomes null
-          // due to the subscription in the WebSocketService constructor
+          await api.post("/auth/logout");
           set({ user: null, session: null });
+        } catch (error) {
+          console.error("Error signing out:", error);
         }
       },
 
       resetPassword: async (email: string) => {
         try {
-          // Note: You'll need to add a reset-password endpoint to your API service
-          const response = await fetch("/api/auth/reset-password", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ email }),
-          });
-
-          const data = await response.json();
-
-          if (!response.ok) {
-            const error = new Error(
-              data.error?.message || "Password reset failed"
-            ) as AuthError;
-            error.status = response.status;
-            error.name = "AuthError";
-            error.code = data.error?.code || "AUTH_ERROR";
-            return {
-              error,
-              data: null,
-            };
-          }
-
-          return { error: null, data: {} };
+          const response = await api.post("/auth/reset-password", { email });
+          return { data: response.data, error: null };
         } catch (error: any) {
-          const authError = new Error(
-            error.message || "Password reset failed"
-          ) as AuthError;
-          authError.status = 500;
-          authError.name = "AuthError";
-          authError.code = "AUTH_ERROR";
           return {
-            error: authError,
             data: null,
+            error: {
+              message: error.message || "Failed to reset password",
+              status: error.status || 500,
+              name: "AuthError",
+            },
           };
         }
       },

@@ -1,6 +1,6 @@
 // frontend/src/pages/Register.tsx
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../stores/authStore";
 import { useNotificationStore } from "../stores/notificationStore";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
@@ -8,6 +8,7 @@ import { AuthLayout } from "../components/ui/auth-layout";
 import { Avatar } from "@/components/ui/avatar";
 import { useThemeStore } from "@/stores/themeStore";
 import { Checkbox, CheckboxField } from "@/components/ui/checkbox";
+import { stripeService, SubscriptionPlan } from "@/services/stripeService";
 
 const Register: React.FC = () => {
   const [email, setEmail] = useState("");
@@ -18,16 +19,48 @@ const Register: React.FC = () => {
   const [country, setCountry] = useState("United States");
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [registrationType, setRegistrationType] = useState<"invite" | "create">(
-    "invite"
+    "create"
   );
   const [inviteCode, setInviteCode] = useState("");
   const [locationName, setLocationName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(
+    null
+  );
+  const [billingInterval, setBillingInterval] = useState<"month" | "year">(
+    "month"
+  );
+  const [isLoadingPlans, setIsLoadingPlans] = useState(true);
   const { theme } = useThemeStore();
+  const navigate = useNavigate();
 
   const { register } = useAuthStore();
   const { addNotification } = useNotificationStore();
+
+  useEffect(() => {
+    fetchPlans();
+  }, []);
+
+  const fetchPlans = async () => {
+    try {
+      setIsLoadingPlans(true);
+      const plansData = await stripeService.getPlans();
+      setPlans(plansData || []);
+      // Set default plan to the first monthly plan
+      const defaultPlan = plansData?.find((plan) => plan.interval === "month");
+      if (defaultPlan) {
+        setSelectedPlan(defaultPlan);
+      }
+    } catch (error) {
+      console.error("Error fetching plans:", error);
+      addNotification("error", "Failed to load subscription plans");
+      setPlans([]);
+    } finally {
+      setIsLoadingPlans(false);
+    }
+  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -58,8 +91,13 @@ const Register: React.FC = () => {
       newErrors.inviteCode = "Invite code is required";
     }
 
-    if (registrationType === "create" && !locationName) {
-      newErrors.locationName = "Location name is required";
+    if (registrationType === "create") {
+      if (!locationName) {
+        newErrors.locationName = "Location name is required";
+      }
+      if (!selectedPlan) {
+        newErrors.plan = "Please select a subscription plan";
+      }
     }
 
     setErrors(newErrors);
@@ -76,29 +114,33 @@ const Register: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const { error } = await register(
+      // Register the user with the selected plan's price ID only if not using invite code
+      const { error: registerError } = await register(
         email,
         password,
         fullName,
         registrationType === "invite" ? inviteCode : undefined,
-        registrationType === "create" ? locationName : undefined
+        registrationType === "create" ? locationName : undefined,
+        registrationType === "create"
+          ? selectedPlan?.stripe_price_id
+          : undefined
       );
 
-      if (error) {
-        addNotification("error", error.message);
+      if (registerError) {
+        addNotification("error", registerError.message);
         return;
       }
 
-      addNotification(
-        "success",
-        "Registration successful! Check your email for confirmation."
-      );
+      // The Stripe checkout session creation and redirect is now handled in the auth store
     } catch (error) {
       addNotification("error", "Registration failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
+
+  const filteredPlans =
+    plans?.filter((plan) => plan.interval === billingInterval) || [];
 
   return (
     <AuthLayout>
@@ -127,199 +169,41 @@ const Register: React.FC = () => {
         <h1 className="text-2xl font-semibold tracking-tight">
           Create your account
         </h1>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          {registrationType === "invite"
+            ? "Join your team and start managing inventory"
+            : "Choose a plan and start managing your inventory today"}
+        </p>
 
+        {/* Registration Type */}
         <div className="grid gap-2">
-          <label
-            htmlFor="email"
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-          >
-            Email
+          <label className="text-sm font-medium leading-none">
+            How would you like to get started?
           </label>
-          <input
-            id="email"
-            type="email"
-            className={`flex h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:ring-offset-zinc-950 dark:placeholder:text-zinc-400 dark:focus-visible:ring-zinc-300 ${
-              errors.email ? "border-red-500" : ""
-            }`}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          {errors.email && (
-            <span className="text-red-500 text-xs mt-1">{errors.email}</span>
-          )}
-        </div>
-
-        <div className="grid gap-2">
-          <label
-            htmlFor="fullName"
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-          >
-            Full name
-          </label>
-          <input
-            id="fullName"
-            type="text"
-            className={`flex h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:ring-offset-zinc-950 dark:placeholder:text-zinc-400 dark:focus-visible:ring-zinc-300 ${
-              errors.fullName ? "border-red-500" : ""
-            }`}
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-          />
-          {errors.fullName && (
-            <span className="text-red-500 text-xs mt-1">{errors.fullName}</span>
-          )}
-        </div>
-
-        <div className="grid gap-2">
-          <label
-            htmlFor="password"
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-          >
-            Password
-          </label>
-          <div className="relative">
-            <input
-              id="password"
-              type={showPasswords ? "text" : "password"}
-              autoComplete="new-password"
-              className={`flex h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:ring-offset-zinc-950 dark:placeholder:text-zinc-400 dark:focus-visible:ring-zinc-300 ${
-                errors.password ? "border-red-500" : ""
-              }`}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPasswords(!showPasswords)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
-            >
-              {showPasswords ? (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-              ) : (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
-                  <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
-                  <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
-                  <line x1="2" x2="22" y1="2" y2="22" />
-                </svg>
-              )}
-            </button>
-          </div>
-          {errors.password && (
-            <span className="text-red-500 text-xs mt-1">{errors.password}</span>
-          )}
-        </div>
-
-        <div className="grid gap-2">
-          <label
-            htmlFor="confirmPassword"
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-          >
-            Confirm Password
-          </label>
-          <div className="relative">
-            <input
-              id="confirmPassword"
-              type={showPasswords ? "text" : "password"}
-              autoComplete="new-password"
-              className={`flex h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:ring-offset-zinc-950 dark:placeholder:text-zinc-400 dark:focus-visible:ring-zinc-300 ${
-                errors.confirmPassword ? "border-red-500" : ""
-              }`}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPasswords(!showPasswords)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
-            >
-              {showPasswords ? (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-              ) : (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
-                  <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
-                  <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
-                  <line x1="2" x2="22" y1="2" y2="22" />
-                </svg>
-              )}
-            </button>
-          </div>
-          {errors.confirmPassword && (
-            <span className="text-red-500 text-xs mt-1">
-              {errors.confirmPassword}
-            </span>
-          )}
-        </div>
-
-        <div className="grid gap-2">
-          <label className="text-sm font-medium">How are you joining?</label>
           <div className="flex gap-4">
-            <label className="flex items-center gap-2">
+            <label className="flex items-center space-x-2">
               <input
                 type="radio"
-                name="registrationType"
-                value="invite"
-                checked={registrationType === "invite"}
-                onChange={() => setRegistrationType("invite")}
-              />
-              Join with Invite Code
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="registrationType"
                 value="create"
                 checked={registrationType === "create"}
-                onChange={() => setRegistrationType("create")}
+                onChange={(e) =>
+                  setRegistrationType(e.target.value as "create")
+                }
+                className="h-4 w-4 border-zinc-300 text-zinc-900 focus:ring-zinc-900"
               />
-              Create New Location
+              <span className="text-sm">Create New Location</span>
+            </label>
+            <label className="flex items-center space-x-2">
+              <input
+                type="radio"
+                value="invite"
+                checked={registrationType === "invite"}
+                onChange={(e) =>
+                  setRegistrationType(e.target.value as "invite")
+                }
+                className="h-4 w-4 border-zinc-300 text-zinc-900 focus:ring-zinc-900"
+              />
+              <span className="text-sm">Join with Invite Code</span>
             </label>
           </div>
         </div>
@@ -349,73 +233,290 @@ const Register: React.FC = () => {
           </div>
         )}
 
-        {registrationType === "create" && (
-          <div className="grid gap-2">
-            <label
-              htmlFor="locationName"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
-              Location Name
-            </label>
-            <input
-              id="locationName"
-              type="text"
-              className={`flex h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:ring-offset-zinc-950 dark:placeholder:text-zinc-400 dark:focus-visible:ring-zinc-300 ${
-                errors.locationName ? "border-red-500" : ""
-              }`}
-              value={locationName}
-              onChange={(e) => setLocationName(e.target.value)}
-            />
-            {errors.locationName && (
-              <span className="text-red-500 text-xs mt-1">
-                {errors.locationName}
-              </span>
-            )}
-          </div>
-        )}
+        <div className="border-t border-zinc-200 dark:border-zinc-800 pt-6">
+          <h2 className="text-lg font-medium mb-4">Account Information</h2>
 
-        <div className="grid gap-2">
-          <label
-            htmlFor="country"
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-          >
-            Country
-          </label>
-          <select
-            id="country"
-            className="flex h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:ring-offset-zinc-950 dark:placeholder:text-zinc-400 dark:focus-visible:ring-zinc-300"
-            value={country}
-            onChange={(e) => setCountry(e.target.value)}
-          >
-            <option>Canada</option>
-            <option>Mexico</option>
-            <option>United States</option>
-          </select>
+          {/* Basic Info */}
+          <div className="grid gap-4">
+            <div className="grid gap-2">
+              <label
+                htmlFor="email"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                className={`flex h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:ring-offset-zinc-950 dark:placeholder:text-zinc-400 dark:focus-visible:ring-zinc-300 ${
+                  errors.email ? "border-red-500" : ""
+                }`}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              {errors.email && (
+                <span className="text-red-500 text-xs mt-1">
+                  {errors.email}
+                </span>
+              )}
+            </div>
+
+            <div className="grid gap-2">
+              <label
+                htmlFor="fullName"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Full Name
+              </label>
+              <input
+                id="fullName"
+                type="text"
+                className={`flex h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:ring-offset-zinc-950 dark:placeholder:text-zinc-400 dark:focus-visible:ring-zinc-300 ${
+                  errors.fullName ? "border-red-500" : ""
+                }`}
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+              />
+              {errors.fullName && (
+                <span className="text-red-500 text-xs mt-1">
+                  {errors.fullName}
+                </span>
+              )}
+            </div>
+
+            <div className="grid gap-2">
+              <label
+                htmlFor="password"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Password
+              </label>
+              <input
+                id="password"
+                type={showPasswords ? "text" : "password"}
+                className={`flex h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:ring-offset-zinc-950 dark:placeholder:text-zinc-400 dark:focus-visible:ring-zinc-300 ${
+                  errors.password ? "border-red-500" : ""
+                }`}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              {errors.password && (
+                <span className="text-red-500 text-xs mt-1">
+                  {errors.password}
+                </span>
+              )}
+            </div>
+
+            <div className="grid gap-2">
+              <label
+                htmlFor="confirmPassword"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Confirm Password
+              </label>
+              <input
+                id="confirmPassword"
+                type={showPasswords ? "text" : "password"}
+                className={`flex h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:ring-offset-zinc-950 dark:placeholder:text-zinc-400 dark:focus-visible:ring-zinc-300 ${
+                  errors.confirmPassword ? "border-red-500" : ""
+                }`}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+              {errors.confirmPassword && (
+                <span className="text-red-500 text-xs mt-1">
+                  {errors.confirmPassword}
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <CheckboxField>
+                <Checkbox
+                  id="showPasswords"
+                  checked={showPasswords}
+                  onChange={(checked) => setShowPasswords(checked)}
+                />
+                <label
+                  htmlFor="showPasswords"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Show passwords
+                </label>
+              </CheckboxField>
+            </div>
+          </div>
         </div>
 
-        <CheckboxField>
-          <Checkbox
-            checked={marketingOptIn}
-            onChange={(checked) => setMarketingOptIn(checked)}
-            id="marketing"
-            color="dark/zinc"
-          />
-          <label
-            htmlFor="marketing"
-            data-slot="label"
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-            onClick={() => setMarketingOptIn(!marketingOptIn)}
-          >
-            Get emails about product updates and news.
-          </label>
-        </CheckboxField>
+        {registrationType === "create" && (
+          <>
+            {/* Subscription Plan Selection */}
+            <div className="grid gap-4">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium leading-none">
+                  Choose your plan
+                </label>
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => setBillingInterval("month")}
+                    className={`px-3 py-1 text-sm rounded-md ${
+                      billingInterval === "month"
+                        ? "bg-zinc-900 text-white"
+                        : "bg-zinc-100 text-zinc-900"
+                    }`}
+                  >
+                    Monthly
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBillingInterval("year")}
+                    className={`px-3 py-1 text-sm rounded-md ${
+                      billingInterval === "year"
+                        ? "bg-zinc-900 text-white"
+                        : "bg-zinc-100 text-zinc-900"
+                    }`}
+                  >
+                    Yearly
+                    <span className="ml-1 text-xs text-green-600">
+                      Save 20%
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {isLoadingPlans ? (
+                <div className="flex items-center justify-center p-8">
+                  <LoadingSpinner size="md" />
+                </div>
+              ) : filteredPlans.length === 0 ? (
+                <div className="text-center p-8 text-zinc-500">
+                  No subscription plans available at the moment.
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  {filteredPlans.map((plan) => (
+                    <div
+                      key={plan.id}
+                      className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                        selectedPlan?.id === plan.id
+                          ? "border-zinc-900 bg-zinc-50 dark:bg-zinc-800"
+                          : "border-zinc-200 hover:border-zinc-300"
+                      }`}
+                      onClick={() => setSelectedPlan(plan)}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-medium">{plan.name}</h3>
+                          <p className="text-sm text-zinc-500">
+                            {plan.description}
+                          </p>
+                          {plan.features && plan.features.length > 0 && (
+                            <ul className="mt-2 space-y-1">
+                              {plan.features.map((feature, index) => (
+                                <li
+                                  key={index}
+                                  className="text-sm text-zinc-600 flex items-center"
+                                >
+                                  <svg
+                                    className="w-4 h-4 mr-2 text-green-500"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth="2"
+                                      d="M5 13l4 4L19 7"
+                                    />
+                                  </svg>
+                                  {feature}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <div className="font-medium">
+                            {stripeService.formatPrice(plan.price)}
+                            <span className="text-sm text-zinc-500">
+                              /{plan.interval}
+                            </span>
+                          </div>
+                          {plan.trial_period_days > 0 && (
+                            <div className="text-sm text-green-600">
+                              {plan.trial_period_days} day free trial
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {errors.plan && (
+                <span className="text-red-500 text-xs">{errors.plan}</span>
+              )}
+            </div>
+
+            {/* Location Setup */}
+            <div className="border-t border-zinc-200 dark:border-zinc-800 pt-6">
+              <h2 className="text-lg font-medium mb-4">Location Setup</h2>
+              <div className="grid gap-2">
+                <label
+                  htmlFor="locationName"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Location Name
+                </label>
+                <input
+                  id="locationName"
+                  type="text"
+                  className={`flex h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:ring-offset-zinc-950 dark:placeholder:text-zinc-400 dark:focus-visible:ring-zinc-300 ${
+                    errors.locationName ? "border-red-500" : ""
+                  }`}
+                  value={locationName}
+                  onChange={(e) => setLocationName(e.target.value)}
+                />
+                {errors.locationName && (
+                  <span className="text-red-500 text-xs mt-1">
+                    {errors.locationName}
+                  </span>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        <div className="flex items-center space-x-2">
+          <CheckboxField>
+            <Checkbox
+              id="marketingOptIn"
+              checked={marketingOptIn}
+              onChange={(checked) => setMarketingOptIn(checked)}
+            />
+            <label
+              htmlFor="marketingOptIn"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              I agree to receive marketing communications
+            </label>
+          </CheckboxField>
+        </div>
 
         <button
           type="submit"
           className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-bold ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 dark:ring-offset-zinc-950 dark:focus-visible:ring-zinc-300 bg-zinc-900 text-zinc-50 hover:bg-zinc-900/90 dark:bg-zinc-600 dark:text-zinc-50 dark:hover:bg-zinc-600/90 h-10 px-4 py-2 w-full"
           disabled={isLoading}
         >
-          {isLoading ? <LoadingSpinner size="sm" /> : "Create account"}
+          {isLoading ? (
+            <LoadingSpinner size="sm" />
+          ) : registrationType === "invite" ? (
+            "Create account"
+          ) : (
+            "Create account and continue to payment"
+          )}
         </button>
 
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
